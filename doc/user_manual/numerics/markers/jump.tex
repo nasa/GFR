@@ -1,0 +1,88 @@
+\subsubsection{Jump Marker}
+\label{SEC:JumpMarker}
+\key*{}[marker!jump marker]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Note:
+%% - Krivodonova_2004: Original jump marker paper (as far as I can tell)
+%% - Burgess_2011aiaa: Provides the jump marker with    log10 scaling.
+%% - Burgess_2011thesis: Burgess's PhD that is similar to Burgess_2011aiaa.
+%% - Barter_2007:  Provides the jump marker without log10 scaling
+%%                 and coefficients (C1,C2,dPsi) for the scaled marker.
+%% - Barter_2008:  Barter's PhD that is similar to Barter_2007.
+
+For flows with shocks or other sudden discontinuities,
+it is useful to mark those cells that experience a sudden jump
+in pressure or density.
+%
+The jump marker\cite{Krivodonova_2004, Barter_2007, Barter_2008,
+Burgess_2011aiaa, Burgess_2011thesis} is a method for identifying such sudden
+changes across adjacent cells.
+%
+Using the notation in \fref{FIG:Jump_Marker}, the jump indicator
+can be defined as:
+\begin{align}
+  \label{EQN:JumpIndicator1}
+    J_\kappa
+ =& \frac{1}{\|\partial \kappa\|}
+    \int_{\partial \kappa}
+       \left|
+          \frac{ [[ \psi ]] \cdot \vec{n} }
+               { \{ \psi \}               }
+       \right|
+       ds
+  & \begin{aligned}
+      [[ \psi ]] =& \psi_1 \vec{n}_1 + \psi_2 \vec{n}_2
+                 =  \left( \psi_1 - \psi_2 \right) \vec{n}_1 \\
+      \{ \psi \} =& \left( \psi_1 + \psi_2 \right) / 2
+    \end{aligned}
+ \\
+  \label{EQN:JumpIndicator2}
+ =& \frac{1}{\|\partial \kappa\|}
+    \int_{\partial \kappa}
+       \left|
+         \frac{ \left( \psi_1 - \psi_2 \right) }
+              { \left( \psi_1 + \psi_2 \right) / 2 }
+       \right|
+       ds
+ =  \left[ 0 : 2 \right]
+\end{align}
+%
+Here,
+$[[\psi]]$ represents the jump across adjacent face values and
+$\{\psi\}$ represents the average of those values.
+%
+The jump indicator $J_\kappa$ can vary between 0 (no jump)
+and 2 (infinite jump).
+
+\begin{figure}
+  \begin{centering}
+    \insertimage[width=0.5\textwidth]{tikz/Jump_Marker}
+   %\input{Figures/Jump_Marker}
+    \caption{Jump Marker Notation}
+    \label{FIG:Jump_Marker}
+  \end{centering}
+\end{figure}
+
+The jump marker is obtained by taking the logarithm of the value.
+\begin{align}
+    {\cal M} \left( J_\kappa \right)
+ =& \log_{10} \left[ \max \left( J_\kappa , 2^{-23} \right) \right]
+ =  \left[ -6.9 : 0.3 \right]
+  \label{EQN:JumpMarker}
+\end{align}
+The jump marker ${\cal M}$ can vary between -6.9 (no jump)
+and 0.3 (infinite jump).
+%
+The scaled marker is then computed as described in \sref{SEC:ScaledMarker}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlLimiter::MarkerOption]{Marker\_Option},
+\inp[nmlLimiter::MarkerVariable]{Marker\_Variable}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

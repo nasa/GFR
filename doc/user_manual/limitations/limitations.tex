@@ -1,0 +1,79 @@
+\section{Limitations}
+
+In this section, we summarize the limitations of the current implementation.
+%
+The limitations in this section have been detailed in other parts of this
+document, but each was deemed significant enough to collect into this section
+for additional visibility and quick reference.
+
+
+\subsection{Geometry and Mesh}
+
+\subsubsection{Collapsed Elements}
+
+GFR does not support collapsed elements.
+%
+These are elements with one or more faces that have zero area.
+%
+A common situation where this occurs is when a quadrilateral planar
+mesh is rotationally extruded about a singularity axis, often
+referred to as a pole boundary.
+% 
+In many cases these collapsed elements can be replaced with other
+supported polygon shapes with fewer faces.
+%
+However, this is best done within the mesh generation software
+so that any curvature or high-order information is properly
+included in the revised elements.
+
+
+\subsection{Synthetic Eddy Method}
+
+\subsubsection{Inflow Plane}
+
+Any SEM inflow boundary must be on a constant $x$ plane.
+%
+Users should orient their grids to meet this restriction.
+
+
+\subsubsection{Repeatability of Random Seed}
+
+Because GFR uses the date\slash time to generate the initial seed,
+it is not possible to reproduce the same sequence of random numbers
+used by the synthetic eddy method.
+%
+This means that it is not possible to \emph{exactly} reproduce the same
+results by rerunning a simulation from scratch.
+%
+However, over a long period, the time-averaged results should be in
+very close agreement.
+%
+This would be similar to any differences one might see comparing time-averaged
+results from one solution using two time-averaging windows of the same
+duration but shifted in the averaging start time.
+
+
+\devNotes{
+For regression testing, we may want the ability to specify the initial seed.
+Perhaps add an integer input:
+\\
+\begin{tabular}{ @{\qquad} lll}
+    \inptext{Random\_Seed}
+ &  $=0$ & Use date/time. \\
+ &  $>0$ & Use specified value.
+\end{tabular}
+\\
+and provide some guideline on how big a seed to specify
+(if that affects the random entropy).
+}
+
+
+\subsection{Boundary Conditions}
+
+\subsubsection{Periodic Boundaries}
+
+Opposing periodic boundaries must have identical face elements in order to
+have one-to-one connectivity between cell faces.
+
+
+

@@ -1,0 +1,143 @@
+\section{Reference Conditions}
+\label{SEC:Reference_Conditions}
+
+The user-specified reference conditions are used to initialize
+the volume solution and to compute the non-dimensional variables
+used within the flow solver.
+%
+The reference conditions typically represent the freestream flow.
+%
+These conditions include the gas properties:
+ratio of specific heats ($\gamma$),
+gas constant ($R_{gas}$),
+Prandtl number ($Pr$),
+Schmidt number ($Sc$), and
+coefficients to the Sutherland viscosity law.
+%
+They also include the flow conditions:
+Mach number, Reynolds number, static pressure, temperature, density,
+as well as
+\key*[key:AngleOfAttack]{angle of attack}[flow angles!angle of attack]
+$\alpha$ in the $xy$-plane and
+\key*[key:AngleOfSideslip]{angle of sideslip}[flow angles!angle of sideslip]
+$\beta$ in the $xz$-plane.
+%
+%%% Index aliases:
+\index{angle of attack|see{flow angles}}
+\index{angle of sideslip|see{flow angles}}
+%
+These flow angles are depicted in \fref{FIG:FlowAngle} and used
+to compute the velocity vector components as follows:
+\begin{align}
+  u =& U \cos{(\beta)} \cos{(\alpha)} \label{EQN:FlowAngleVelX} \\
+  v =& U \cos{(\beta)} \sin{(\alpha)} \label{EQN:FlowAngleVelY} \\
+  w =& U \sin{(\beta)}                \label{EQN:FlowAngleVelZ}
+\end{align}
+%
+For positive angle of attack $\alpha$ between 0 and 90, the velocity will
+have a positive component in the $y$-direction.
+%
+For positive angle of sideslip $\beta$ between 0 and 90, the velocity will
+have a positive component in the $z$-direction.
+
+%%% Replace the tikz image with tecplot image.
+%
+%\newpage
+%
+%\begin{figure}[htb]
+%  \begin{centering}
+%    % trim {l,b,r,t}
+%    \insertimage[trim={0.5in 0.90in 0.0in 0.35in},clip,width=6.0in]{tikz/tikz_aoa_cfd}
+%    \caption{Flow angles.}
+%    \label{FIG:FlowAngle}
+%  \end{centering}
+%\end{figure}
+
+\begin{figure}[htb]
+  \begin{centering}
+    % trim {l,b,r,t}
+    \insertimage[width=6.0in]{aoa/BELL_X1/aoa_vectors}
+    \caption{Flow angles.}
+    \label{FIG:FlowAngle}
+  \end{centering}
+\end{figure}
+
+Reference conditions are specified in the \inp[nmlReference]{nml\_reference}
+input namelist block.
+%
+Details regarding the velocity and length scale used to compute the
+Reynolds number can be found in the description of the
+\inp[nmlReference::Reynolds]{Reynolds} input variable.
+
+\newcommand{\refval}[1]{\ensuremath{#1_\infty}}
+\newcommand{\dimval}[1]{\ensuremath{#1}}
+\newcommand{\nonval}[1]{\ensuremath{#1^*}}
+\newcommand{\taustar}{\ensuremath{\nonval{\scriptstyle \mathcal{T}}}}
+%\newcommand{\myfrac}[2]{\ensuremath{\frac{#1}{#2}}}
+\newcommand{\myfrac}[2]{\ensuremath{{#1}/{#2}}}
+Internally, GFR assumes
+$\refval{L}=1.0\unit{m}$,
+$\refval{t}=\refval{L}/\refval{a}$,
+and the following non-dimensionalization:
+%
+\begin{align*}
+%   \nonval{\mathfrak{t}}    =& \myfrac{\dimval{t   }}{\refval{t   }}
+%&  \nonval{\rho} =& \myfrac{\dimval{\rho}}{\refval{\rho}}
+%&  \nonval{e_t}  =& \myfrac{\dimval{e_t }}{\refval{a   }^2}
+%\\
+%   \nonval{{\scriptstyle \mathbb{T}}}    =& \myfrac{\dimval{t   }}{\refval{t   }}
+%&  \nonval{\rho} =& \myfrac{\dimval{\rho}}{\refval{\rho}}
+%&  \nonval{e_t}  =& \myfrac{\dimval{e_t }}{\refval{a   }^2}
+%\\
+    \taustar      =& \myfrac{\dimval{t   }}{\refval{t   }}
+ &  \nonval{\rho} =& \myfrac{\dimval{\rho}}{\refval{\rho}}
+ &  \nonval{e_t}  =& \myfrac{\dimval{e_t }}{\refval{a   }^2}
+ \\
+%   \nonval{{\scriptscriptstyle \mathcal{T}}}    =& \myfrac{\dimval{t   }}{\refval{t   }}
+%&  \nonval{\rho} =& \myfrac{\dimval{\rho}}{\refval{\rho}}
+%&  \nonval{e_t}  =& \myfrac{\dimval{e_t }}{\refval{a   }^2}
+%\\
+%   \nonval{\tau}    =& \myfrac{\dimval{t   }}{\refval{t   }}
+%&  \nonval{\rho} =& \myfrac{\dimval{\rho}}{\refval{\rho}}
+%&  \nonval{e_t}  =& \myfrac{\dimval{e_t }}{\refval{a   }^2}
+%\\
+%   \nonval{t}    =& \myfrac{\dimval{t   }}{\refval{t   }}
+%&  \nonval{\rho} =& \myfrac{\dimval{\rho}}{\refval{\rho}}
+%&  \nonval{e_t}  =& \myfrac{\dimval{e_t }}{\refval{a   }^2}
+%\\
+    \nonval{x}    =& \myfrac{\dimval{x   }}{\refval{L   }}
+ &  \nonval{p}    =& \myfrac{\dimval{p   }}{\refval{\rho}\refval{a}^2}
+ &  \nonval{\mu}  =& \myfrac{\dimval{\mu }}{\refval{\mu }}
+ \\
+    \nonval{u}    =& \myfrac{\dimval{u   }}{\refval{a   }}
+ &  \nonval{T}    =& \myfrac{\dimval{T   }}{\refval{T   }}
+\end{align*}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\noindent\NOTE
+ 
+The nondimensional time, \taustar, is only used in two places within GFR: the
+second column of the iteration data written to the GFR output and the input
+\inp[nmlTimestep::Timestep]{Timestep} are both nondimensionalized the same as
+\taustar.
+ 
+There is another nondimensional time that is used more frequently in GFR.
+%
+This nondimensional time, \nonval{t}, uses the input
+\inp[nmlOutput::TimeScalingFactor]{Time\_Scaling\_Factor} to scale the
+simulation time by something that may be more useful for a given problem,
+\forexample flow-through-time for a channel flow or nozzle-diameter-time for a
+jet.
+%
+These two nondimensional times are related through the equation
+\begin{equation}
+ %\nonval{t} = \,{\taustar}\cdot\refval{t}\cdot[\inptext{Time\_Scaling\_Factor}]
+  \nonval{t} = {\taustar}\cdot\refval{t}\cdot[\inptext{Time\_Scaling\_Factor}]
+             = \dimval{t}\cdot[\inptext{Time\_Scaling\_Factor}]
+  \label{EQN:taustar_to_tstar}
+\end{equation}
+%
+References to the term \quoterm{tstar} in the inputs, output, source code,
+documentation, and elsewhere in the GFR universe are referring to the value
+\nonval{t}.

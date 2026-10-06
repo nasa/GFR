@@ -1,0 +1,54 @@
+\subsection{1D Sod Shock Tube}
+\label{SEC:Testcases:Sod}
+
+\begin{figure}[h!tb]
+  \begin{centering}
+    \begin{subfigure}{3.0in}
+      \insertimage[width=\textwidth]{test_cases/sod_start}
+      \caption{Initial condition.}
+      \label{FIG:SodStart}
+    \end{subfigure}%
+    \begin{subfigure}{3.0in}
+      \insertimage[width=\textwidth]{test_cases/sod_final}
+      \caption{\PO[3] result at time 0.1712 seconds.}
+      \label{FIG:SodFinal}
+    \end{subfigure}
+    \caption{Sod shock tube test case.}
+    \label{FIG:TestcaseSod}
+  \end{centering}
+\end{figure}
+
+The Sod shock tube is a simple case for evaluating shock capturing.
+%
+When using the internally generated grid, the domain will be 1.0 meter
+long (centered at the origin) and the left\slash right boundary conditions
+will be set to extrapolation.
+%
+For the initial condition at time $t$=0, imagine that there is an
+invisible diaphram in the center of the tube as shown in \fref{FIG:SodStart}.
+%
+The flow on the left side is set to 1 \unitPres{} and 1 \unitDens{}, and the
+flow on the right has 1/\nth{10} the pressure and 1/\nth{8} the density.
+Neither side has any initial velocity.
+ 
+Once the simulation begins, the diaphram is removed and the high-pressure fluid
+on the left moves to the right.
+%
+This forms a shock wave moving to the right.
+%
+Somewhat behind the shock wave, there is a contact discontinuity in density that
+also moves to the right.
+%
+Meanwhile an expansion fan forms on the left side and moves to the left.
+%
+\Fref{FIG:SodFinal} shows a sample \PO[3] result on a grid of 100 cells using
+the resolution marker to identify troubled cells and applying a filter with
+$\inp[nmlLimiter::LocalFilterOrder]{Local\_Filter\_Order}=4$ to damp
+oscillations.
+
+\SeeAlso{
+\inp[nmlInitialization::Initialization]{Initialization}=23,
+\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF},
+\inp[nmlTestcaseSod]{nml\_testcase\_sod}
+}
+

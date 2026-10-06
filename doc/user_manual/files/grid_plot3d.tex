@@ -1,0 +1,296 @@
+\subsubsection{Plot3D}
+\label{SEC:Files:Grid_Input:Plot3d}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+When using Plot3D grid files, additional controls are available to
+individually strip points in each of the computational directions.
+%
+The technique is often referred to as adjusting the grid stride or
+grid sequencing.
+%
+The resulting coarser mesh appears as simple hexahedral elements
+formed from the remaining grid nodes and the omitted nodes
+provide no contribution.
+%
+For a higher-order method like flux reconstruction, this can have
+an adverse effect along boundaries, where the discrete representation
+of the surface curvature becomes reduced.
+%
+The coarser faceting of the geometry surface can introduce
+spurious waves into the solution.
+
+After completing the optional coarsening of the input grid, the
+flow solver can be instructed to combine a certain multiple of the
+remaining adjacent cells in all directions to form agglomerated cells.
+%
+These agglomerated cells are not simple hexes with planar faces.
+%
+Rather the faces are formed by polynomials defined by the nodes of the
+intermediate cells that were combined together.
+%
+This is a somewhat crude way of constructing higher-order cells that
+preserve surface curvature.
+%
+In order for agglomeration to work, the number of nodes
+in each direction of the grid must be an appropriate multiple of
+the desired agglomeration order.
+%
+For example, a third-order agglomeration requires merging three
+cells in each direction.
+
+\NOTE
+The agglomeration order for the geometry is independent of the
+solution order.
+%
+The volume solution points and face flux points will be interpolated
+from the curved geometry information.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlGrid::Plot3dAgglomerateOrder]{Plot3d\_Agglomerate\_Order},
+\inp[nmlGrid::Plot3dStrideAll]{Plot3d\_Stride\_All},
+\inp[nmlGrid::Plot3dStrideI]{Plot3d\_Stride\_I},
+\inp[nmlGrid::Plot3dStrideJ]{Plot3d\_Stride\_J},
+\inp[nmlGrid::Plot3dStrideK]{Plot3d\_Stride\_K},
+\inp[nmlNumerics::SolutionOrder]{Solution\_Order}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\paragraph{Plot3D Interface Cut File}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For multiblock Plot3D grids, block connectivity is specified via a
+text-based interface cut file.
+%
+An example of this cut file is shown in \lref{LST:Plot3d_BCCut_File}.
+%
+The first line is a required header intended to assist the user,
+and is otherwise ignored.
+%
+Subsequent lines define each named cut and the block information on
+either side of the interface.
+%
+This information consists of the block number, face direction and plane,
+and the subregion of that face.
+%
+To assist the user, each line is parsed based on whitespace rather than
+assuming a fixed format.  
+%
+Comment lines beginning with ``\,!'' can be used throughout the file
+and blank lines are ignored.
+%
+In order to perform the matching, each cut name must be unique.
+%
+Face and subregion index directions are specified as I, J, or K.
+%
+Face and subregion locations are specified as MIN, MAX, or as an
+integer value.  
+%
+For two-dimensional flows, all K index values should be set to MIN.
+%
+Checks are performed to ensure that the specified interfaces are
+complete and consistent.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\vspace{1.0em}%
+\IDEA{
+\begin{itemize}
+\setlength\topsep{0.0em}
+\setlength\itemsep{0.0em}
+\setlength\parsep{0.0em}
+\item \raggedright
+\Lref{LST:Plot3d_BCCut_File} might benefit from a more detailed example
+with multiple cuts,
+left\slash right cuts with differing number of subfaces, or
+subregion locations that are not simply min\slash max.
+One example is the 3-block 2d nozzle example from the Wind-US tutorial.
+\item \raggedright
+Need to emphasize each cut is a pair and the name matches between the two lines
+that specify each half of the pair.
+\end{itemize}
+%
+} %end FIXME
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{center}
+% Use minipage to force the lstlisting width. Else it will be \textwidth.
+% Use this rule to visually determine needed width value.
+%\rule{0.78\textwidth}{2.0pt}
+\begin{minipage}{0.78\textwidth}
+\begin{lstlisting}[language={},basicstyle=\small\ttfamily
+,label={LST:Plot3d_BCCut_File}
+,caption={Plot3D interface cut file example.},captionpos=b
+]
+CUT_NAME  BLK  FACE  PLACE  IND1  BEG  END  IND2  BEG  END
+!=======  ===  ====  =====  ====  ===  ===  ====  ===  ===
+ONE         1    I    MAX     J   MIN  MAX    K   MIN  MAX
+ONE         2    I    MIN     J   MIN  MAX    K   MIN  MAX
+\end{lstlisting}
+%% Label must go in lstlisting optional args!
+%% Anything inside the listing gets typeset!
+%\label{LST:Plot3d_BCCut_File} % Keep this for grep to find.
+\end{minipage}
+\end{center}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlGrid::Plot3dCutfile]{Plot3d\_Cutfile}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\paragraph{Plot3D Boundary Condition File}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For Plot3D grids, boundary conditions are specified via a separate
+text-based boundary condition file.
+%
+An example of this file is shown in \cref{LST:Plot3d_BCSfile}.
+%
+Once again, the first line is a header intended to assist the user,
+and is otherwise ignored.
+%
+%The format of the header is very similar to that in the
+%Plot3d interface cut file.
+%
+Subsequent lines define each named boundary condition and the
+block information for where that condition applies.
+%
+This information consists of the block number, face direction and plane,
+and the subregion of that face.
+%
+This information is parsed based on whitespace rather than assuming a
+fixed format.
+%
+Comment lines beginning with ``\,!'' can be used throughout the
+file and blank lines are ignored.
+%
+Face and subregion index directions are specified as I, J, or K.
+%
+Face and subregion locations are specified as MIN, MAX, or as an
+integer value.
+%
+For two-dimensional flows, all K index values should be set to MIN.
+%
+The supported boundary condition names are listed in
+\tref{TAB:Plot3dBCSFileBCNames}
+and are used to specify the type of boundary condition to apply
+to a particular face region.
+%
+\begin{table}
+\begin{center}
+\caption{Supported boundary condition names in Plot3D boundary condition file.}
+\label{TAB:Plot3dBCSFileBCNames}
+\begin{tabular}{ll}
+  BC\_NAME              &  Description \\
+  \hline
+  INFLOW                &  Generic Inflow \\
+  SUBINFLOW             &  Subsonic Inflow \\
+  SUPINFLOW             &  Supersonic Inflow \\
+  OUTFLOW               &  Generic Outflow \\
+  SUBOUTFLOW            &  Subsonic Outflow \\
+  SUPOUTFLOW \verb$|$
+  EXTRAP                &  Supersonic Outflow (Extrapolation) \\
+  FARFIELD              &  Generic farfield \\
+  CHARACTERISTIC        &  Characteristic Boundary \\
+  FREESTREAM            &  Freestream \\
+  FIXED                 &  Fixed \\
+  SLIP                  &  Inviscid Wall \\
+  AWALL \verb$|$        
+  WALL                  &  Adiabatic Viscous Wall \\
+  IWALL                 &  Isothermal Viscous Wall \\
+  SYMMETRY              &  Symmetry \\
+  PERIODIC              &  Periodic
+\end{tabular}
+\end{center}
+\end{table}
+%
+The group name is a user-specified string that is used to specify
+a named set of flow values to apply in conjunction with the
+boundary condition type.
+%
+The group name should correspond to a
+\BCinpBC[nmlBC::BCInput/Name]{Name}
+entry in the namelist input file.
+%
+Numerical values for the flow conditions will then be taken from
+the other \BCinpBC[nmlBC::BCInput]{} properties.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{center}
+% Use minipage to force the lstlisting width. Else it will be \textwidth.
+% Use this rule to visually determine needed width value.
+%\rule{0.95\textwidth}{2.0pt}
+\begin{minipage}{0.95\textwidth}
+\begin{lstlisting}[language={},basicstyle=\small\ttfamily
+,label={LST:Plot3d_BCSfile}
+,caption={Plot3D boundary conditions file example.},captionpos=b
+]
+BC_NAME   BLK  FACE  PLACE  IND1  BEG  END  IND2  BEG  END   GROUPNAME
+!======   ===  ====  =====  ====  ===  ===  ====  ===  ===   =========
+SUBINFLOW   1    I    MIN     J   MIN  MAX    K   MIN  MAX   INFLOW
+AWALL       1    J    MIN     I   MIN  MAX    K   MIN  MAX   BOT_WALL
+AWALL       1    J    MAX     I   MIN  MAX    K   MIN  MAX   TOP_WALL
+!
+EXTRAP      2    I    MAX     J   MIN  MAX    K   MIN  MAX   OUTFLOW
+AWALL       2    J    MIN     I   MIN  MAX    K   MIN  MAX   BOT_WALL
+AWALL       2    J    MAX     I   MIN  MAX    K   MIN  MAX   TOP_WALL
+\end{lstlisting}
+%% Label must go in lstlisting optional args!
+%% Anything inside the listing gets typeset!
+%\label={LST:Plot3d_BCSfile} % keep for grep to find
+\end{minipage}
+\end{center}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\vspace{1.0em}%
+\IDEA{
+\begin{itemize}
+\setlength\topsep{0.0em}
+\setlength\itemsep{0.0em}
+\setlength\parsep{0.0em}
+\item \raggedright
+Need better distinction between FARFIELD, CHARACTERISTIC, FREESTREAM.
+\item \raggedright
+\Lref{LST:Plot3d_BCSfile} might also benefit from using the same
+3-block 2d nozzle example from the Wind-US tutorial.
+\end{itemize}
+%
+} %end IDEA
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlGrid::Plot3dBCSfile]{Plot3d\_BCSfile}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\paragraph{Limitations}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+GFR does not support Plot3D iblanking.
+%
+This feature is often used to cut holes in structured grids and omit those
+points from the flow domain, or to define donor interpolation information
+for chimera overset meshes.
+%
+Depending on the nature of the iblanking, it may be possible to decompose the
+mesh into multiple zones that no longer require iblanking.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

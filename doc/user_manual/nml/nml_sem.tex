@@ -1,0 +1,173 @@
+\subsection{nml\_sem}
+\label{SEC:nml_sem}
+\inp*[nmlSEM]{}[nml\_sem][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify the global controls of the Synthetic Eddy Method.
+%
+Additional controls for specifying the SEM on individual boundaries
+are contained in the \inptext{nml\_bc} namelist block
+described in \sref{SEC:nml_bc}.
+
+\begin{nmlblocklst}[
+,label={LST:nml_sem}
+,caption={Namelist nml\_sem.}
+]
+&nml_sem
+  Use_Profile_For_Initialization = F
+  Use_Random_Seed_From_Restart   = F
+  Use_Spherical_Eddy_Volume      = F
+  Include_Thermo_Fluctuations    = F
+  Box_Num_Eddies_Multiplier      = 1.0
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Use_Profile_For_Initialization = F
+\end{nmldescitem}
+\inp*[nmlSEM::UseProfileForInitialization]{}[Use\_Profile\_For\_Initialization][]
+
+\begin{nmldescbody}
+Specifies whether the SEM profile will be used to initialize the
+\emph{entire volume} of the flow domain based on
+the $y$ coordinate value and the profile height variable.
+%
+This is very experimental and only works for very simple geometries
+like a flat plate.
+
+%%Hide this, because few users will need it.
+%\NOTE
+%This does some more specialized flow initializations if used with the
+%THX3 test case.
+
+%\FIXME{
+%What are the prerequisites regarding structured or unstructured grids,
+% and uniformity in a specific direction?
+%}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Use_Random_Seed_From_Restart = F
+\end{nmldescitem}
+\inp*[nmlSEM::UseRandomSeedFromRestart]{}[Use\_Random\_Seed\_From\_Restart][]
+
+\begin{nmldescbody}
+When using an SEM boundary condition, the SEM data will also be
+written to the restart files including the seed used for the random number
+generator.
+
+If \inptext{Use\_Random\_Seed\_From\_Restart} is true, the seed for the
+random number generator will be read from
+the restart file and used to reset the random number generator to exactly
+where it left off when the restart file was written, as if the simulation
+never stopped.
+
+If it is false, the current date and time will be used to create a new
+``random'' seed for the random number generator. This might have a very small
+effect on the ``randomness'' of the generated strength and locations of the
+synthetic eddies in the SEM BC.
+%
+However, the total number of time steps needed for a simulation will almost
+certainly prevent this from having any kind of measurable effect on the
+simulation results.
+%
+\NOTE Very rarely (but it does happen), the SEM can randomly cause a
+simulation to die due to an NaN or other floating point exception.
+Setting this input to false is the only way to get past one of these
+occasions without modifying the solution with limiting \andor filtering.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Use_Spherical_Eddy_Volume = F
+\end{nmldescitem}
+\inp*[nmlSEM::UseSphericalEddyVolume]{}[Use\_Spherical\_Eddy\_Volume][]
+
+\begin{nmldescbody}
+This input determines if the volume of each synthetic eddy is treated as a
+sphere (true) or as a box (false).
+%
+%It really only has an effect on the number of eddies that will be used
+It affects the number of eddies that will be used
+for an individual SEM boundary,
+%
+%[{Number of eddies}] = \inptext{Box\_Num\_Eddies\_Multiplier} $\times$
+%                       [{Volume of SEM box}]
+%                     / [{Volume of synthetic eddy}].
+%
+\begin{gather*}
+     [\text{Number of eddies}]
+  =  [\inptext{Box\_Num\_Eddies\_Multiplier}] \times
+     \frac{ [\text{Volume of SEM box}] }
+          { [\text{Volume of synthetic eddy}] }
+\end{gather*}
+%
+where the volumes are described in \sref{SEC:SEM:theory:Nomenclature}.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Include_Thermo_Fluctuations = F
+\end{nmldescitem}
+\inp*[nmlSEM::IncludeThermoFluctuations]{}[Include\_Thermo\_Fluctuations][]
+
+\begin{nmldescbody}
+Specifies whether SEM fluctuations will be applied to the temperature and
+density profiles based on the Strong Reynolds Analogy for temperature
+fluctuations.
+%
+If this input is false, no fluctuations are added to the temperature and
+density profiles.
+%
+See \sref{SEC:SEM:theory:ComputeBC} for details.
+%
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Box_Num_Eddies_Multiplier = 1.0
+\end{nmldescitem}
+\inp*[nmlSEM::BoxNumEddiesMultiplier]{}[Box\_Num\_Eddies\_Multiplier][]
+
+\begin{nmldescbody}
+This input is used as a multiplier to the total number of synthetic eddies
+used for the SEM boundary conditions, \thatis
+%
+%[{Number of eddies}] = [\inptext{Box\_Num\_Eddies\_Multiplier}] $\times$
+%                       [{Volume of SEM box}] /
+%                       [{Volume of synthetic eddy}].
+%
+\begin{gather*}
+     [\text{Number of eddies}]
+  =  [\inptext{Box\_Num\_Eddies\_Multiplier}] \times
+     \frac{ [\text{Volume of SEM box}] }
+          { [\text{Volume of synthetic eddy}] }
+\end{gather*}
+%
+where the volumes are described in \sref{SEC:SEM:theory:Nomenclature}.
+ 
+\NOTE 
+The number of eddies for an individual SEM box are limited to be between a
+minimum of 5,000 and a maximum of 500,000.
+%
+These limits were arbitrarily picked and hardwired into the SEM code, and
+either limit can be modified in the source code if needed.
+%
+They were implemented to prevent
+(1) too few eddies from being present to adequately model the flow, and
+(2) too many eddies that add little to the modeling, but increase
+    computational cost.
+%
+\end{nmldescbody}
+
+%==========================================================================
+

@@ -1,0 +1,40 @@
+\subsection{nml\_testcase\_sod}
+\label{SEC:nml_testcase_sod}
+\inp*[nmlTestcaseSod]{}[nml\_testcase\_sod][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify inputs for the 1D Sod shock tube problem.
+
+\begin{nmlblocklst}[
+,label={LST:nml_testcase_sod}
+,caption={Namelist nml\_testcase\_sod.}
+]
+&nml_testcase_sod
+  Right_Vector = [1.0,0.0,0.0]  ! [m] (x,y,z)
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Right_Vector = [1.0,0.0,0.0]  ! [m] (x,y,z)
+\end{nmldescitem}
+\inp*[nmlTestcaseSod::RightVector]{}[Right\_Vector][]
+
+\begin{nmldescbody}
+This defines the right side normal vector of the diaphragm for the
+Sod shock tube problem.
+%
+It is intended for advanced 2D and 3D cases on an external grid
+where the flow problem is not aligned with the $+x$-direction.
+%
+This orientation vector is used to initialize the right side of the
+Sod shock tube, which is assumed to be centered at $[x,y,z]=[0,0,0]$.
+\end{nmldescbody}
+
+%==========================================================================
+
+\SeeAlso{%
+\inp[nmlOutputVariables::ExactDensity]{Exact\_Density},
+\inp[nmlOutputVariables::ExactPressure]{Exact\_Pressure}
+}

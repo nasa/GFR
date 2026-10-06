@@ -1,0 +1,131 @@
+\FourSubsection{Rotated Periodic Boundary Condition}
+\label{SEC:BC:Numerical:Periodic:Inputs:Rotated}
+
+Rotated periodic boundary conditions are useful for problems containing
+rotational symmetry.
+%
+This is particularly prevalent in turbomachinery flows where simulations of a
+single periodic rotor blade can save significant computational expense compared
+to simulations of the full 360-degree rotor wheel with dozens of rotor blades.
+%
+There are three subcomponent arrays of \BCinptext[i]{Periodic} that can be used
+to specify the rotational transformation between a pair of rotated periodic
+boundary conditions:
+%
+\begin{InputExample}
+  \item[{\BCinpBC[nmlBC::BCInput/Periodic/RotationCenter][i]%&
+                 {Periodic\%RotationCenter(1:3)}%
+                 [Periodic\%RotationCenter]}]
+  \item[{\BCinpBC[nmlBC::BCInput/Periodic/RotationAngle][i]%&
+                 {Periodic\%RotationAngle(1:3)}%
+                 [Periodic\%RotationAngle]}]
+  \item[{\BCinpBC[nmlBC::BCInput/Periodic/RotationAxis][i]%&
+                 {Periodic\%RotationAxis(1:4)}%
+                 [Periodic\%RotationAxis]}]
+\end{InputExample}
+%
+%One may use either \BCinptext[i]{Periodic\%RotationAngle} or
+%\BCinptext[i]{Periodic\%RotationAxis} to define rotated periodic boundary
+%conditions, but not both.
+%
+One may use either \inptext{RotationAngle} or \inptext{RotationAxis} to define
+rotated periodic boundary conditions, but not both.
+%
+If both are specified, \inptext{RotationAxis} will be ignored and
+\inptext{RotationAngle} will be used.
+%
+%For both methods, the input vector \BCinptext[i]{Periodic\%RotationCenter(1:3)}
+%gives the rotation origin (in \key[key:GridUnits]{grid units}) used
+%for defining the rotation angles between rotated periodic boundary conditions.
+%
+For both methods, the input vector \inptext{RotationCenter(1:3)} gives the
+coordinates for the rotation origin (in \key[key:GridUnits]{grid units}) used
+for defining the rotation angles between rotated periodic boundary conditions.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The first way to specify the rotational transformation between a pair of rotated
+periodic boundary conditions is through the input vector
+\inptext{RotationAngle(1:3)}.
+%\BCinptext[i]{Periodic\%RotationAngle(1:3)}.
+%
+This vector gives the rotation angles (in degrees) about each of the coordinate
+axes from the current periodic boundary interface to the connecting periodic
+boundary interface.
+%
+If rotating about more than one axis, the rotation is performed first about the
+$x$-axis, then the $y$-axis, and finally the $z$-axis.
+%
+For a given periodic pair with rotational periodicity, the following relation
+needs to be true:
+%
+\begin{InputExample}
+  \item[\small{\BCinptext[i]{Periodic\%RotationAngle(:) = -}
+               \BCinptext[j]{Periodic\%RotationAngle(:)}}]
+\end{InputExample}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The second way to specify the rotational transformation between a pair of
+rotated periodic boundary conditions is through the input vector
+\inptext{RotationAxis(1:4)}.
+%\BCinptext[i]{Periodic\%RotationAxis(1:4)}.
+%
+The first 3 values of this array define a vector representing the axis of
+rotation for this rotated periodic boundary condition, and the last value of the
+array defines the rotation angle (in degrees) about this axis.
+%
+The magnitude of the vector defining the axis of rotation is not used; the sole
+purpose of this vector is to define the direction of the rotation axis.
+%
+For a given periodic pair with rotational periodicity, one of the two following
+sets of relations needs to be true:
+%
+\begin{InputExample}
+  \item[\small{\BCinptext[i]{Periodic\%RotationAxis(1:3) = }
+               \BCinptext[j]{Periodic\%RotationAxis(1:3)}}]
+  \item[\small{\BCinptext[i]{Periodic\%RotationAxis(4) = -}
+               \BCinptext[j]{Periodic\%RotationAxis(4)}}]
+\end{InputExample}
+%
+or
+%
+\begin{InputExample}
+  \item[\small{\BCinptext[i]{Periodic\%RotationAxis(1:3) = -}
+               \BCinptext[j]{Periodic\%RotationAxis(1:3)}}]
+  \item[\small{\BCinptext[i]{Periodic\%RotationAxis(4) = }
+               \BCinptext[j]{Periodic\%RotationAxis(4)}}]
+\end{InputExample}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For example, say you have a rotor fan with 15 blades with the rotation axis
+aligned with the Cartesian $x$-axis, and you would like to run a simulation of
+just a single blade using rotational periodicity.
+%
+Using \inptext{RotationAngle}, your inputs for boundary condition $i$ would
+look like
+%
+\begin{InputExample}
+  \item[{\BCinptext[i]{Periodic\%RotationAngle(1:3) = [ 24.0, 0.0, 0.0]}}]
+\end{InputExample}
+%
+and the inputs for boundary condition $j$ would look like
+%
+\begin{InputExample}
+  \item[{\BCinptext[j]{Periodic\%RotationAngle(1:3) = [-24.0, 0.0, 0.0]}}]
+\end{InputExample}
+%
+If you wanted to use \inptext{RotationAxis} instead, your inputs for boundary
+condition $i$ would look like
+%
+\begin{InputExample}
+  \item[{\BCinptext[i]{Periodic\%RotationAxis(1:4) = [ 1.0, 0.0, 0.0, 24.0]}}]
+\end{InputExample}
+%
+and the inputs for boundary condition $j$ would look like
+%
+\begin{InputExample}
+  \item[{\BCinptext[j]{Periodic\%RotationAxis(1:4) = [ 1.0, 0.0, 0.0,-24.0]}}]
+\end{InputExample}
+

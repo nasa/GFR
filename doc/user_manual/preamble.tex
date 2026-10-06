@@ -1,0 +1,1288 @@
+
+% Test newcommand inside newcommand for local variable.
+% Refs:
+%   Inner command without arguments:
+%   https://tex.stackexchange.com/questions/ [... append next line for full url]
+%       28704/defining-a-newcommand-with-variable-name-inside-another-newcommand
+%   Inner command with arguments:
+%   https://tex.stackexchange.com/questions/ [... append next line for full url]
+%       34697/variable-name-newcommand-with-parameters-within-another-newcommand
+
+
+\documentclass[11pt,letterpaper]{article}
+
+% Option 'draft' does the following:
+%   1. Sets the number of TOC levels to 5 from the default 3
+%   2. Displays hidden text in \devNotes commands
+% Color options:
+%       'nocolor' disables non-hyperref color (default)
+%    'allowcolor'   allows non-hyperref color
+% Options controlling sections starting on new pages:
+%        'sepsec'          starts sections on new pages (default)
+%      'nosepsec' does not start  sections on new pages
+%\usepackage[draft,allowcolor]{latex/gfr}
+%\usepackage[draft,allowcolor]{latex/gfr}
+%\usepackage[draft]{latex/gfr}
+ \usepackage[allowcolor]{latex/gfr}
+%\usepackage{latex/gfr}
+
+% Override section number depth.
+% \setcounter{tocdepth}{5}
+% \setcounter{secnumdepth}{5}
+
+\usepackage{geometry}    % page layout functions
+% Page Margins
+% Omit textwidth to prevent warning "over-specification in h-direction".
+%   textwidth = pagewidth - left - right = 8.50 - 1.00 - 1.00 = 6.50
+% \geometry{textwidth     = 6.50in} % computed = pagewidth - left - right
+  \geometry{textheight    = 9.00in}
+  \geometry{columnsep     = 0.25in}
+  \geometry{left          = 1.00in}
+  \geometry{right         = 1.00in}
+  \geometry{top           = 0.73in} % = 1.00in-0.10in-12pt
+  \geometry{bindingoffset = 0.00in, twoside}
+  \geometry{headsep       = 0.10in}
+  \geometry{footskip      = 0.50in}
+
+\usepackage{changepage}
+  % \begin{adjustwidth}{<left_indent>}{<right_indent>}
+
+% Package marginnote was added as a required package in gfr.sty because it is
+% used in the debugging versions of FINALFIX which is also defined in gfr.sty.
+%\usepackage{marginnote}  % \marginnote{} that does not float.
+
+\usepackage{tocloft}     % to configure the table of content (ToC)
+% \setlength{   \cftsecnumwidth}{4.5ex}% width of    section number in ToC
+  \setlength{\cftsubsecnumwidth}{6.5ex}% width of subsection number in ToC
+
+\usepackage{multicol}    % table entries spanning multiple columns
+\usepackage{multirow}    % table entries spanning multiple row
+
+\usepackage{varwidth}    % minimal width minipage
+  % Provides:  \begin{varwidth}{\textwidth}
+
+\usepackage{overcite}    % superscript citations
+
+\usepackage{graphicx}    % image inclusion
+  \graphicspath{{Figures}}
+
+\usepackage{subcaption}  % subfigure environment
+
+\usepackage[inline]{enumitem}    % Better control of lists.
+% Change description environment to item at top and description indented below.
+% Ref:  https://www.latex4technics.com/?note=KFO
+% Initiate with command:
+% \begin{description}[align=myparleft]
+% \end{description}
+    \makeatletter
+    \SetLabelAlign{myparleft}{\parbox[t]\textwidth{#1\par\mbox{}}}
+    \makeatother
+
+\usepackage{array} % formats for tabular columns
+% Define some new left/right/center fixed-width column types. Arg #1=width.
+  \newcolumntype{L}[1]{>{\raggedright\let\newline\\%
+                         \arraybackslash\hspace{0pt}}m{#1}}
+  \newcolumntype{C}[1]{>{\centering\let\newline\\%
+                         \arraybackslash\hspace{0pt}}m{#1}}
+  \newcolumntype{R}[1]{>{\raggedleft\let\newline\\%
+                         \arraybackslash\hspace{0pt}}m{#1}}
+
+\usepackage{threeparttable} % threeparttable environment for tables w/ footnotes
+\usepackage{longtable}   % page breaking tables
+  % \begin{longtable}...
+
+\usepackage{amsmath}     % improved equation typesetting, gather environments
+\usepackage{amssymb}     % math symbols
+  % \checkmark
+\usepackage{bm}          % bold math symbols with \bm{} commmand
+\usepackage{yhmath}      % wide math accents (hat, tilde, etc)
+\usepackage{mathtools}   % used for \coloneq symbol
+\usepackage{xfrac}
+
+% Math script fonts, provides \mathscr{}. Choose only one package:
+%   Often used inside \volume command.
+% \usepackage{mathrsfs}           % provides \mathscr{}, narrow spindly V
+  \usepackage[mathscr]{eucal}     % provides \mathscr{}, softer curved V
+% \usepackage[mathcal]{eucal}     % provides \mathcal{}
+% \usepackage{eucal}              % provides \mathcal{}
+% \usepackage{euscript}           % provides \EuScript{}
+% \usepackage[mathcal]{euscript}  % provides \mathcal{}
+
+\usepackage{latex/turbulence}  % turbulence variable shortcuts
+
+%Package siunitx is loaded by gfr.sty as a required package
+%\usepackage{siunitx}
+%\sisetup{per-mode = symbol,%
+%         display-per-mode = fraction,%
+%         inline-per-mode = symbol}
+  %Example usage (see gfr.sty for more): \unit{N.s/m^2}
+  % Provides \unit{} command to typeset units.
+  % Provides S tabular column format to left-align numbers and center them.
+
+% xcolor is a superset of color package
+%\usepackage[usenames,dvipsnames]{color}       % color text
+\usepackage[dvipsnames]{xcolor}                % color
+% Available Colors:
+%   GreenYellow, Yellow, Goldenrod, Dandelion, Apricot, Peach, Melon, 
+%   YellowOrange, Orange, BurntOrange, Bittersweet, RedOrange, Mahogany, 
+%   Maroon, BrickRed, Red, OrangeRed, RubineRed, WildStrawberry, Salmon, 
+%   CarnationPink, Magenta, VioletRed, Rhodamine, Mulberry, RedViolet, 
+%   Fuchsia, Lavender, Thistle, Orchid, DarkOrchid, Purple, Plum, Violet, 
+%   RoyalPurple, BlueViolet, Periwinkle, CadetBlue, CornflowerBlue, 
+%   MidnightBlue, NavyBlue, RoyalBlue, Blue, Cerulean, Cyan, ProcessBlue, 
+%   SkyBlue, Turquoise, TealBlue, Aquamarine, BlueGreen, Emerald, 
+%   JungleGreen, SeaGreen, Green, ForestGreen, PineGreen, LimeGreen, 
+%   YellowGreen, SpringGreen, OliveGreen, RawSienna, Sepia, Brown, Tan, Gray 
+% Available Macros:
+%   \colorbox{back_color}{text}
+%   \fcolorbox{frame_color}{back_color}{text}
+% User Macros:
+  \definecolor{nmlcolor}{gray}{0.95}
+
+\usepackage{pdfcolmk}    % fixes color across page breaks
+
+\usepackage{xstring}
+  % \IfEq
+  % \IfEqCase
+
+\usepackage{calc}        % for simple arithmetic
+  % \widthof{}
+
+%\usepackage{tikz}        % drawing macros
+%  \usetikzlibrary{math}
+%  \usetikzlibrary{calc}  % calculations
+%  \usetikzlibrary{arrows}  % arrowheads
+%  \usetikzlibrary{arrows.meta}  % arrowheads
+%  \usetikzlibrary{decorations.markings}
+%% \usetikzlibrary{positioning}
+%% \usetikzlibrary{backgrounds}
+%\usepackage{tikz-3dplot} % drawing macros 3d
+%\usepackage {pgfplots}
+
+\usepackage{listings}    % Source code listings.
+% Old style for namelist blocks. Renamed it to clarify it is a lststyle.
+% \lstdefinestyle{nml}{%
+%    frame=single %
+%   ,backgroundcolor=\color{nmlcolor} %
+%   ,captionpos=b %
+%   ,language={Fortran} %
+%   }
+  %
+  % Style to typeset a namelist block listing.
+  \lstdefinestyle{lststylenmlblock}{%
+     language=[90]Fortran
+    ,commentstyle=\small\ttfamily % same as basicstyle
+    ,basicstyle=\ttfamily
+    ,columns=fixed
+    ,basewidth={0.52em,0.45em} % default: {0.6em,0.45em}
+%   ,basewidth={0.50em,0.45em} % default: {0.6em,0.45em}
+      % Set the basewidth for a single character, for {fixed,flexible} modes.
+      % Use fixed=0.50em to match \texttt, but underscores are different.
+    ,frame=single
+    ,backgroundcolor=\color{nmlcolor}
+    ,captionpos=b
+    }
+  %
+  % Environment to typeset a namelist block listing.
+  %   \begin{lstnmlblock}[options]
+  %   \end{lstnmlblock}
+  \lstnewenvironment{nmlblocklst}[1][]
+    {\lstset{style=lststylenmlblock,#1}}
+    {}
+
+\lstset{morecomment=[is]{\%@\#!}{!\#@\%}}
+
+\usepackage[most]{tcolorbox}  % Color boxes
+  % \tcblisting
+  % loads \usepackage{listings}
+  %   \lstlisting from \usepackage{listings}
+  %   \lstinline  from \usepackage{listings}
+  %
+  % Environment to typeset a namelist item listing.
+  %   \begin{nmldescitem}[options]
+  %   \end{nmldescitem}
+\tcbuselibrary{listings}
+  \newtcblisting{nmldescitem}[1][]{%
+     listing only      % Show source listing, but not compiled text.
+%-- Autofitted width settings. Default fit is tight, so add some spacings.
+    ,hbox              % fit box to content width
+    ,left   = 4.0pt    % l padding between content and frame
+    ,right  = 4.0pt    % r padding between content and frame
+    ,top    = 0.0pt    % t padding between content and frame
+    ,bottom = 0.0pt    % b padding between content and frame
+    ,boxsep = 1.0pt    % additional lrtb padding between content and frame
+%-- Frame Settings
+    ,boxrule       = 0.4pt    % thickness of the frame rule on all edges
+    ,sharp corners = all      % square corners
+    ,colframe      = black    % frame color
+    ,colback       = nmlcolor % background color
+%-- Spacing Outside Frame
+%   ,aboveskip  = 0.0pt % default: \medskipamount
+%   ,belowskip  = 0.0pt % default: \medskipamount
+    ,after skip = 5.0pt % default: ???
+%   ,listing options={belowskip = 0.0pt}  % default: \medskipamount
+%-- Font Settings (Style 1)
+    ,listing options={language={[90]Fortran}}
+    ,fontupper=\ttfamily % \textt font
+    ,listing options={columns=fixed}
+      % columns=fixed,flexible,spaceflexible,fullflexible
+    ,listing options={basewidth={0.52em,0.45em}} % default: {0.6em,0.45em}
+      % Set the basewidth for a single character, for {fixed,flexible} modes.
+%-- Font Settings (Style 2)
+%   ,fontupper=\ttfamily % \textt font
+%   ,listing options={flexiblecolumns=true}  % like \texttt in normal text
+%-- Escape sequences to access Latex commands
+%   ,listing options={escapechar=@}
+%   ,listing options={escapeinside={!@}{!@}}
+%-- Other Settings
+    ,#1                % other optional arguments
+    }
+
+\usepackage{nicematrix}  % array/matrix with headers
+  \NiceMatrixOptions{code-for-first-row = \color{blue},
+                     code-for-first-col = \color{blue},
+                     code-for-last-row  = \color{blue},
+                     code-for-last-col  = \color{blue}}
+  % \begin{bNiceArray}
+
+%\usepackage[acronym,index,toc]{glossaries}  % makeglossaries
+%% Could not get acronyms to appear properly in text and index.
+%%
+%% Reset acronyms to use full form each chapter or section.
+%% \preto\chapter{\glsresetall}
+%% \preto\section{\glsresetall}
+%% Disable \makeglossaries if no glossaries used.
+%% \makeglossaries
+%  \setacronymstyle{long-short}
+%% \glsdisablehyper
+%  \newacronym{DG}{DG}{Discontinuous Galerkin}
+%  \newacronym{FR}{FR}{Flux Reconstruction}
+%  \newacronym{RK}{RK}{Runge-Kutta}
+%  \newacronym{CFD}{CFD}{computational fluid dynamics}
+%  \newacronym{CFL}{CFL}{Courant-Friedrichs-Lewy}
+%  \newacronym{DNS}{DNS}{Direct Numerical Simulation}
+%  \newacronym{DoF}{DoF}{degrees of freedom}
+%  \newacronym{LES}{LES}{Large-Eddy Simulation}
+
+\usepackage{imakeidx}             % makeindex
+  \makeindex[columns=2, title=Index, intoc, options=-r]
+    % intoc : add index to table of contents
+    % Option -r : supresses adjacent page refs from being grouped together.
+  % Use \index{entry|primeidx} to format entry as the primary reference.
+    \newcommand{\primeidx}[1]{#1\textsuperscript{*}}
+%   \newcommand{\primeidx}[1]{\textbf{#1}}
+  % Commands:
+  %   \index{name}
+  %   \index{name!subname}
+  %   \index{name|primeidx}        % mark as a prime entry
+  %   \index{name|see{other name}} % alias entry in index
+
+\usepackage[verbose,hyperpageref]{backref}  % back refs from citations
+  \renewcommand*{\backreflastsep}{, }  % default={, and }
+  \renewcommand*{\backreftwosep}{, }   % default={ and }
+  \renewcommand*{\backref}[1]{}
+  \renewcommand*{\backrefalt}[4]{%
+    % #1 = backref count w/o duplicates
+    % #2 = backref list  w/o duplicates
+    % #3 = backref count w   duplicates
+    % #4 = backref list  w   duplicates
+    \ifcase #1 %
+%     No citations.% use \relax if you do not want the "No citations." message
+      \relax%
+    \or
+%     This section is for one citation.
+      (Cited on page #2).%
+    \else
+%     This section is for multiple citations.
+      (Cited on pages #2).%
+    \fi%
+  }
+
+% Note:
+%   Load imakeidx before hyperref.
+%   Load cleveref after  hyperref.
+\usepackage[pagebackref]{hyperref}  % hyperref links within pdf
+  % Options:
+  %   pagebackref  Provides back refs for citations.
+  % Commands:
+  %   \hypertarget{name}{text}  % Create target, other than label.
+  %   \hyperlink{name}{text}    % Point to hyperlink name.
+  %   \hyperref[label]{text}    % Point to label.
+  %   \nameref{label}           % Point to label, use name as text.
+  \hypersetup{           % replace hyperref boxes with colored links
+    colorlinks,
+    linkcolor={red!50!black},
+    citecolor={blue!50!black},
+    urlcolor={blue!80!black}
+  }
+
+\usepackage{cleveref}    % \Cref{}, \cref{} upper/lowercase clever refs
+%% Usage:
+%%   \Cref{} is for beg of sentence.
+%%   \cref{} is for mid of sentence.
+%% \crefname{type}{singular}{plural} Defines the name-prefix for the ref.
+%  \Crefname{equation}{Eq.}{Eqs.}
+   \crefname{equation}{Eq.}{Eqs.}
+   \crefname{figure}{Fig.}{Figs.}
+   \Crefname{paragraph}{Section}{Sections}
+   \crefname{paragraph}{section}{sections}
+   \Crefname{subparagraph}{Section}{Sections}
+   \crefname{subparagraph}{section}{sections}
+   \Crefname{appendix}{Appendix}{Appendices}
+   \crefname{appendix}{appendix}{appendices}
+%% \crefrormat{type}{format}
+%%   #1 = the formatted label counter
+%%   #2 = beg mark for hyperref link
+%%   #3 = end mark for hyperref link
+   \Crefformat{equation}{Eq.~(#2#1#3)}
+   \crefformat{equation}{Eq.~(#2#1#3)}
+   \Crefformat{section}{Section~#2#1#3}
+   \crefformat{section}{Section~#2#1#3}
+   \Crefformat{paragraph}{Section~#2#1#3}
+   \crefformat{paragraph}{Section~#2#1#3}
+   \Crefformat{subparagraph}{Section~#2#1#3}
+   \crefformat{subparagraph}{Section~#2#1#3}
+   \crefformat{appendix}{Appendix~#2#1#3}
+   \Crefformat{appendix}{Appendix~#2#1#3}
+   \newcommand{\crefrangeconjunction}{--} % replace "to" with dash in ranges
+
+\usepackage{comment}     % comment out blocks of text
+% Do not use \includecomment{MyComment} or color will be lost.
+% Instead, simply disable the \excludecomment{MyComment} line.
+  \specialcomment{MyComment}{\begingroup\color{Red}}{\endgroup}
+  \excludecomment{MyComment}
+
+\usepackage{booktabs} % \toprule \bottomrule
+
+% algorithm and algorithmic are both part of the algorithms bundle
+\usepackage{algorithm}   % provides algorithm environment
+\usepackage{algorithmic} % provides algorithmic environment
+
+% Provides \nth{#} command which automates the text exponent for a number
+% e.g., 1^st, 2^nd, 3^rd, 4^th, etc.
+\usepackage[super]{nth}
+
+
+% Modify default settings for overcite package.
+% References list numbered 1. rather than [1]
+  \makeatletter \renewcommand\@biblabel[1]{#1.} \makeatother
+
+% ===========
+% Text Macros
+% ===========
+
+% Cite in the line of text.
+% \newcommand{\Linecite}[1]{Ref.~\citen{#1}} % Start of sentence.
+% \newcommand{\linecite}[1]{Ref.~\citen{#1}} % Elsewhere in sentence.
+  % Line cite at start of sentence.
+  \newcommand{\Linecite}[1]{%
+    \def\tempx{0}%
+    \StrCount{#1}{,}[\tempx]% Requires \usepackage{xstring}
+    Ref%
+    \ifnum\tempx > 0 % Add 's' if multiple refs.
+      s.%
+    \fi%
+    ~\citen{#1}%
+  }
+  % Line cite elsewhere in sentence.
+  \newcommand{\linecite}[1]{%
+    \def\tempx{0}%
+    \StrCount{#1}{,}[\tempx]% Requires \usepackage{xstring}
+    Ref%
+    \ifnum\tempx > 0 % Add 's' if multiple refs.
+      s.%
+    \fi%
+    ~\citen{#1}%
+  }
+
+% Cross-reference commands in place of \ref.
+  \newcommand{\eref}[1]{\cref{#1}} % lower equation
+  \newcommand{\Eref}[1]{\Cref{#1}} % upper Equation
+  \newcommand{\fref}[1]{\cref{#1}} % lower figure
+  \newcommand{\Fref}[1]{\Cref{#1}} % upper Figure
+  \newcommand{\lref}[1]{\cref{#1}} % lower listing
+  \newcommand{\Lref}[1]{\Cref{#1}} % upper Listing
+  \newcommand{\sref}[1]{\cref{#1}} % lower section
+  \newcommand{\Sref}[1]{\Cref{#1}} % upper Section
+  \newcommand{\tref}[1]{\cref{#1}} % lower table
+  \newcommand{\Tref}[1]{\Cref{#1}} % upper Table
+  \newcommand{\aref}[1]{Appendix~\ref{#1}} % lower appendix
+  \newcommand{\Aref}[1]{Appendix~\ref{#1}} % upper Appendix
+  \newcommand{\pref}[1]{page~{#1}} % lower page
+  \newcommand{\Pref}[1]{Page~{#1}} % upper Page
+
+% For consistency:
+  \newcommand{\NOTE}{\textbf{NOTE: }}
+  \newcommand{\EXAMPLE}{\textbf{EXAMPLE: }}
+  \newcommand{\supst}{\textsuperscript{st}}  % 1^{st}
+  \newcommand{\supnd}{\textsuperscript{nd}}  % 2^{nd}
+  \newcommand{\suprd}{\textsuperscript{rd}}  % 3^{rd}
+  \newcommand{\supth}{\textsuperscript{th}}  % 4^{th}
+  %> Format for CGNS output variable names.
+  \newcommand{\ov}[1]{\textbf{\textsf{#1}}}
+
+% Command for typesetting "See Also:" with additional info.
+% Spacing control requires \usepackage{enumitem}.
+\newcommand{\SeeAlso}[1]{%
+  \begin{description}[leftmargin=\widthof{See Also:}+1.5em,
+                      rightmargin=0.0em,
+                      style=sameline]
+    \item[See Also:]
+    \begin{sloppypar}
+    \raggedright
+    #1
+    \end{sloppypar}
+  \end{description}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \descitem{} macro replacement for \item[] in a \description.
+% Allows \lstinline to be used inside \descitem{}.
+% Ref:  https://comp.text.tex.narkive.com/dzHkwJ7t/lstinline-in-item
+%
+\newsavebox{\itembox}
+\newcommand*{\descitem}{%
+\everyhbox{\everyhbox{}\aftergroup\finishdescitem}%
+\setbox\itembox\hbox
+}
+\newcommand*{\finishdescitem}{%
+\everyhbox{}%
+\item[\box\itembox]%
+}
+
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%  "Key" commands:
+%   These are commands for creating index references that are not for
+%   an input variable. References placed in the index from the "key"
+%   commands get the default font formatting within the index.
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%##########################################################################
+
+%#begfold#{{{ Details for command \keyindex
+% \keyindex*{#2}
+%   #1 = * (or not): prime index entry, else standard index entry
+%   #2 = (escaped) text to use for index entry
+% Called by other commands to create an input entry within the index.
+% Examples:
+%   \keyindex*{important phrase}
+%      => \index{important phrase|primeidx}
+%   \keyindex{important phrase}
+%      => \index{important phrase}
+% Note:
+%   Do not use \keyindex directly, but rather use \key command below.
+%#endfold#}}}
+%
+\NewDocumentCommand\keyindex{sm}{%
+  \IfBooleanTF#1
+    {\index{#2|primeidx}}% #1=star is present
+    {\index{#2}}%          #1=star is missing
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%#begfold#{{{ Details for command \key
+% \key*[#2]{#3}[#4]    # Define/Reference key text.
+%   #1 = * (or not): prime index entry, else standard index entry
+%   #2 = hypertarget  (default=none)
+%   #3 = (escaped) text to use within paragraph
+%   #4 = (escaped) text to use within index entry (default={})
+%        If #4 is {=}, then default to #3.
+% - Used to define/reference keywords within the document.
+% - Typeset the keyword.
+% - Create/reference a hyperlink target.
+%   - If hyperlink not wanted, skip optional arg #2.
+% - Add the keyword to the index.
+% Note:
+%   Best to avoid special symbols in the hypertarget.
+%   hypertarget with \_ gives undefined control sequence \textunderscore.
+%   hypertarget with  _ is ok, but still best to avoid.
+%#endfold#}}}
+%
+\NewDocumentCommand\key{sO{}mO{}}{%
+  \IfBooleanTF#1{% #1=star is present
+    % Typeset the keyword text in the paragraph, create optional hypertarget.
+    \IfEq{#2}{}% Test if #2=hypertag is missing.
+      {#3}%                   #2 is missing
+      {\hypertarget{#2}{#3}%
+       \phantomsection\label{#2}%
+      }% #2 is present
+      % pageref works with labels but not hypertargets.
+      % phantomsection creates a local anchor, not the previous section header.
+    % Typeset the keyword text in the index as a primary entry.
+    \IfEqCase{#4}{%
+      {}{}%                 If #4=''  index nothing.
+      {=}{\keyindex*{#3}}%  If #4='=' index #3. (ie, copy the paragraph text)
+    }[\keyindex*{#4}]%      Else      index #4.
+  }{% #1=star is missing
+    % Typeset the input variable, create optional hyperlink.
+    \IfEq{#2}{}% Test if #2=hypertag is missing.
+      {#3}%                 #2 is missing
+      {\hyperlink{#2}{#3}}% #2 is present
+    % Typeset the keyword text in the index.
+    \IfEqCase{#4}{%
+      {}{}%                 If #4=''  index nothing.
+      {=}{\keyindex{#3}}%   If #4='=' index #3. (ie, copy the paragraph text)
+    }[\keyindex{#4}]%       Else      index #4.
+  }%
+}
+
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%  "inp" commands:
+%   These are commands for creating index references that are for
+%   an input variable EXCEPT for any variables within the BC_Input
+%   derived type. References placed in the index from the "inp"
+%   commands get special formatting/font styling based on the /inpstyle
+%   \inpstyle command before placement in the index.
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%##########################################################################
+
+%#begfold#{{{ Details for command \inpstyle
+% \inpstyle[#1]{#2}
+%   #1 = (escaped) pretext to typeset before #2
+%   #2 = (escaped) text to typeset as an input variable.
+% Called by other commands to apply the style for an input variable.
+% Do not call directly.  Use \inptext instead.
+%#endfold#}}}
+%
+\NewDocumentCommand\inpstyle{O{}m}{%
+%#begfold#{{{ Comment on error when used inside math mode
+%% \IfEq gives error:  "incomplete \iffalse" when called from inside math mode
+%% with text "var\_name".  Why?
+%  \IfEq{#2}{}% Test if #2=text is missing.
+%    {% #2=text is missing
+%     % do nothing
+%    }%
+%    {% #2=text is present
+%%    \texttt{\MakeLowercase{#1#2}}%
+%%    \texttt{\MakeUppercase{#1#2}}%
+%     \texttt{{#1}#2}%
+%%    {#1#2}%
+%%    }%
+%#endfold#}}}
+%
+%% This runs but manditory arg ALWAYS has a value, so \IfValue{#2}=T.
+%% Value could be empty, but it has a value.
+  \IfValueT{#2}%
+    {% #2=text is present
+%    \texttt{\MakeLowercase{#1#2}}%
+%    \texttt{\MakeUppercase{#1#2}}%
+     \texttt{#1#2}%
+%    {#1#2}%
+    }%
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%#begfold#{{{ Details for command \inptext
+% \inptext[#1]{#2}
+%   #1 = (escaped) pretext to typeset before #2
+%   #2 = (escaped) text to typeset as an input variable.
+% Typeset an input variable w/o hyperlink and index entry.
+%#endfold#}}}
+%
+\NewDocumentCommand\inptext{O{}m}{%
+  \inpstyle[#1]{#2}%
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%#begfold#{{{ Details for command \inpindex
+% \inpindex*{#2}[#3]
+%   #1 = * (or not): prime index entry, else standard index entry
+%   #2 = (escaped) text to \inpstyle for index entry
+%   #3 = (escaped) text to append to index entry
+%        Begin #3 with '!' to add a subentry.
+% Called by other commands to create an input entry within the index.
+% Examples:
+%   \inpindex*{var\_name}[!channel]
+%      => \index{Input!\texttt{var\_name}!channel|primeidx}
+%   \inpindex{var\_name}[!channel]
+%      => \index{Input!\texttt{var\_name}!channel}
+%#endfold#}}}
+%
+\NewDocumentCommand\inpindex{smO{}}{%
+  \IfBooleanTF#1
+    {\index{Input!\inpstyle{#2}{#3}|primeidx}}% #1=star is present
+    {\index{Input!\inpstyle{#2}{#3}}}%          #1=star is missing
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%#begfold#{{{ Details for command \inp
+% \inp*[#2]{#3}[#4][#5]    # Define/Reference an input variable.
+%   #1 = * (or not): prime index entry, else standard index entry
+%   #2 = hypertarget  (default=none)
+%   #3 = (escaped) text to \inpstyle within paragraph
+%   #4 = (escaped) text to \inpstyle for index entry (default=#3)
+%   #5 = (escaped) text to append    to  index entry (default=none)
+%        Begin #5 with '!' to add a subentry.
+% - Used to define/refer-to an input variable.
+% - Typeset the input variable.
+% - Create/reference a hyperlink target.
+% - Add the input variable to the index.
+% Note:
+%   Best to avoid special symbols in the hypertarget.
+%   hypertarget with \_ gives undefined control sequence \textunderscore.
+%   hypertarget with  _ is ok.
+%#endfold#}}}
+%
+\NewDocumentCommand\inp{sO{}mO{=}O{}}{%
+  \IfBooleanTF#1{% #1=star is present
+    % Typeset the input variable, create optional hypertarget.
+    \IfEq{#2}{}% Test if #2=hypertag is missing.
+      {\inpstyle{#3}}%                             #2 is missing
+      {\hypertarget{#2}{\inpstyle{#3}}%
+       \phantomsection\label{#2}%
+      }% #2 is present
+      % pageref works with labels but not hypertargets.
+      % phantomsection creates a local anchor, not the previous section header.
+    % Typeset the variable in the index, adding optional sub-entry.
+    \IfEq{#4}{=}% Test if #4=text to inpstyle for index is missing.
+      {\inpindex*{#3}{#5}}% #4 is missing
+      {\inpindex*{#4}{#5}}% #4 is present
+  }{% #1=star is missing
+    % Typeset the input variable, create optional hypertarget.
+    \IfEq{#2}{}% Test if #2=hypertag is missing.
+      {\inpstyle{#3}}%                 #2 is missing
+      {\hyperlink{#2}{\inpstyle{#3}}}% #2 is present
+    % Typeset the variable in the index, adding optional sub-entry.
+    \IfEq{#4}{=}% Test if #4=text to inpstyle for index is missing.
+      {\inpindex{#3}{#5}}% #4 is missing
+      {\inpindex{#4}{#5}}% #4 is present
+  }%
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Concat the left/right parts of a Fortran type variable: left%right.
+%
+\NewDocumentCommand{\concatstr}{mm}{%
+  \IfEqCase{#2}{%
+    {}{#1}%       If #2=''   return '#1'   w/o trailing '%'.
+    {\%}{#1\%}%   If #2='\%' return '#1\%' w/  trailing '%'.
+  }[#1\%#2]%      Else       return '#1\%#2'.
+}
+
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%  "inpBC" commands:
+%   These are commands for creating index references that are for
+%   exclusively for components of the BC_Input input derived type.
+%   These are special versions of their respective "inp" commands but
+%   help declutter the index by removing the BC_Input($i$)% prefix.
+%   These commands also get the same special formatting/font styling
+%   as the "inp" commands before placement in the index, 
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%##########################################################################
+%##########################################################################
+
+%#begfold#{{{ Details for command \BCinpstyle
+% \BCinpstyle[#1]{#2}
+%   #1 = BC_Input index (default=i)
+%   #2 = (escaped) text to typeset as a BC_Input component variable.
+% Typeset a BC_Input variable w/o hyperlink and index entry.
+%   Adds "BC\_Input(#1)\%" before the #2 variable name.
+% Do not call directly.  Use \BCinptext instead.
+%#endfold#}}}
+% 
+\NewDocumentCommand\BCinpstyle{O{i}m}{%
+  {% Beg group to contain scope of commands.
+%   \texttt{\MakeLowercase{\concatstr{BC\_Input($#1$)}{#2}}}%
+%   \texttt{\MakeUppercase{\concatstr{BC\_Input($#1$)}{#2}}}%
+                   \texttt{\concatstr{BC\_Input($#1$)}{#2}}%
+%                         {\concatstr{BC\_Input($#1$)}{#2}}%
+  }% End group to contain scope of commands.
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%#begfold#{{{ Details for command \BCinptext
+% \BCinptext[#1]{#2}
+%   #1 = BC_Input index (default=i)
+%   #2 = (escaped) text to typeset as an input variable.
+% Called by other commands to apply the style for an input variable.
+% Do not call directly.  Use \inptext or \BCinptext instead.
+% The change case commands do not affect content in math mode.
+%#endfold#}}}
+\NewDocumentCommand\BCinptext{O{i}m}{%
+  \BCinpstyle[#1]{#2}%
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%#begfold#{{{ Details for command \inpBCindex (special version of \inpindex)
+% SPECIAL VERSION OF \inpindex named \inpBCindex FOR COMPONENTS OF BC_INPUT_T.
+% THIS IS USED TO DECLUTTER THE INDEX BY REMOVING THE BC_INPUT($i$)% PREFIX.
+% \inpBCindex*[#2]{#3}[#4]
+%   #1 = * (or not): prime index entry, else standard index entry
+%   #2 = BC_Input index (default=i)
+%   #3 = (escaped) text to \inpstyle for index entry
+%   #4 = (escaped) text to append to index entry
+%        Begin #3 with '!' to add a subentry.
+% Used to create a BC_Input variable entry within the index.
+% Examples:
+%   \inpBCindex*{var\_name}[!channel]
+%      => \index{Input!\texttt{BC\_Input($i$)%var\_name}!channel|primeidx}
+%   \inpBCindex{var\_name}[!channel]
+%      => \index{Input!\texttt{BC\_Input($i$)%var\_name}!channel}
+%#endfold#}}}
+%
+\NewDocumentCommand\inpBCindex{sO{i}mO{}}{%
+  % Always use $i$ instead of #2 when creating the index entry.
+  \IfBooleanTF#1{% #1=star is present
+    %#begfold#{{{ uncomment to dump debugging info
+    %{ % Combine everything inside these curly brackets
+    %  % onto a single line to dump debugging info.
+    %  \color{Blue} 
+    %  inpBCindex 2="#2",3="#3",4="#4":
+    %  IfValue(3)=\IfValueTF{#3}{T}{F}
+    %  "\inpstyle[\%]{#3}"
+    %}
+    %#endfold#}}}
+     % The following nested logic is to prevent the index from adding
+     % references to '%' nested under BC_INPUT when either \BCinpBC or
+     % \inpBC is used without a BC_Input component variable in arguments
+     % #4 or #5 to those commands.
+     \IfEq{#4}{}% Test if #4 is missing
+       % #4 is missing
+       {\IfEq{#3}{}% Test if #3 is empty
+         % #3 == '', return without %
+         {\index{Input!\inpstyle{BC\_Input($i$)}|primeidx}}%
+         % #3 \= '', return with \inpstyle{%#3}
+         {\index{Input!\inpstyle{BC\_Input($i$)}!{\inpstyle[\%]{#3}}|primeidx}}%
+       }%
+       % #4 is present
+       {\IfEq{#3}{}% Test if #3 is empty
+         % #3 == '', return with \inpstyle{%}#4
+         {\index{Input!\inpstyle{BC\_Input($i$)}!{\inpstyle[\%]{}}{#4}|primeidx}}%
+         % #3 \= '', return with \inpstyle{%#3}#4
+         {\index{Input!\inpstyle{BC\_Input($i$)}!{\inpstyle[\%]{#3}}{#4}|primeidx}}%
+       }%
+    % THE FOLLOWING LINE IS THE OLD CALL TO THE INDEX FUNCTION
+    % THAT RESULTED IN SEPARATE '%' REFERENCES UNDER BC_INPUT
+  %% \index{Input!\inpstyle{BC\_Input($i$)}!{\inpstyle[\%]{#3}}{#4}|primeidx}%
+    } {% #1=star is missing
+     % The following nested logic is to prevent the index from adding
+     % references to '%' nested under BC_INPUT when either \BCinpBC or
+     % \inpBC is used without a BC_Input component variable in arguments
+     % #4 or #5 to those commands.
+     \IfEq{#4}{}% Test if #4 is missing
+       % #4 is missing
+       {\IfEq{#3}{}% Test if #3 is empty
+         % #3 == '', return without %
+         {\index{Input!\inpstyle{BC\_Input($i$)}}}%
+         % #3 \= '', return with \inpstyle{%#3}
+         {\index{Input!\inpstyle{BC\_Input($i$)}!{\inpstyle[\%]{#3}}}}%
+       }%
+       % #4 is present
+       {\IfEq{#3}{}% Test if #3 is empty
+         % #3 == '', return with \inpstyle{%}#4
+         {\index{Input!\inpstyle{BC\_Input($i$)}!{\inpstyle[\%]{}}{#4}}}%
+         % #3 \= '', return with \inpstyle{%#3}#4
+         {\index{Input!\inpstyle{BC\_Input($i$)}!{\inpstyle[\%]{#3}}{#4}}}%
+       }%
+    % THE FOLLOWING LINE IS THE OLD CALL TO THE INDEX FUNCTION
+    % THAT RESULTED IN SEPARATE '%' REFERENCES UNDER BC_INPUT
+  %% \index{Input!\inpstyle{BC\_Input($i$)}!{\inpstyle[\%]{#3}}{#4}}%
+    }%
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%#begfold#{{{ Details for command \inpBC (special version of \inp)
+% SPECIAL VERSION OF \inp named \inpBC FOR COMPONENTS OF BC_INPUT_T.
+% ADD NO PREFIX TO DOCUMENT ENTRIES.
+% ADD PREFIX "BC_INPUT(#3)%" TO INDEX ENTRIES.
+% \BCinp*[#2][#3]{#4}[#5][#6]    # Define/Reference a BC_Input sub-variable.
+%   #1 = * (or not): prime index entry, else standard index entry
+%   #2 = hypertarget  (default=none)
+%   #3 = BC_Input index (default=i)
+%   #4 = (escaped) text to \inpstyle within paragraph
+%   #5 = (escaped) text to \inpstyle for index entry (default=#4)
+%        Will be prefixed by "BC\_Input(#3)%".
+%   #6 = (escaped) text to append    to  index entry (default=none)
+%        Begin #6 with '!' to add a subentry.
+% - Used to define/refer-to an input variable within the document.
+% - Typeset the input variable.
+% - Create/reference the hyperlink target.
+% - Add the input variable to the index.
+% Note:
+%   Best to avoid special symbols in the hypertarget.
+%   hypertarget with \_ gives undefined control sequence \textunderscore.
+%   hypertarget with  _ is ok.
+%#endfold#}}}
+%
+\NewDocumentCommand\inpBC{sO{}O{i}mO{=}O{}}{%
+  \IfBooleanTF#1{% #1=star is present
+    % Typeset the input variable in the document, create optional hypertarget.
+    \IfEq{#2}{}% Test if #2=hypertag is missing.
+      {\inpstyle{#4}}%                   #2 is missing
+      {\hypertarget{#2}{\inpstyle{#4}}}% #2 is present
+    % Typeset the input variable in the index, adding optional sub-entry.
+    \IfEq{#5}{=}% Test if #5=text to style for index is missing.
+      {\inpBCindex*[#3]{#4}{#6}}% #5 is missing
+      {\inpBCindex*[#3]{#5}{#6}}% #5 is present
+  }{% #1=star is missing
+    % Typeset the input variable in the document, create optional hyperlink.
+    \IfEq{#2}{}% Test if #2=hypertag is missing.
+      {\inpstyle{#4}}%                 #2 is missing
+      {\hyperlink{#2}{\inpstyle{#4}}}% #2 is present
+    % Typeset the input variable in the index, adding optional sub-entry.
+    \IfEq{#5}{=}% Test if #5=text to inpBCstyle for index is missing.
+      {\inpBCindex[#3]{#4}{#6}}% #5 is missing
+      {\inpBCindex[#3]{#5}{#6}}% #5 is present
+  }%
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%#begfold#{{{ Details for command \BCinpBC 
+% SPECIAL VERSION OF \inp named \BCinpBC FOR COMPONENTS OF BC_INPUT_T.
+% ADD PREFIX "BC_INPUT(#3)%" TO DOCUMENT ENTRIES.
+% ADD PREFIX "BC_INPUT(#3)%" TO INDEX ENTRIES.
+% \BCinp*[#2][#3]{#4}[#5][#6]    # Define/Reference a BC_Input sub-variable.
+%   #1 = * (or not): prime index entry, else standard index entry
+%   #2 = hypertarget  (default=none)
+%   #3 = BC_Input index (default=i)
+%   #4 = (escaped) text to \inpstyle within paragraph
+%   #5 = (escaped) text to \inpstyle for index entry (default=#4)
+%   #6 = (escaped) text to append    to  index entry (default=none)
+%        Begin #6 with '!' to add a subentry.
+% - Used to define/refer-to an input variable within the document.
+% - Typeset the input variable.
+% - Create/reference the hyperlink target.
+% - Add the input variable to the index.
+% Note:
+%   Best to avoid special symbols in the hypertarget.
+%   hypertarget with \_ gives undefined control sequence \textunderscore.
+%   hypertarget with  _ is ok.
+%#endfold#}}}
+%
+\NewDocumentCommand\BCinpBC{sO{}O{i}mO{=}O{}}{%
+  \IfBooleanTF#1{% #1=star is present
+    % Typeset the input variable in the document, create optional hypertarget.
+    \IfEq{#2}{}% Test if #2=hypertag is missing.
+      {\BCinpstyle[#3]{#4}}%                   #2 is missing
+      {\hypertarget{#2}{\BCinpstyle[#3]{#4}}}% #2 is present
+    % Typeset the input variable in the index, adding optional sub-entry.
+    \IfEq{#5}{=}% Test if #5=text to style for index is missing.
+      {\inpBCindex*[#3]{#4}{#6}}% #5 is missing
+      {\inpBCindex*[#3]{#5}{#6}}% #5 is present
+  }{% #1=star is missing
+    % Typeset the input variable in the document, create optional hyperlink.
+    \IfEq{#2}{}% Test if #2=hypertag is missing.
+      {\BCinpstyle[#3]{#4}}%                   #2 is missing
+      {\hyperlink{#2}{\BCinpstyle[#3]{#4}}}% #2 is present
+    % Typeset the input variable in the index, adding optional sub-entry.
+    \IfEq{#5}{=}% Test if #5=text to inpBCstyle for index is missing.
+      {\inpBCindex[#3]{#4}{#6}}% #5 is missing
+      {\inpBCindex[#3]{#5}{#6}}% #5 is present
+  }%
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\NewDocumentEnvironment{nmldescbody}{}%
+  % Code to execute before begin:
+  {\vspace{-0.6\baselineskip}\begin{adjustwidth}{\parindent}{}}
+  % Code to execute before end:
+  {\end{adjustwidth}\vspace{0.2\baselineskip}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% SI Units. Use these where possible for consistency.
+  \newcommand{\unitPres}{\unit{\Pa}}
+  \newcommand{\unitTemp}{\unit{\K}}
+  \newcommand{\unitDens}{\unit{\kg\per\m\cubed}}
+  \newcommand{\unitVel }{\unit{\m\per\s}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% ======================
+% Math / Equation Macros
+% ======================
+
+% Declare a math small cap font.
+  \DeclareMathAlphabet{\mathsc}{OT1}{cmr}{m}{sc}
+
+% r-variable, coord in the standard element [-1:1].
+  \newcommand{\rv}{\ensuremath{r}} % r, coord in elem [-1:1]
+
+% Parenthesis-Variable-Parenthesis: Put parentheses around a variable.
+%   \pvp    = (r)
+%   \pvp[x] = (x)
+  \newcommand{\pvp}[1][\rv]{\ensuremath{\!\left(#1\right)}}
+
+% Symbol to represent the standard element domain [-1:1].
+  \newcommand{\stdelem}{\ensuremath{\mathbf{I}}} % std elem domain [-1:1]
+
+% Nondimensional time is (time * Time_Scaling_Factor), denoted by: t^*.
+  \newcommand{\tstar}{\ensuremath{t^{*}}}
+
+  \newcommand{\solvar}{u}                    % solution variable
+  \newcommand{\flxvar}{f}                    % flux     variable
+  \newcommand{\solfun}{\ensuremath{\solvar}} % solution function
+  \newcommand{\flxfun}{\ensuremath{\flxvar}} % flux     function
+
+% Polynomial space.
+% Seth's commands for polynomial order and cutoff order.
+% ToDo: Need a comment here on how to use these!
+% ToDo: Combine with \PO command below.
+  \newcommand{\p}[2][]{\ensuremath{\mathcal{P}_{\textsl{#2}}#1}}
+    % \p[trailing]{subscript}
+    %   Note "trailing" text is typeset AFTER the subscript.
+    %   [trailing]  is often [3] => P3, [+1] => P+1
+    %   {subscript} is often P=projection, S=solution, Q=quadrature
+    % \p{3}      =>  \mathcal{P}_{\textsl{3}    (ie, P_3                   )
+    % \p[+1]{}   =>  \mathcal{P}_{\textsl{} +1  (ie, P+1                   )
+    % \p[+1]{S}  =>  \mathcal{P}_{\textsl{S}+1  (ie, P_S+1 where S=solution)
+  \newcommand{\pc}[2][]{\ensuremath{\mathcal{P}c#1_{\textsl{#2}}}}
+    % \pc[trailing]{subscript}
+    %   Note "trailing" text is typeset BEFORE the subscript.
+
+% Polynomial order and modes.
+% Originally hard-coded in tex. Need to go back and replace with macros.
+% used: P   =      polynomial order
+% used: N_p = P+1  polynomial modes
+% \newcommand{\PO}[1][]{\ensuremath{P#1}} % polynomial order, P
+  \newcommand{\PO}[1][]{\ensuremath{{\cal P}#1}} % polynomial order, P
+% \newcommand{\PO}[1][]{\ensuremath{\mathbb{P}#1}} % polynomial order, P
+    % #1 = specific polynomial order (ie, 0-6), not an offset (ie, +1)
+    % \PO     =>  P
+    % \PO[3]  =>  P3
+    % \PO+1   =>  P+1
+% \newcommand{\PM}{\ensuremath{N_p}} % polynomial modes, N_p = P+1
+  \newcommand{\PM}{\ensuremath{N_{{\cal P}}}} % polynomial modes, N_p = P+1
+% \newcommand{\PM}{\ensuremath{N_\mathbb{P}}} % polynomial modes, N_p = P+1
+
+% nodal and modal solution variables
+%   Optional arg#1 = subscript
+  \newcommand{\uNodal}[1][]{\ensuremath{\solfun_{#1}}}
+  \newcommand{\uModal}[1][]{\ensuremath{\hat{\solfun}_{#1}}}
+
+  \newcommand{\LB}{\ensuremath{\mathsc{lb}}} % left  boundary (of cell)
+  \newcommand{\RB}{\ensuremath{\mathsc{rb}}} % right boundary (of cell)
+
+% Upwind flux functions
+  \newcommand{\fupw}[1][]{\ensuremath{\flxfun^{\ast}_{#1}}} % upwind flux
+    % Optional arg#1 = subscript
+  \newcommand{\fupwL}{\ensuremath{\fupw[\LB]}}  % upwind flux left
+  \newcommand{\fupwR}{\ensuremath{\fupw[\RB]}}  % upwind flux right
+  \newcommand{\fC}{\ensuremath{F}}              % continuous flux function
+  \newcommand{\fD}[1][]{\ensuremath{f^D_{#1}\mspace{-2.0mu}}} % discont flux fn
+    % Optional arg#1 = subscript
+
+% left/right solution variables for flux calculation across face
+  \newcommand{\uLeft}{\ensuremath{\solfun_{\mathsc{l}}}}
+  \newcommand{\uRight}{\ensuremath{\solfun_{\mathsc{r}}}}
+
+% left/right flux jumps. Flux jumps on the left/right edge of cell.
+  \newcommand{\fluxjump}[1][]{\ensuremath{\Delta f_{#1}}}    % flux jump
+  \newcommand{\fluxjumpL}{\ensuremath{\fluxjump[\LB]}} % l-bnd flux jump
+  \newcommand{\fluxjumpR}{\ensuremath{\fluxjump[\RB]}} % r-bnd flux jump
+
+% unit correction function for fluxes
+  \newcommand{\g}[1][]{\ensuremath{\text{\textsl{g}}_{#1}}} % unit corr fun
+  \newcommand{\gL}{\ensuremath{\g[\LB]}}         % l-boundary unit corr fun
+  \newcommand{\gR}{\ensuremath{\g[\RB]}}         % r-boundary unit corr fun
+
+% scaled correction function for fluxes
+  \newcommand{\G}[1][]{\ensuremath{G_{#1}}} % unit corr fun
+  \newcommand{\GL}{\ensuremath{\G[\LB]}}         % l-boundary unit corr fun
+  \newcommand{\GR}{\ensuremath{\G[\RB]}}         % r-boundary unit corr fun
+
+% Legendre polynomial
+  \newcommand{\Leg}[1]{\ensuremath{P_{#1}}}              % Legendre
+  \newcommand{\dLeg}[1]{\ensuremath{P^{\,\prime}_{#1}}}  % Legendre deriv
+
+% Radau polynomial
+  \newcommand{\RadL}[1]{\ensuremath{R_{\mathsc{L},#1}}}  % Radau Left
+  \newcommand{\RadR}[1]{\ensuremath{R_{\mathsc{R},#1}}}  % Radau Right
+  \newcommand{\dRadL}[1]{\ensuremath{R^{\,\prime}_{\mathsc{L},#1}}} % RadL deriv
+  \newcommand{\dRadR}[1]{\ensuremath{R^{\,\prime}_{\mathsc{R},#1}}} % RadR deriv
+
+
+% Vandermonde matrix
+% \newcommand{\vand}{\ensuremath{\bm{\cal V}}} % fails
+  \newcommand{\vand}{\ensuremath{   {\cal V}}}
+
+% Levi-Civita permutation tensor
+  \newcommand{\perm}[1]{\ensuremath{\varepsilon_{#1}}}
+
+% unit vector
+  \newcommand{\bmunitvec}[1]{\ensuremath{\hat{\bm{e}}_{{#1}}}} % unit vector
+  \newcommand{\unitvec}[1]{\ensuremath{\hat{e}_{{#1}}}} % unit vector
+
+%
+% Commands to typeset vectors, tensors, and matrix variables
+% in symbol (display) and index forms.
+%
+%
+% Vector symbol. Optional arg #1 is accent over symbol.
+% Usage: \vectorsymbol[\hat]{x}
+  \newcommand{\vectorsymbolvec  }[2][]{\vec{#1{#2}}}
+  \newcommand{\vectorsymbololine}[2][]{\overline{#1{#2}}}
+  \newcommand{\vectorsymboluline}[2][]{\underline{#1{#2}}}
+  \newcommand{\vectorsymbolbold }[2][]{#1{\bm{{#2}}}}
+  \newcommand{\vectorsymbol     }[2][]{\vectorsymbolvec[#1]{#2}}
+%
+% Tensor symbol. Optional arg #1 is accent over symbol.
+% Usage: \tensorsymbol[\hat]{\tau}
+  \newcommand{\tensorsymbolvec  }[2][]{\vec{\vec{#1{#2}}}}
+  \newcommand{\tensorsymbololine}[2][]{\overline{\overline{#1{#2}}}}
+  \newcommand{\tensorsymboluline}[2][]{\underline{\underline{#1{#2}}}}
+  \newcommand{\tensorsymbolbold }[2][]{#1{\bm{{#2}}}}
+  \newcommand{\tensorsymbol     }[2][]{\tensorsymbolbold[#1]{{#2}}}
+%
+% Matrix symbol. Optional arg #1 is accent over symbol.
+% Usage: \matrixsymbol[\hat]{Q}
+  \newcommand{\matrixsymbololine}[2][]{\overline{\overline{#1{#2}}}}
+  \newcommand{\matrixsymboluline}[2][]{\underline{\underline{#1{#2}}}}
+  \newcommand{\matrixsymbolbold }[2][]{#1{\bm{{#2}}}}
+  \newcommand{\matrixsymbolsbrac}[2][]{\left[#1{\bm{#2}}\right]}
+  \newcommand{\matrixsymbol     }[2][]{\matrixsymbolbold[#1]{#2}}
+%
+%
+% Vector index. Optional arg #1 is accent over symbol.
+% Usage: \vectorindex[\hat]{x}{i}
+  \newcommand{\vectorindex}[3][]{#1{{#2}}_{#3}}
+%
+% Tensor index. Optional arg #1 is accent over symbol.
+% Usage: \tensorindex[\hat]{\tau}{ij}
+  \newcommand{\tensorindex}[3][]{#1{{#2}}_{#3}}
+%
+% matrix index. Optional arg #1 is accent over symbol.
+% Usage: \matrixindex[\hat]{Q}{ij}
+  \newcommand{\matrixindex}[3][]{#1{{#2}}_{#3}}
+
+
+%
+% Rotating frame notation.
+% Mixed frame means a fixed frame quantity written in terms of the
+% rotating frame unit vectors.
+%
+  \newcommand{\fix}[1]{{#1}}               % plain symbol   in fixed    frame
+  \newcommand{\rot}[1]{{\hat{#1}}}         % plain symbol   in rotating frame
+  \newcommand{\mix}[1]{{\acute{#1}}}       % plain symbol   in mixed    frame
+% Use this form to note objective scalars, where fix and rot have same value.
+% Can then easily change whether those are typeset as \rot or \fix.
+  \newcommand{\obj}[1]{{\fix{#1}}}         % plain scalar   in rotating frame
+% \newcommand{\obj}[1]{{\hat{#1}}}         % plain scalar   in rotating frame
+
+
+%
+% Specialized commands for fix, rot, mix frame
+% to typeset vectors, tensors, and matrix variables
+% in symbol (display) and index forms.
+%
+%
+% Vector symbols for fix, rot, mix frame.
+% Usage: \fvs{x}{i}
+  \newcommand{\fvs}[2][]{\vectorsymbolvec[#1]{{\fix{#2}}}}
+  \newcommand{\rvs}[2][]{\vectorsymbolvec[#1]{{\rot{#2}}}}
+  \newcommand{\mvs}[2][]{\vectorsymbolvec[#1]{{\mix{#2}}}}
+%
+% Tensor symbols for fix, rot, mix frame.
+% Usage: \fts{\tau}{ij}
+  \newcommand{\fts}[2][]{\tensorsymbolbold[#1]{{\fix{#2}}}}
+  \newcommand{\rts}[2][]{\tensorsymbolbold[#1]{{\rot{#2}}}}
+  \newcommand{\mts}[2][]{\tensorsymbolbold[#1]{{\mix{#2}}}}
+%
+% Matrix symbols for fix, rot, mix frame.
+% Usage: \fms{Q}{ij}
+  \newcommand{\fms}[2][]{\matrixsymbolbold[#1]{{\fix{#2}}}}
+  \newcommand{\rms}[2][]{\matrixsymbolbold[#1]{{\rot{#2}}}}
+  \newcommand{\mms}[2][]{\matrixsymbolbold[#1]{{\mix{#2}}}}
+%
+%
+% Vector index for fix, rot, mix frame.
+% Usage: \fvi[\dot]{x}{i}
+  \newcommand{\fvi}[3][]{\vectorindex[#1]{{\fix{#2}}}{#3}}
+  \newcommand{\rvi}[3][]{\vectorindex[#1]{{\rot{#2}}}{#3}}
+  \newcommand{\mvi}[3][]{\vectorindex[#1]{{\mix{#2}}}{#3}}
+%
+% Tensor index for fix, rot, mix frame.
+% Usage: \fti[\dot]{\tau}{ij}
+  \newcommand{\fti}[3][]{\tensorindex[#1]{{\fix{#2}}}{#3}}
+  \newcommand{\rti}[3][]{\tensorindex[#1]{{\rot{#2}}}{#3}}
+  \newcommand{\mti}[3][]{\tensorindex[#1]{{\mix{#2}}}{#3}}
+%
+% Matrix index for fix, rot, mix frame.
+% Usage: \fmi[\dot]{Q}{ij}
+  \newcommand{\fmi}[3][]{\matrixindex[#1]{{\fix{#2}}}{#3}}
+  \newcommand{\rmi}[3][]{\matrixindex[#1]{{\rot{#2}}}{#3}}
+  \newcommand{\mmi}[3][]{\matrixindex[#1]{{\mix{#2}}}{#3}}
+
+
+%
+% More commands for rotating reference frame.
+%
+% Rotation axis components in fixed frame.
+  \newcommand{\fvia}[1]{\fvi{a}{\fix{#1}}}
+% Rotation axis components in rotating frame.
+  \newcommand{\mvia}[1]{\mvi{a}{\rot{#1}}}
+% Rotating frame origin translational offset vector variable.
+  \newcommand{\FrameTransVecVar}{o}
+% Rotating frame spin vector variable.
+  \newcommand{\FrameSpinVecVar}{\omega}
+% Rotating frame spin tensor variable.
+  \newcommand{\FrameSpinTenVar}{\Omega}
+% Rotation matrix to change from fixed to rotated frame.
+  \newcommand{\FrameRotMatVar}{Q}
+% Rotation angle and rotation rate.
+  \newcommand{\FrameRotAngle}{\ensuremath{\theta}}
+  \newcommand{\FrameRotRate}{\ensuremath{\dot{\theta}}}
+% Frame velocity.
+  \newcommand{\FrameVelVar}{w}
+
+
+%%The following are no longer used and can be removed.
+%%Retained here until we delete the older backup .tex files.
+%
+% \newcommand{\bmfix}[1]{{\bm #1}}         % bold  symbol   in fixed    frame
+% \newcommand{\bmrot}[1]{{\hat{\bm{#1}}}}  % bold  symbol   in rotating frame
+% \newcommand{\bmmix}[1]{{\check{\bm{#1}}}}% bold  symbol   in mixed    frame
+%
+% \newcommand{\vecfix}[1]{\vec{#1}}        % vect  symbol   in fixed    frame
+% \newcommand{\vecrot}[1]{\vec{\hat{#1}}}  % vect  symbol   in rotating frame
+% \newcommand{\vecmix}[1]{\vec{\check{#1}}}% vect  symbol   in mixed    frame
+%
+% \newcommand{      \FrameVel}{w}             % velocity var   of rotating frame
+% \newcommand{   \rotFrameVel}{\hat{w}}       % plain velocity of rotating frame
+% \newcommand{ \bmrotFrameVel}{\hat{\bm w}}   % bold  velocity of rotating frame
+% \newcommand{\vecrotFrameVel}{\vec{\hat{w}}} % vect  velocity of rotating frame
+
+
+% Markers.
+  \newcommand{\marker}{\ensuremath{{\cal M}}}
+  \newcommand{\scaledmarker}{\ensuremath{{\cal S}}}
+
+% Lengths used in description environment.
+  \newlength{\itemIndentLength}
+  \setlength{\itemIndentLength}{1.5ex}
+  \newlength{\descLabelLength}
+  \setlength{\descLabelLength}{\widthof{$\bullet$\hspace{\itemIndentLength}}}
+
+% FIXME command moved to latex/gfr.sty
+
+% QandA environment: 1 optional argument for color of questions (default black)
+  \NewDocumentEnvironment{QandA}{O{black}}
+    {\begin{description}[align=left,
+                         style=nextline,
+                         font=\color{#1}$\bullet$\hspace{\itemIndentLength},
+                         leftmargin=\descLabelLength]}
+    {\end{description}}
+
+% InputList environment
+\NewDocumentEnvironment{InputList}{O{}}
+% Avoid font color and style, since content is often a user input variable
+%   with its own font style and hyperlink color.
+% {\begin{itemize}[align=left,style=nextline,
+%                  font=\color{blue}\slshape,
+%                  leftmargin=\descLabelLength,labelsep=40em]}
+  {\begin{description}[align=left,
+                       style=nextline,
+                       leftmargin=\descLabelLength
+                       ,#1]}
+%                      \IfValueTF{#1}{#1}{}]}
+  {\end{description}}
+
+% Custom itemize environment used for formatting a group
+% of input variables and respective values as an example
+\NewDocumentEnvironment{InputExample}{O{}}
+  {\begin{itemize}[left=3.0em,
+                   align=left,
+                   style=nextline,
+                   topsep=3pt,
+                   noitemsep,
+                   #1]}
+  {\end{itemize}}
+
+% Renaming paragraph as subsubsubsection
+% and aliased to ThreeSubsection
+\newlength{\tmpParagraphLength}
+\NewDocumentCommand{\subsubsubsection}{moo}{
+  \IfValueTF{#3}{
+    \setlength{\tmpParagraphLength}{#3}
+  } {
+    \setlength{\tmpParagraphLength}{0pt}
+  }
+  \IfValueTF{#2}{
+   %\paragraph{#1}\label{#2}{}\ {}\\[\tmpParagraphLength]
+    \paragraph{#1}\label{#2}
+  } {
+   %\paragraph{#1}{}\ {}\\[\tmpParagraphLength]
+    \paragraph{#1}
+  }
+}
+\NewCommandCopy{\ThreeSubsection}{\subsubsubsection}
+
+% Renaming subparagraph as subsubsubsubsection
+% and aliased to FourSubsection
+\NewDocumentCommand{\subsubsubsubsection}{moo}{
+  \IfValueTF{#3}{
+    \setlength{\tmpParagraphLength}{#3}
+  } {
+    \setlength{\tmpParagraphLength}{0pt}
+  }
+  \IfValueTF{#2}{
+   %\subparagraph{#1}\label{#2}{}\ {}\\[\tmpParagraphLength]
+    \subparagraph{#1}\label{#2}
+  } {
+   %\subparagraph{#1}{}\ {}\\[\tmpParagraphLength]
+    \subparagraph{#1}
+  }
+}
+\NewCommandCopy{\FourSubsection}{\subsubsubsubsection}
+
+% Use this wrapper for images, in case we decide to add a box later.
+\NewDocumentCommand{\insertimage}{om}{
+  \IfValueTF{#1}{
+    \includegraphics[#1]{#2}
+  } {
+    \includegraphics{#2}
+  }
+}
+
+% Use this wrapper for subfigure environment, 
+% also for in case we decide to add a box later.
+\NewDocumentCommand{\subfig}{mm}{
+  \begin{subfigure}[t]{#1}\centering#2\end{subfigure}
+}
+
+% Various lengths used throughout for sizing figures and minipages
+\newlength{\imagewidth}
+\newlength{\imageheight}
+\newlength{\mpwidth}
+\newlength{\mpheight}
+%\newlength{\capParSep} \setlength{\capParSep}{4pt}
+\newlength{\capParSep} \setlength{\capParSep}{1.0ex}
+
+%\renewcommand\LTcaptype{}
+% Older versions of longtable package give error from:
+%  \renewcommand\LTcaptype{}
+%  LaTeX Error: No counter '' defined.
+% so give it a dummy counter that is not used.
+\newcounter{dummycounterlongtable}
+\renewcommand\LTcaptype{dummycounterlongtable}

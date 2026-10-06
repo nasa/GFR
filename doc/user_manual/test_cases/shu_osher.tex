@@ -1,0 +1,71 @@
+\subsection{1D Shu-Osher Problem}
+\label{SEC:Testcases:ShuOsher}
+
+\begin{figure}[h!tb]
+  \begin{centering}
+    \begin{subfigure}{3.0in}
+      \insertimage[width=\textwidth]{test_cases/shuosher_start}
+      \caption{Initial condition.}
+      \label{FIG:ShuOsherStart}
+    \end{subfigure}%
+    \begin{subfigure}{3.0in}
+      \insertimage[width=\textwidth]{test_cases/shuosher_final}
+      \caption{\PO[3] results at 1.8 seconds.}
+      \label{FIG:ShuOsherFinal}
+    \end{subfigure}
+    \caption{Shu-Osher test case.}
+    \label{FIG:ShuOsher}
+  \end{centering}
+\end{figure}
+
+In this problem, a right-moving Mach 3 shock interacts with a field of
+small density (or correspondingly entropy) disturbances.
+%
+The initial conditions (in SI units) are given as
+%
+\begin{align}
+    \rho =& 3.857143
+  & u    =& 2.629369
+  & p    =& 10.333333
+  & \text{when $x < -4$}
+  \\
+    \rho =& 1 + \epsilon \sin \left( 5 x \right)
+  & u    =& 0
+  & p    =& 1
+  & \text{when $x \geq -4$}
+\end{align}
+%
+with $\epsilon=0.2$, and are shown in \fref{FIG:ShuOsherStart}.
+%
+\PO[3] solutions on various grid levels using the
+multidimensional limiting process (MLP) are shown in \fref{FIG:ShuOsherFinal}
+at time 1.8 seconds.
+%
+There is no exact solution for this problem, so the results are compared
+with those obtained from the discontinuous Galerkin solver provided in
+\linecite{Hesthaven_2010}.
+
+In order to prevent negative density and\slash or pressure, the following
+limiter options are used.
+\begin{nmldescitem}
+&nml_limiter
+  Global_Filter_Interval    =  0     ! 0=Each Runge-Kutta stage
+  Global_Filter_Option      =  0     ! 0=Off
+  Local_Limiter_Interval    =  0     ! 0=Each Runge-Kutta stage
+  Local_Limiter_Option      =  3     ! 3=MLP
+  Marker_Stored_Interval    =  0     ! 0=Each Runge-Kutta stage
+  Marker_Option             =  3     ! 3=MLP marker
+  Marker_Variable           =  0     ! 0=Default=Density
+  Thermofix%Method          =  2     ! 2=Scale higher modes
+  Thermofix%Scale_Factor    =  0.5
+  Thermofix%Min_Pressure    =  0.750 ! [Pa]
+  Thermofix%Min_Temperature =  0.002 ! [K]
+  Thermofix%Min_Density     =  0.500 ! [kg/m3]
+/
+\end{nmldescitem}
+
+\SeeAlso{
+\inp[nmlInitialization::Initialization]{Initialization}=26,
+\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF}
+}
+

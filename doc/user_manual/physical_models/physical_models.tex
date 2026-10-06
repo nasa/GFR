@@ -1,0 +1,272 @@
+\section{Physical Models}
+
+%###############################################################################
+
+\subsection{Euler and Navier-Stokes Equations}
+
+%###############################################################################
+
+GFR may be used to solve the compressible conservation form of the unsteady
+Navier-Stokes equations, in which all stress tensor and heat transfer terms are
+retained.
+%
+It may also be used to solve the Euler equations, where the viscous terms are
+ignored.
+%
+The fluid by default is modeled as a calorically-perfect gas, but GFR can also
+use one of the preliminary chemistry models included with the code for testing
+thermally-perfect gas mixtures with or without chemical reactions.
+%The fluid may be modeled as a thermally and calorically perfect gas or using
+%one of the chemistry models described in \sref{SEC:Chemistry}.
+%
+In addition, the effects of a rotating reference frame can also be included.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Using the notation described in \sref{SEC:Ref_Frame}
+for the rotating reference frame,
+we define the absolute velocity vector $\fvs{u}$
+with respect to the fixed inertial frame.
+%
+To a stationary observer, a particle in the flow field would appear to
+move at velocity $\fvs{u}$.
+%
+On the other hand, to an observer moving with the rotating axes, the same
+fluid particle would appear to move at a different velocity $\rvs{u}$.
+%
+This is referred to as the relative velocity vector $\rvs{u}$
+with respect to the rotating frame.
+%
+The difference between them is due to the motion of the second observer
+moving with the axes of the non-inertial frame.
+%
+In the general case, the velocity vector of the non-inertial frame is
+$\mvs{\FrameVelVar} = \mts{\FrameSpinTenVar} \rvs{x}
+                    + \fms{\FrameRotMatVar} {\dot{\fvs{o}}}
+                    = \mvs{\FrameSpinVecVar} \crossprod \rvs{x}
+                    + \fms{\FrameRotMatVar} {\dot{\fvs{o}}}
+$.
+%
+(Note that $\mvs{\FrameVelVar}$ should not be confused with
+the spin vector $\mvs{\FrameSpinVecVar}$.
+To avoid such ambiguity, we avoid the spin vector and instead use expressions
+involving the spin tensor $\mts{\FrameSpinTenVar}$.)
+%
+So, the relationship between these three velocity vectors is:
+\begin{gather}
+  \mvs{u} \equiv \fms{\FrameRotMatVar} \fvs{u} = \rvs{u} + \mvs{\FrameVelVar}
+\end{gather}
+%
+Note that $\fms{\FrameRotMatVar} \fvs{u}$ represents the absolute velocity vector
+(\thatis the velocity observed from the fixed frame),
+but written in terms of the non-inertial unit vectors.
+%
+To make the notation compact, we use the symbol $\mvs{u}$.
+%
+For non-inertial flows, thermodynamic properties like density, pressure,
+temperature, viscosity, and thermal conductivity are objective quantities
+meaning they are the same in both reference frames, \thatis
+$\left[\rot{\rho},\rot{p},\rot{T},\rot{\mu},\rot{\lambda}\right] = 
+\left[\rho,p,T,\mu,\lambda\right]$.
+%
+However, as noted in \sref{SEC:Ref_Frame}, kinetic energy and therefore
+total values are perceived differently in each frame.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The Navier-Stokes equations in the non-inertial frame may be written
+in terms of the absolute velocity as follows:
+%
+\begin{gather}
+  \frac{\partial \cvVar}{\partial \rot{t}}
++ \frac{\partial F_j   }{\partial \rot{x}_j}
+= \frac{\partial F_j^v }{\partial \rot{x}_j}
++ S
+\end{gather}
+\begin{align}
+  \cvVar =& \left[
+              \begin{array}{l}
+                \obj{\rho} \\
+                \obj{\rho} \mvi{u}{i} \\
+                \obj{\rho} \fix{e}_t
+              \end{array}
+           \right] &
+  F_j    =& \left[
+              \begin{array}{l}
+                \phantom{\mvi{u}{i}} %% indent for alignment
+                \obj{\rho}           \left( \mvi{u}{j}
+              - \mvi{\FrameVelVar}{j} \right)
+              \\
+                \obj{\rho} \mvi{u}{i}\left( \mvi{u}{j}
+              - \mvi{\FrameVelVar}{j} \right) + \obj{p} \delta_{ij}
+              \\
+                \obj{\rho} \fix{e}_t \left( \mvi{u}{j}
+              - \mvi{\FrameVelVar}{j} \right) + \obj{p} \mvi{u}{j}
+              \end{array}
+            \right] &
+  F_j^v  =& \left[
+              \begin{array}{l}
+                0 \\
+                \rti{\stressvar}{ij} \\
+                \rti{\stressvar}{ij} \mvi{u}{j} - \rvi{\heatfluxvar}{j}
+              \end{array}
+            \right] &
+  S      =& \left[
+              \begin{array}{l}
+                0 \\
+                - \obj{\rho} \, \mti{\FrameSpinTenVar}{ij} \mvi{u}{j} \\
+                0
+              \end{array}
+            \right]
+\end{align}
+%
+where the total energy is given by
+\begin{gather}
+  \obj{\rho} e_t = \frac{\obj{p}}{\gamma-1}
+                 + \frac{1}{2} \obj{\rho} \mvi{u}{i} \mvi{u}{i}
+\end{gather}
+For this form of the energy equation, $e_t$ is the total energy in the
+fixed reference frame.
+ 
+The viscous stress tensor %, $\rti{\stressvar}{ij}$,
+is based on Stokes' hypothesis and given by the equation
+%
+\begin{gather}
+%%% Stress Tensor
+    \rti{\stressvar}{ij}
+ =  2 \,        \obj{\mu} \,  \rti{S}{ij}
+ -  \frac{2}{3} \obj{\mu} \,  \rti{S}{kk} \delta_{ij}
+ \intertext{where the strain rate tensor is computed from}
+%%% Strain Rate Tensor
+    \rti{S}{ij}
+ =  \frac{1}{2}
+    \left( \frac{\partial \rvi{u}{i}}{\partial \rvi{x}{j}}
+         + \frac{\partial \rvi{u}{j}}{\partial \rvi{x}{i}}
+    \right)
+ =  \frac{1}{2}
+    \left( \frac{\partial \mvi{u}{i}}{\partial \rvi{x}{j}}
+         + \frac{\partial \mvi{u}{j}}{\partial \rvi{x}{i}}
+    \right)
+ \\
+%%% Velocity Gradient
+    \frac{\partial \rvi{u}{i}}{\partial \rvi{x}{j}}
+ =  \frac{\partial}{\partial \rvi{x}{j}}
+    \left( \mvi{u}{i} - \mvi{\FrameVelVar}{i} \right)
+ =  \frac{\partial \mvi{u}{i}}{\partial \rvi{x}{j}}
+ -  \mti{\FrameSpinTenVar}{ij}
+\end{gather}
+%
+The heat flux vector, $\rvi{\heatfluxvar}{j}$, is modeled by Fourier's law
+%
+\begin{equation}
+    \rvi{\heatfluxvar}{j}
+ =  -\obj{\lambda} \frac{\partial \obj{T}}{\partial{}\rvi{x}{j}}
+\end{equation}
+%
+where $\obj{\lambda}$ is the thermal conductivity which is related to
+the specific heat at constant temperature, $c_p$,
+and Prandtl number, $\mathrm{Pr}$, through the relation
+%
+\begin{equation}
+   \obj{\lambda} = \frac{\obj{\mu} \, c_p}{\mathrm{Pr}}
+\end{equation}
+%
+For a perfect gas,
+$  c_p = \gamma \rgas / (\gamma - 1).$
+              
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlPhysics]{nml\_physics},
+\inp[nmlReference]{nml\_reference},
+\inp[nmlPhysics::MovingRefFrame/Rotation]{Moving\_Ref\_Frame\%Rotation},
+\inp[nmlPhysics::GoverningEquations]{Governing\_Equations},
+\inp[nmlReference::Gamma]{Gamma},
+\inp[nmlReference::GasConstant]{Gas\_Constant},
+\inp[nmlReference::Prandtl]{Prandtl}
+}
+
+
+%###############################################################################
+
+\subsection{Equation of State}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For a thermally and calorically-perfect gas, the equation of state
+is given by:
+\begin{gather}
+  \label{EQN:EqOfState}
+  p = \rho \rgas T
+\end{gather}
+%
+Note that density, temperature, and pressure are objective scalars
+that have the same values regardless of reference frame.
+
+\SeeAlso{
+\inp[nmlReference::GasConstant]{Gas\_Constant}
+}
+
+%###############################################################################
+
+\subsection{Viscosity}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\key*[key:SutherlandsViscosityLaw]{Sutherland's viscosity law}[=]
+is used to define the laminar viscosity as a function of local temperature.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{gather}
+  \label{EQN:Viscosity_Sutherland}
+  \frac{\mu}{\mu_0} = \left( \frac{T}{T_0} \right) ^{3/2}
+                      \frac{T_0 + S_0}{T + S_0}
+\end{gather}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The coefficients of the model are specified as part of the reference
+conditions described in \sref{SEC:Reference_Conditions},
+and are set by default to those for air:
+%
+$\mu_0 = \scinum{1.716}{-5}  $~\unit{N.s/m^2},
+$  T_0 = 273                 $~\unit{K},
+$  S_0 = 110.4               $~\unit{K}.
+
+\NOTE
+If the \inp[nmlReference::Reynolds]{Reynolds} number is specified in the user input,
+then the $\mu_0$ constant will be adjusted to obtain this Reynolds number.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlReference::SuthMuref]{Suth\_Muref},
+\inp[nmlReference::SuthTref]{Suth\_Tref},
+\inp[nmlReference::SuthSref]{Suth\_Sref},
+\inp[nmlReference::Reynolds]{Reynolds}
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\HIDE{
+\begin{QandA}
+  \item[What viscosity law is used for chemistry?]
+    It depends on which reaction set is used.
+\end{QandA}
+}
+
+%###############################################################################
+\HIDE{
+\subsection{Chemistry}
+\label{SEC:Chemistry}
+}
+
+\HIDE{
+\subsubsection{Related Inputs}
+}
+
+%###############################################################################
+
+\input{sem/sem}
+

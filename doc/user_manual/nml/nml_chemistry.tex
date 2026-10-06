@@ -1,0 +1,289 @@
+\subsection{nml\_chemistry}
+\label{SEC:nml_chemistry}
+\inp*[nmlChemistry]{}[nml\_chemistry][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify control of chemically reacting flows.
+
+\begin{nmlblocklst}[
+,label={LST:nml_chemistry}
+,caption={Namelist nml\_chemistry.}
+]
+&nml_chemistry
+  Disable_Chemical_Reactions       = F
+  Semi_Implicit_Chemistry          = 0
+  Ignition_Method                  = 0
+  Ignition_Start_Timestep          = 0
+  Ignition_Duration                = 1
+  Ignition_Prod2Reac_L2_Ratio_Goal = -1.0
+  Ignition_Max_Temperature         = 1600.0         ! [K]
+  Ignition_Spark_Cap               = 1.0e+12        ! [N/m^2]
+  Ignition_Source_Magnitude        = 20.0
+  Ignition_Source_Radius           = 0.0            ! [m]
+  Ignition_Source_Location         = [0.0,0.0,0.0]  ! [m]
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Disable_Chemical_Reactions = F
+\end{nmldescitem}
+\inp*[nmlChemistry::DisableChemicalReactions]{}[Disable\_Chemical\_Reactions][]
+
+\begin{nmldescbody}
+If running a multi-component gas mixture, setting this to true will disable
+all chemical reactions, \thatis all reaction source terms are set to zero,
+resulting in a simulation of an inert gas mixture.
+ 
+When reactions are disabled, all non-existent chemical species will be
+dropped from the simulation to reduce computational cost. For example, if
+running the 7-species ($\mathrm{H_2}$, $\mathrm{O_2}$, $\mathrm{H_2 O}$,
+OH, H, O, $\mathrm{N_2}$)\slash 7-reaction mechanism for a hydrogen\slash
+air mixture with reactions disabled and the flow initialized to a
+mixture of $\mathrm{H_2}$, $\mathrm{O_2}$, and $\mathrm{N_2}$,
+then the product species $\mathrm{H_2 O}$, OH, H, and O will be dropped
+completely from the simulation.
+%
+If a simulation is run with reactions disabled, any dropped species
+will not be written to the restart files. However, these non-reacting
+restart files can still be used to restart a simulation with reactions
+enabled and the product species will be added to the simulation with an
+initial mass fraction of zero.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Semi_Implicit_Chemistry = 0
+\end{nmldescitem}
+\inp*[nmlChemistry::SemiImplicitChemistry]{}[Semi\_Implicit\_Chemistry][]
+
+\begin{nmldescbody}
+If running a multi-component gas mixture with reactions, this input controls
+the numerical treatment of the reaction source terms:
+
+\begin{tabular}{ @{} r @{ = } p{0.85\linewidth} @{} }
+   0 & Standard explicit treatment of the reaction source terms, which is
+       likely to require the smallest time step.\\
+   1 & Point implicit treatment of the reaction source terms for the species
+       transport equations, using an analytical evaluation of the Jacobian
+       matrix.\\
+   2 & Point implicit treatment of the reaction source terms for the species
+       transport equations, using a numerical approximation of the Jacobian
+       matrix.\\
+  -1 & Use special hard-coded source terms if using the 7-species \slash
+       7-reaction hydrogen\slash air reaction mechanism.
+       Otherwise, the same as option 0.
+\end{tabular}
+
+If the reaction terms require a smaller time step than what would be
+required without reactions, then using a point implicit treatment of the
+reaction source terms may (or may not) allow for using a time step closer
+to the non-reacting case.
+\vspace{3pt}
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Ignition_Method = 0
+\end{nmldescitem}
+\inp*[nmlChemistry::IgnitionMethod]{}[Ignition\_Method][]
+
+\begin{nmldescbody}
+Specifies the ignition method to use for speeding up the startup of chemical
+reactions within the solution.
+
+\begin{tabular}{ @{} r @{ = } p{0.85\linewidth} @{} }
+   0 & Ignition process is disabled.\\
+   1 & A source term of $\rho c_p \Delta T$ is added to the energy equation each
+       Runge-Kutta stage, where $\Delta T = 
+       \inp[nmlChemistry::IgnitionSourceMagnitude]{Ignition\_Source\_Magnitude}
+       / [\#\ \textsf{RK Stages}]$.\\
+   2 & A percentage of the reference total energy, $(\rho e_t)_{\infty}$, is
+       added to the energy equation as a source term. The input
+       \inptext{Ignition\_Source\_Magnitude} specifies the percentage to use, so
+       the source term will be
+       $\inptext{Ignition\_Source\_Magnitude}\times(\rho e_t)_{\infty}$.\\
+   3 & The temperature value specified with
+       \inptext{Ignition\_Source\_Magnitude} is used instead of the actual
+       local temperature for the solution point when computing the species
+       reaction source terms.
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Ignition_Start_Timestep = 0
+\end{nmldescitem}
+\inp*[nmlChemistry::IgnitionStartTimestep]{}[Ignition\_Start\_Timestep][]
+
+\begin{nmldescbody}
+Iteration number to begin using the ignition source terms for chemistry
+reactions.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Ignition_Duration = 1
+\end{nmldescitem}
+\inp*[nmlChemistry::IgnitionDuration]{}[Ignition\_Duration][]
+
+\begin{nmldescbody}
+Specifies the number of time steps for the ignition source term to remain
+active once either the temperature at any solution point reaches
+\inp[nmlChemistry::IgnitionMaxTemperature]{Ignition\_Max\_Temperature} or the
+target goal for the overall ratio of L2(products)\slash L2(reactants),
+\inp[nmlChemistry::IgnitionProd2ReacL2RatioGoal]{Ignition\_Prod2Reac\_L2\_Ratio\_Goal}, 
+within the global solution is achieved. 
+%
+The ignition source terms turn off after this number of time steps are
+completed.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Ignition_Prod2Reac_L2_Ratio_Goal = -1.0
+\end{nmldescitem}
+\inp*[nmlChemistry::IgnitionProd2ReacL2RatioGoal]{}[Ignition\_Prod2Reac\_L2\_Ratio\_Goal][]
+
+\begin{nmldescbody}
+Target goal for the ratio of L2(products)\slash L2(reactants) of the simulation
+to signify that reactions are occurring. Once this goal is met, the ignition
+source terms will continue to be active for the number of time steps specified
+by \inp[nmlChemistry::IgnitionDuration]{Ignition\_Duration}, after which, the
+ignition source terms will be disabled.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Ignition_Max_Temperature = 1600.0  ! [K]
+\end{nmldescitem}
+\inp*[nmlChemistry::IgnitionMaxTemperature]{}[Ignition\_Max\_Temperature][]
+
+\begin{nmldescbody}
+Specifies a value for temperature (in Kelvin) that marks when to begin turning
+off the ignition source terms. Once this temperature has been reached, the
+ignition source terms will continue to be active for the number of time steps
+specified by \inp[nmlChemistry::IgnitionDuration]{Ignition\_Duration}, after
+which, the ignition source terms will be disabled.
+%
+Any solution point that reaches this temperature while the ignition source terms
+are still active will have its ignition source term set to zero.
+%
+When using $\inp[nmlChemistry::IgnitionMethod]{Ignition\_Method}=3$, this means
+the actual local temperature at the solution point will be used to compute the
+reaction source terms instead of the reaction temperature specified by
+\inp[nmlChemistry::IgnitionSourceMagnitude]{Ignition\_Source\_Magnitude}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Ignition_Spark_Cap = 1.0e+12  ! [N/m^2]
+\end{nmldescitem}
+\inp*[nmlChemistry::IgnitionSparkCap]{}[Ignition\_Spark\_Cap][]
+
+\begin{nmldescbody}
+This specifies a maximum limit that can be used for the energy source term
+(in $\mathrm{N}/\mathrm{m}^2$).
+%
+%\FIXME{
+%Are these the correct units for an energy source term? YES.
+%\inptext{Ignition\_Source\_Magnitude} uses Kelvin for ignition source term.
+%When IgnSrcMag is Kelvin, it is multiplied by $\rho c_p$ to create the source
+%term which is then compared to this value.
+%}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Ignition_Source_Magnitude = 20.0
+\end{nmldescitem}
+\inp*[nmlChemistry::IgnitionSourceMagnitude]{}[Ignition\_Source\_Magnitude][]
+
+\begin{nmldescbody}
+Value to use for the ignition source term. The value specified depends on the
+ignition method specified by
+\inp[nmlChemistry::IgnitionMethod]{Ignition\_Method}.
+
+\begin{InputList}
+  \item[$\inptext{Ignition\_Method}=1$]
+    This input represents a temperature value (units of \unitTemp{}) that is
+    used to compute a source term that is added
+    to the energy equation each Runge-Kutta stage. The energy source term is
+    evaluated as $\rho c_p \Delta T$ where $\Delta T = 
+    \inptext{Ignition\_Source\_Magnitude} / [\#\ \textsf{RK Stages}]$.
+  \item[$\inptext{Ignition\_Method}=2$]
+    This value represents a percentage value that is used to add a percentage
+    of the reference total energy, $(\rho e_t)_{\infty}$, as a source term to
+    the energy equation. The energy source term is evaluated as
+    $\inptext{Ignition\_Source\_Magnitude}\times(\rho e_t)_{\infty}$.
+  \item[$\inptext{Ignition\_Method}=3$]
+    This value represents a reaction temperature (units of \unitTemp{}) that
+    is used to compute the species reaction source terms instead of using the
+    actual local temperature for the solution point.
+\end{InputList}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Ignition_Source_Radius = 0.0  ! [m]
+\end{nmldescitem}
+\inp*[nmlChemistry::IgnitionSourceRadius]{}[Ignition\_Source\_Radius][]
+
+\begin{nmldescbody}
+Radius of influence ($R$) for the ignition source terms,
+specified in 
+\key[key:GridScaledUnits]{\emph{grid scaled units}} (\thatis meters)
+as described in \sref{SEC:Grid_Scaling}.
+%
+The behavior depends upon the value ($R$) specified:
+\\
+\begin{tabular}{ @{\qquad} r @{ \quad } p{0.85\linewidth} @{} }
+  $<0$ & The ignition source term will immediately decay
+         as $\exp (-36 r^2 / R^2 )$ from the point specified by
+\inp[nmlChemistry::IgnitionSourceLocation]{Ignition\_Source\_Location}.\\
+  $=0$ & The ignition source is disabled.\\
+  $>0$ & Every point that is within the ignition source radius ($R$)
+         from the \inptext{Ignition\_Source\_Location}
+         will get the full value of the energy source term
+         based on the input value of
+\inp[nmlChemistry::IgnitionSourceMagnitude]{Ignition\_Source\_Magnitude}.
+         For all points outside this radius (R),
+         the ignition source term will decay as
+         $\exp (-36 (r-R)^3 / R^3 )$.
+         The higher exponent realizes a slower initial decay.\\
+\end{tabular}
+\\
+\Fref{FIG:Ignition_Source_Radius} compares the decay profiles.
+
+\input{Figures/Ignition/Ignition_Source_Radius}
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\pagebreak[3]
+\begin{nmldescitem}
+Ignition_Source_Location = [0.0,0.0,0.0]  ! [m]
+\end{nmldescitem}
+\inp*[nmlChemistry::IgnitionSourceLocation]{}[Ignition\_Source\_Location][]%
+
+\begin{nmldescbody}
+\raggedright % Prevent equation from entering right margin.
+The center of the ignition source region, specified in 
+\key[key:GridScaledUnits]{\emph{grid scaled units}} (\thatis meters)
+as described in \sref{SEC:Grid_Scaling}.
+\end{nmldescbody}
+
+%==========================================================================
+

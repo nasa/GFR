@@ -1,0 +1,49 @@
+\subsection{1D Density Pulse Advection}
+\label{SEC:Testcases:DensityPulse}
+
+\begin{figure}[h!tb]
+  \begin{centering}
+    \begin{subfigure}{3.0in}
+      \insertimage[width=\textwidth]{test_cases/density_pulse_start}
+      \caption{Initial condition.}
+      \label{FIG:DensityPulseStart}
+    \end{subfigure}%
+    \begin{subfigure}{3.0in}
+      \insertimage[width=\textwidth]{test_cases/density_pulse_final}
+      \caption{\PO[3] result after advecting one pulse width.}
+      \label{FIG:DensityPulseFinal}
+    \end{subfigure}
+    \caption{Density pulse test case.}
+    \label{FIG:DensityPulse}
+  \end{centering}
+\end{figure}
+
+This test case features the inviscid advection of a density pulse, and can be
+used to assess the numerical dissipation of the scheme.
+%
+\Fref{FIG:DensityPulseStart} shows the starting density profile and the
+available user input parameters for adjusting the center, width, and gap of the
+profile as well as the domain length.
+%
+Gauss, square, triangular, and elliptical pulse shapes with an amplitude of
+1.0~\unitDens{} can be superimposed onto the reference flow
+conditions.
+%
+However, the combination pulse is recommended because it shows the effect on all
+the profiles shapes in one simulation.
+%
+Periodic boundary conditions are applied.
+%
+\Fref{FIG:DensityPulseFinal} shows a sample \PO[3] result using the resolution
+marker to identify troubled cells and applying a filter with
+$\inp[nmlLimiter::LocalFilterOrder]{Local\_Filter\_Order}=4$ to damp
+oscillations.
+
+%\input{test_cases/density_pulse_inp}
+
+\SeeAlso{
+\inp[nmlInitialization::Initialization]{Initialization}=24,
+\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF},
+\inp[nmlTestcasePulse]{nml\_testcase\_pulse}
+}
+

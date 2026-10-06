@@ -1,0 +1,152 @@
+\subsubsection{Adiabatic Viscous\slash No-Slip Wall}
+\label{SEC:BC:Wall:Adiabatic}
+
+The adiabatic viscous\slash no-slip wall boundary condition enforces a
+prescribed wall velocity at the boundary surface with zero heat flux through the
+boundary, \thatis $\partial T/\partial \normal = 0$.
+%
+Note, this boundary condition defaults to a stationary wall with zero wall
+velocity, but this can be overridden by specifying non-zero values for any of
+the boundary condition velocity components.
+%
+The thermodynamic properties for this boundary condition are just copied from
+the interior:
+%
+\begin{alignat*}{1}
+  \rho_\subR & = \rho_\subL \\
+  T_\subR & = T_\subL
+\end{alignat*}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For most use cases, the prescribed wall velocity is simply zero, \forexample a
+stationary flat plate.
+%
+However, there are certain situations where prescribing a non-zero wall velocity
+is needed; a canonical example would be the classic lid-driven cavity problem,
+and a more real-world example would be a spinning hub in a turbomachinery
+problem.
+%
+If the prescribed wall velocity is not rotational, the following components of
+\BCinptext{} directly set the wall velocity for the boundary condition:
+%
+\begin{InputExample}
+  \item[{\BCinpBC[nmlBC::BCInput/VelocityX]{VelocityX}}]
+  \item[{\BCinpBC[nmlBC::BCInput/VelocityY]{VelocityY}}]
+  \item[{\BCinpBC[nmlBC::BCInput/VelocityZ]{VelocityZ}}]
+\end{InputExample}
+%
+If the prescribed wall velocity is rotational, the input array
+%
+\begin{InputExample}
+\item[{\BCinpBC[nmlBC::BCInput/RotationRate]{Rotation\_Rate(1:3)}[Rotation\_Rate]}]
+\end{InputExample}
+%
+is used to specify the rotation rate, $\vec{\Omega}$, (in RPMs) for all wall
+points in the boundary condition.
+%
+%The prescribed wall velocity at each wall point depends on the radius
+%of the wall point to the axis of rotation, $\vec{r}$, and is given by
+%(assuming implicit unit conversions):
+%
+The prescribed wall velocity at each wall point depends on the radius,
+$\vec{r}$, from the axis of rotation to the wall point.
+%
+Since the axis of rotation for rotating boundaries originates from the
+specified 
+\inpBC[nmlBC::BCInput/Periodic/RotationCenter]{RotationCenter}%&
+      [Periodic\%RotationCenter][],
+$\vec{x}_c$, we can also write this in terms of the position vector.
+%
+The relation is given by (assuming implicit unit conversions):
+%
+\begin{equation*}
+  \vec{u}_\subR = \vec{\Omega} \times \vec{r}
+                = \vec{\Omega} \times \left( \vec{x} - \vec{x}_c \right)
+\end{equation*}
+%
+Note, this is different from prescribing a non-rotational wall velocity where
+all wall points are set to the same velocity.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+If using a moving reference frame, the input
+%
+\begin{InputExample}
+  \item[{\BCinpBC[nmlBC::BCInput/IsSpecifiedInMRF]{Is\_Specified\_In\_MRF}}]
+\end{InputExample}
+%
+can be used to simplify the boundary condition inputs for cases involving
+multiple solid wall boundaries with velocities dependent on which reference
+frame the boundary is viewed from.
+%
+An example of this would be a turbomachinery fan containing a spinning hub and
+rotors --- with a rotation rate of $\vec{\Omega}$ --- inside a stationary case,
+which is how this problem is viewed from the inertial\slash fixed\slash absolute
+reference frame.
+%
+However, when viewed from the rotating reference frame, the hub and rotor are
+stationary and the case is now rotating at $(-\vec{\Omega})$.
+%
+Note, the prescribed wall velocity components are specified as the absolute
+velocity components.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+To illustrate the use of \BCinptext{Is\_Specified\_In\_MRF}, let us continue
+with this turbomachinery example of a spinning hub\slash rotor surrounded by a
+stationary case, and our simulation is using a rotating reference frame with
+the same rotation rate as the spinning hub\slash rotor.
+%
+Let \BCinptext[1]{} be the boundary condition inputs for the casing,
+and \BCinptext[2]{} be for the hub\slash rotor.
+%
+Using the default values of zero for the three velocity components, the boundary
+conditions for this case can be provided as:
+%
+\begin{InputExample}
+  \item[{\BCinptext[1]{Is\_Specified\_In\_MRF}} = \fls]
+  \item[{\BCinptext[2]{Is\_Specified\_In\_MRF}} = \tru]
+\end{InputExample}
+%
+One benefit from this approach is that the boundary condition wall velocities
+will automatically adjust if the rotation rate of the rotating reference frame
+is changed.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For this boundary condition, the temperature gradient is the only right gradient
+state treated differently from the other flow-through boundary conditions
+(\eref{EQ:BC:FlowThroughGradient}).
+%
+The adiabatic condition prescribing zero heat flux through the boundary requires
+the temperature gradient to be tangential to the boundary surface.
+%
+This is exactly the same as the temperature gradient boundary condition for the
+slip wall in \sref{SEC:BC:Wall:Slip}, which is
+%
+\begin{equation*}
+  \nabla T_\subR = \nabla T_\subL
+                 - \left(\nabla T_\subL\cdot\normal\right)\normal
+\end{equation*}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\textcolor{red}{
+%%
+%  The viscous wall condition, sometimes referred to as a no-slip wall
+%  condition, enforces the prescribed wall tangential velocity along the
+%  boundary.
+%%
+%  The wall normal velocity is set to zero, resulting in no flux through the
+%  boundary.
+%%
+%  For a non-moving viscous wall, all components of the wall velocity are zero. 
+%%
+%  The adiabatic condition also enforces no heat flux through the boundary, so
+%  there will be no wall-normal temperature gradient.
+%%
+%}
+
+%###############################################################################
+

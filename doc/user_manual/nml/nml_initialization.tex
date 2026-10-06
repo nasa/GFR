@@ -1,0 +1,449 @@
+%##%\FINALFIX{\newpage}
+\subsection{nml\_initialization}
+\label{SEC:nml_initialization}
+\inp*[nmlInitialization]{}[nml\_initialization][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify solution initialization.
+
+\begin{nmlblocklst}[
+,label={LST:nml_initialization}
+,caption={Namelist nml\_initialization.}
+]
+&nml_initialization
+  Initialization                = 1
+  Jet_Init_Func                 = 2
+  Load_Restart_File             = F
+  Restart_File                  = "out.rst"
+  Initial_Solution_File         = ""
+  Initial_Solution_Format       = -99        ! -99 = Unknown
+/
+\end{nmlblocklst}
+% CFL_Reduction_For_Nan_Restart = 2.0
+
+The \key*[key:InitializationSequence]{initialization sequence}[Initialization Sequence]
+is defined with the following precedence:
+\begin{itemize}
+%
+\item
+If the file specified by \inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File}
+exists and \inp[nmlInitialization::InitialSolutionFormat]{Initial\_Solution\_Format} is set to
+a valid value, then the solution data read from the specified file will be
+used as the initialization for a new simulation.
+%
+Note that \inptext{Initial\_Solution\_File} and \inptext{Initial\_Solution\_Format} can be
+set to read an externally generated solution or a GFR restart file.
+%
+The iteration and solution time will be set to zero.
+%
+\item
+If the file specified by \inp[nmlInitialization::RestartFile]{Restart\_File}
+exists and
+\inp[nmlInitialization::LoadRestartFile]{Load\_Restart\_File}=\texttt{T},
+then the solution will be initialized using the data read from
+the specified restart file.
+The iteration and solution time will continue from that in the restart file.
+%
+\item
+Otherwise, the initial solution will be defined based on
+the \inp[nmlInitialization::Initialization]{Initialization} option.
+The iteration and solution time will be set to zero.
+\end{itemize}
+
+\noindent\NOTE
+To continue a simulation from a restart file while preserving the iteration
+and solution time, one should set
+  \inptext{Initial\_Solution\_File}=\texttt{""},
+  \inptext{Load\_Restart\_File}=\texttt{T}, and
+  \inptext{Restart\_File} to the name of the input restart file.
+Many users forget to make these changes, and their simulations start over
+from the previously specified initialization rather than continuing the
+simulation.
+
+
+\devNotes{
+%
+The files specified by \inptext{Initial\_Solution\_File} and \inptext{Restart\_File}
+need to be checked for validity as part of the all the error checks after the
+namelist is read.
+%
+Currently, I think it goes all the way to trying to read the specified restart
+file before finding out if it does not exist, and at that stage it is not
+immediately clear if it is \inptext{Initial\_Solution\_File} or \inptext{Restart\_File}
+that is responsible.
+%
+Earlier error checking can allow for a more graceful abort with a clearer
+message like
+%
+\begin{InputExample}
+  \item[\quoterm{Tried to read \inptext{Initial\_Solution\_File}, but file does not
+  exist!}]
+\end{InputExample}
+%
+immediately after reading the namelist.
+%
+Probably need to also add error checking on if both methods are \quoterm{active}
+and whether that is intentional or not (or do we just use the above
+precedence?).
+%
+} % end devNotes
+%
+\vspace{1.0em} % Add vertical space before next item.
+
+%==========================================================================
+
+%%% The following notes should help when updating this manual in the future.
+%%%
+%%% For cases that support an internally generated grid (IG),
+%%% see subroutine create_internal_grid in internal_grid_mod.f90.
+%%% itestcase:
+%%%   |Transport_Problems|   = |[Vortex_Problems,Advec_Problems]|
+%%%                          = |[Shu_Vortex,Vortex_Transport,Shu_MultiVortex,
+%%%                              Density_Transport,Entropy_Transport]|
+%%%                          = |[5,6,55,7,8]|
+%%%    Taylor_Green_Vortex   =   9
+%%%   |Taylor_Couette_Flow|  = |21|
+%%%   |Freestream_TCF|       = |22|
+%%%   |Pipe_Channel_Flow|    = |25|
+%%%   |CH4_Flame_Speed_Test| = |19|
+%%%   |Sod_Shock_Tube|       = |23|
+%%%   |Density_Pulse_Test|   = |24|
+%%%   |Shu_Osher_Test|       = |26|
+%%%   |Advection_JiangShu|   = |27|
+%%%
+%%% For cases that modify the reference conditions (RC),
+%%% see subroutine initialize_reference in initialization_mod.f90.
+%%% itestcase:
+%%%   Advec_Problems = [Density_Transport, Entropy_Transport] = [7,8]
+%%%  |Shu_Vortex|         =  5,-5
+%%%  |Shu_MultiVortex|    =  55,-55
+%%%  -Vortex_Transport    = -6
+%%%   Taylor_Green_Vortex =  9
+%%%   Taylor_Couette_Flow = 21
+%%%   Sod_Shock_Tube      = 23
+%%%   Shu_Osher_Test      = 26
+%%%   Advection_JiangShu  = 27
+%%%
+%%% For cases that provide an exact solution (ES),
+%%% see sub output_variable in write_cgns_mod.f90.
+%%%   Sod_Shock_Tube         = 23, ExactDensity, ExactPressure
+%%%   Advection_JiangShu     = 27, ExactDensity, ExactPressure
+%%%
+%%% FIXME:
+%%% For cases that modiy the post-procesing (PP),
+%%% see sub init_generic_mod in generic_mod.f90 that writes screen info.
+%%% itestcase:
+%%%   Inviscid_Gaussian_Bump =  3
+%%%   Laminar_BndLyr         =  4
+%%%   THX_Phase_3            = 20
+%%% see sub get_output_variable in postproc_mod.f90.
+%%% itestcase:
+%%%   Inviscid_Gaussian_Bump =  3, Entropy calc
+
+\begin{nmldescitem}
+Initialization = 1
+\end{nmldescitem}
+\inp*[nmlInitialization::Initialization]{}[Initialization][]
+
+\begin{nmldescbody}
+Specifies the test-case\slash problem to solve, primarily affecting the
+initialization and post-processing of the simulation.
+
+\begingroup % limit scope of local commands
+\setlength{\tabcolsep}{0.75\tabcolsep} % shrink column gap
+%%% If descriptions are too long, need p{} to line wrap.
+%\begin{longtable}{ @{} r c c c p{0.75\linewidth} @{} }
+\begin{longtable}{ @{} r c c c l @{} }
+ \toprule
+ Value & IG & RC & PP & Description \\
+ \midrule
+ \endhead
+    1 & . & . & . & Generic flow, initialize to reference conditions.\\
+    2 & Y & . & . & Channel flow.\\
+    3 & . & . & Y & Inviscid Gaussian bump.\\
+    4 & . & . & Y & Laminar subsonic boundary layer.\\
+    5 & Y & Y & . & Shu isentropic Euler vortex, propagating diagonally.\\
+                    \nopagebreak
+   -5 & Y & Y & . & Shu isentropic Euler vortex, stationary.\\
+   55 & Y & Y & . & Shu isentropic Euler vortex, propagating diagonally,
+                    4 total vortices.\\
+                    \nopagebreak
+  -55 & Y & Y & . & Shu isentropic Euler vortex, stationary,
+                    4 total vortices.\\
+    6 & Y & . & . & Isentropic Euler vortex propagating in
+                    \inp[nmlReference::AoAAlpha]{AoA\_Alpha}
+                    direction.\\
+                    \nopagebreak
+   -6 & Y & Y & . & Isentropic Euler vortex propagating only in the
+                    $y$-direction.\\
+    7 & Y & Y & . & Linear advection equation advecting a density profile.\\
+    8 & Y & Y & . & Linear advection equation advecting an entropy profile.\\
+    9 & Y & Y & . & Taylor-Green vortex problem.\\
+   10 & . & . & . & Subsonic jet cases using the SMC000 nozzle.\\
+                    \nopagebreak
+  -10 & . & . & . & Subsonic jet cases using the ARN2 nozzle.\\
+   11 & . & . & . & Supersonic jet cases.\\
+   12 & . & . & . & Infinite cylinder.\\
+   13 & . & . & . & Freestream preservation.\\
+   14 & . & . & . & Reacting backstep.\\
+   15 & . & . & . & 2D diffusion flame fueled with hydrogen.\\
+   16 & . & . & . & 2D diffusion flame fueled with methane.\\
+   17 & . & . & . & Nitrogen\slash Oxygen diffusion.\\
+   18 & . & . & . & Compression corner.\\
+   19 & Y & . & . & Methane flame speed test.\\
+   20 & . & . & Y & THX Phase 3.\\
+   21 & Y & Y & . & Taylor-Couette flow.\\
+   22 & Y & . & . & Freestream Taylor-Couette flow.\\
+   23 & Y & Y & . & 1D Sod shocktube problem.\\
+   24 & Y & . & . & 1D Density pulse test.\\
+   25 & Y & . & . & Annular pipe channel flow.\\
+   26 & Y & Y & . & 1D Shu-Osher problem.\\
+   27 & Y & Y & . & 1D Jiang-Shu density pulse test.\\
+   \bottomrule
+%  \multicolumn{2}{l}{%
+%    \footnotesize{%
+%      $^\dagger$
+%      Supports 
+%      \inp[nmlGrid::GridFormat]{Grid\_Format} = -1 (internally generated grid),
+%      but external grids can be used as well.
+%    }
+%  }
+\end{longtable}
+\endgroup
+
+\noindent
+In the list above, the following designations are made:
+\begin{enumerate}[align=parleft]
+\item[IG]
+This input option supports an
+\key*[key:InternallyGeneratedGrid]{internally generated grid}[=]
+by setting \inp[nmlGrid::GridFormat]{Grid\_Format} = -1 (internal grid),
+but external grids can be used as well.
+Grid resolution can be controlled as described under the
+\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF} input.
+\item[RC]
+This input option overrides any user-specified reference conditions
+in \inp[nmlReference]{nml\_reference} with preset values inside the code,
+which will be written to the screen during code execution.
+\item[PP]
+This input option only affects certain post-processed quantities,
+such as the screen output,
+and the flow will be initialized the same as option 1 (generic flow).
+\end{enumerate}
+
+\NOTE
+This initialization is superseded when either loading a restart file by
+specifying \inp[nmlInitialization::LoadRestartFile]{Load\_Restart\_File}=\texttt{T}
+or using the input \inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File}
+to initializing a simulation from a valid solution file.
+%
+Instead, the flowfield will be read from the corresponding file.
+%
+See the description of the
+\key[key:InitializationSequence]{initialization sequence}
+on \pageref{key:InitializationSequence}.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Jet_Init_Func = 2
+\end{nmldescitem}
+\inp*[nmlInitialization::JetInitFunc]{}[Jet\_Init\_Func][]
+
+\begin{nmldescbody}
+Sometimes when initializing a jet simulation from freestream conditions,
+early transients within the nozzle can be numerically unstable,
+and a better initial solution is desirable.
+
+If \inp[nmlInitialization::Initialization]{Initialization}
+is $\pm 10$ or $11$, \inptext{Jet\_Init\_Func} can be used to
+specify different error function distributions to initialize the
+solution for the ARN2, SMC000, and the supersonic jet geometries.
+%
+The jet geometry (\forexample ARN2, SMC000\cite{Bridges_2011}) used for the
+initialization function depends on the value of \inptext{Initialization}.
+
+\begin{tabular}{ @{} r @{ = } p{0.85\linewidth} @{} }
+  1 & Constant radial blending. \\
+  2 & Blending in both x and r with a constant radial spreading. \\
+  3 & Blending in both x and r with a downstream radial spreading.
+\end{tabular}
+\\
+For any other value, the volume will be initialized to the
+freestream reference conditions.
+
+\IDEA{More detail could be provided on the profile functions.}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Load_Restart_File = F
+\end{nmldescitem}
+\inp*[nmlInitialization::LoadRestartFile]{}[Load\_Restart\_File][]
+
+\begin{nmldescbody}
+Specifies whether or not to read a restart file.
+
+\begin{tabular}{ @{} r @{ = } p{0.85\linewidth} @{} }
+  T & Read and initialize from the restart file given by 
+      \inp[nmlInitialization::RestartFile]{Restart\_File}.\\
+  F & Do not read a restart file, but instead initialize according to
+      \inp[nmlInitialization::Initialization]{Initialization}.
+\end{tabular}
+
+\NOTE
+This will be superseded by
+\inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File} if the
+  specified value is an existing file and
+\inp[nmlInitialization::InitialSolutionFormat]{Initial\_Solution\_Format} is set to a valid
+value.
+%
+The only difference is that this option keeps the iteration number and
+simulation time from the restart file, whereas \inptext{Initial\_Solution\_File}
+resets both to 0.
+%
+See the description of the
+\key[key:InitializationSequence]{initialization sequence}
+on \pageref{key:InitializationSequence}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Restart_File = "out.rst"
+\end{nmldescitem}
+\inp*[nmlInitialization::RestartFile]{}[Restart\_File][]
+
+\begin{nmldescbody}
+File path and name to the solution restart file that will be \emph{read} if
+\inp[nmlInitialization::LoadRestartFile]{Load\_Restart\_File}
+is true.
+%
+%This takes precedence over
+This supersedes
+\inp[nmlInitialization::Initialization]{Initialization},
+but will be superseded by
+\inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File}.
+%
+See the description of the
+\key[key:InitializationSequence]{initialization sequence}
+on \pageref{key:InitializationSequence}.
+%
+The solution will continue from the iteration count and simulation time
+of the restart file.
+
+\NOTE
+This has no effect on the restart files that are \emph{written},
+typically to:
+\\ % Prevent filename from entering right margin.
+  \texttt{Restart\_files/out.<iteration>.rst}.
+\end{nmldescbody}
+
+%==========================================================================
+
+%\begin{nmldescitem}
+%CFL_Reduction_For_Nan_Restart = 2.0
+%\end{nmldescitem}
+%\inp*[nmlInitialization::CFLReductionForNanRestart]{}[CFL\_Reduction\_For\_Nan\_Restart][]
+
+%\begin{nmldescbody}
+%\NOTE
+%This feature is not working.
+%
+%This feature is intended to provide for an automatic recovery
+%for failed solutions by rolling back to a previous state
+%and reducing the timestep.
+%%
+%If an NaN is encountered in a solution, the code will restart from
+%the most recent restart file.
+%%
+%The CFL from when the NaN occurred is divided by
+%\inptext{CFL\_Reduction\_For\_Nan\_Restart} and used to continue
+%the simulation.
+%
+%This feature is most useful on computing systems where manually
+%modifying and resubmitting a job incurs long delays due to the
+%queuing system.
+%%
+%Unfortunately, in many instances this technique is insufficient
+%to overcome the numerical exception, and manual adjustments
+%to the limiting \andor filtering are necessary.
+%
+%%\FIXME{
+%%\begin{enumerate}
+%%\item
+%%REMOVE this input from the code and documentation. Does not work well.
+%%\item
+%%Current code bypasses automatic restart if
+%%  $\inptext{CFL\_Reduction\_For\_Nan\_Restart} > 1$.
+%%\item
+%%There is no other input that enables\slash disables this automatic recovery.
+%%  It is\slash was intended to always be on.
+%%\item
+%%What happens if the input file uses CFL ramping?  Does ramping continue?
+%%\end{enumerate}
+%%}
+%\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Initial_Solution_File = ""
+\end{nmldescitem}
+\inp*[nmlInitialization::InitialSolutionFile]{}[Initial\_Solution\_File][]
+
+\begin{nmldescbody}
+Path to a file that can be \emph{read} for initializing the solution.
+%
+This can be an externally generated solution or a GFR restart file.
+%
+This is essentially the same as loading a restart file,
+except the \emph{\textbf{iteration count and simulation time are reset to 0}}.
+%
+See \key[key:InitializationSequence]{initialization sequence}
+on \pref{\pageref{key:InitializationSequence}} for important details.
+%
+When specifying \inptext{Initial\_Solution\_File}, one must also specify a valid value
+for \inp[nmlInitialization::InitialSolutionFormat]{Initial\_Solution\_Format} as its default
+value will prevent this file from being read.
+
+\NOTE
+This has no effect on the solution files that are \emph{written}.
+
+\NOTE
+After initialization is complete, set \inptext{Initial\_Solution\_File}=\texttt{""}
+so that subsequent simulations will continue from the previous restart file
+rather than starting over again.
+See \pref{\pageref{key:InitializationSequence}}.
+
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Initial_Solution_Format = -99  ! -99 = Unknown
+\end{nmldescitem}
+\inp*[nmlInitialization::InitialSolutionFormat]{}[Initial\_Solution\_Format][]
+
+\begin{nmldescbody}
+Format of the file specified by input
+\inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File}.
+
+\begin{tabular}{ @{} r @{ = } p{0.85\linewidth} @{} }
+  0 & Restart file format.\\
+  3 & Plot3D file format (experimental).
+\end{tabular}
+\\
+\NOTE
+Any other value will prevent the file specified by
+\inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File}
+from being read, and another means will be used to initialize the solution.
+
+\end{nmldescbody}
+
+%==========================================================================
+

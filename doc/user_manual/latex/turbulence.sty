@@ -1,0 +1,95 @@
+% LaTeX2e package turbulence version 1.0
+% Notation for Reynolds- and Favre- Averaged turbulence equations.
+%
+% Modification History
+% YY-MM-DD  Ver  Descritption
+% 03-06-24  1.0  Initial style file created.
+%
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{turbulence}[2003/06/24 LaTeX2e Package Turbulence]
+
+% yhmath conflicts with newtxmath package used by new-aiaa documentclass.
+% Check before loading.
+\@ifpackageloaded{newtxmath}{}{\RequirePackage{yhmath}}
+%\ifx\widering\undefined
+%\RequirePackage{yhmath}
+%\fi
+\RequirePackage{amsmath}
+%
+% Text-mode shortcuts.
+  \newcommand{\karman}{{K$\acute{\mbox{a}}$rm$\acute{\mbox{a}}$n}}
+%
+% Math-mode shortcuts.
+  \newcommand{\ReyBar}[1]{\ensuremath{\bar{#1}}}       % Reynolds average (for single variable)
+  \newcommand{\ReyAve}[1]{\ensuremath{\overline{#1}}}  % Reynolds average
+  \newcommand{\FavBar}[1]{\ensuremath{\tilde{#1}}}     % Favre    average (for single variable)
+  \newcommand{\FavAve}[1]{\ensuremath{\widetilde{#1}}} % Favre    average
+  \newcommand{\ReyFlx}[1]{\ensuremath{#1'}}            % Reynolds fluctuation
+  \newcommand{\FavFlx}[1]{\ensuremath{#1''}}           % Favre    fluctuation
+  \newcommand{\lam}{L}                                 % mark laminar
+  \newcommand{\tur}{T}                                 % mark turbulent
+  \newcommand{\tot}{TOT}                               % mark total (stress)
+%
+% Thermal conductivity
+  \newcommand{\Tcond}{\ensuremath{\text{k}_{\scriptscriptstyle {\text{c}}}}}
+  \newcommand{\ReyBarTcond}{\ensuremath{\ReyBar{\text{k}}_{\scriptscriptstyle {\text{c}}}}}
+%
+% Heat flux variable, vector, laminar vector, and turbulent vector.
+  \newcommand{\heatfluxvar}{\ensuremath{q}}        % Check listing within nomenclature.
+  \newcommand{\heatflux}[1]{\ensuremath{{\heatfluxvar}_{#1}}}
+  \newcommand{\barheatflux}[1]{\ensuremath{\bar{\heatfluxvar}_{#1}}}
+  \newcommand{\heatfluxlam}[1]{\ensuremath{{\heatfluxvar}^{\scriptscriptstyle \lam}_{#1}}}
+% \newcommand{\heatfluxlam}[1]{\ensuremath{{\heatfluxvar}_{{\scriptscriptstyle \lam}_{#1}}}}
+  \newcommand{\heatfluxtur}[1]{\ensuremath{{\heatfluxvar}^{\scriptscriptstyle \tur}_{#1}}}
+% \newcommand{\heatfluxtur}[1]{\ensuremath{{\heatfluxvar}_{{\scriptscriptstyle \tur}_{#1}}}}
+% \newcommand{\heatfluxtot}[1]{\ensuremath{{\heatfluxvar_{#1}}}}
+  \newcommand{\heatfluxtot}[1]{\ensuremath{{\heatfluxvar}^{\scriptscriptstyle \tot}_{#1}}}
+% \newcommand{\heatfluxtot}[1]{\ensuremath{{\heatfluxvar}_{{\scriptscriptstyle \tot}_{#1}}}}
+%
+% Laminar and turbulent viscosity, dynamic and kinematic.
+% \newcommand{\mulam}{\ensuremath{ \mu^{\scriptscriptstyle \lam} }}
+  \newcommand{\mulam}{\ensuremath{{\mu_{\scriptscriptstyle \lam}}}}
+% \newcommand{\mutur}{\ensuremath{ \mu^{\scriptscriptstyle \tur} }}
+  \newcommand{\mutur}{\ensuremath{{\mu_{\scriptscriptstyle \tur}}}}
+  \newcommand{\muturnl}{\ensuremath{{\mu_{\scriptscriptstyle \tur}^*}}}
+% \newcommand{\nulam}{\ensuremath{ \nu^{\scriptscriptstyle \lam} }}
+  \newcommand{\nulam}{\ensuremath{{\nu_{\scriptscriptstyle \lam}}}}
+% \newcommand{\nutur}{\ensuremath{ \nu^{\scriptscriptstyle \tur} }}
+  \newcommand{\nutur}{\ensuremath{{\nu_{\scriptscriptstyle \tur}}}}
+% Command \barnulam not really needed.  Use \nulam instead.
+% \newcommand{\barnulam}{\ensuremath{\bar{\nu}_{\scriptscriptstyle \lam}}}
+  \newcommand{\barnulam}{\ensuremath{\nulam}}
+%
+% Stress variable, tensor, laminar tensor, turbulent tensor, total tensor.
+  \newcommand{\stressvar}{\ensuremath{\tau}}        % Check listing within nomenclature.
+  \newcommand{\stress}[1]{\ensuremath{{\stressvar}_{#1}}}
+  \newcommand{\barstress}[1]{\ensuremath{\bar{\stressvar}_{#1}}}
+  \newcommand{\stresslam}[1]{\ensuremath{{\stressvar}^{\scriptscriptstyle \lam}_{#1}}}
+% \newcommand{\stresslam}[1]{\ensuremath{{\stressvar}_{{\scriptscriptstyle \lam}_{#1}}}}
+  \newcommand{\stresstur}[1]{\ensuremath{{\stressvar}^{\scriptscriptstyle \tur}_{#1}}}
+% \newcommand{\stresstur}[1]{\ensuremath{{\stressvar}_{{\scriptscriptstyle \tur}_{#1}}}}
+% \newcommand{\stresstot}[1]{\ensuremath{{\stressvar}_{#1}}}
+  \newcommand{\stresstot}[1]{\ensuremath{{\stressvar}^{\scriptscriptstyle TOT}_{#1}}}
+% \newcommand{\stresstot}[1]{\ensuremath{{\stressvar}_{{\scriptscriptstyle TOT}_{#1}}}}
+%
+  \newcommand{\pecletnum}{\ensuremath{Pe}}
+  \newcommand{\pecletnumtur}{\ensuremath{Pe_{\scriptscriptstyle \tur}}}
+  \newcommand{\prandtlnum}{\ensuremath{Pr}}
+  \newcommand{\prandtlnumtur}{\ensuremath{Pr_{\scriptscriptstyle \tur}}}
+  \newcommand{\reynoldsnum}{\ensuremath{Re}}
+  \newcommand{\reynoldsnumtur}{\ensuremath{Re_{\scriptscriptstyle \tur}}}
+  \newcommand{\schmidtnum}{\ensuremath{Sc}}
+  \newcommand{\schmidtnumtur}{\ensuremath{Sc_{\scriptscriptstyle \tur}}}
+%
+  \newcommand{\production}{\ensuremath{{\cal P}}}               % TKE production term
+  \newcommand{\isotropicepsilon}{\ensuremath{{\epsilon}_{iso}}} % isotropic dissipation rate
+  \newcommand{\deviatoricepsilon}[1]{\ensuremath{{\epsilon}_{#1}^D}} % deviatoric dissipation rate
+  \newcommand{\pseudoepsilon}{\ensuremath{{\acute{\epsilon}}}}  % eps used in k-eps models
+  \newcommand{\turbtime}{\ensuremath{\tau_t}}                   % turbulent time scale
+%
+  \newcommand{\utau}{\ensuremath{u_{\tau}}}                     % friction velocity
+  \newcommand{\stresswall}{\ensuremath{\stressvar_{\wall}}}     % wall shear stress
+  \newcommand{\wall}{\text{wall}}                               % for wall
+  \newcommand{\edge}{\text{e}}                                  % BL edge
+
+\endinput

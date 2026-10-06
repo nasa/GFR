@@ -1,0 +1,58 @@
+\subsection{2D Isentropic Vortex}
+\label{SEC:Testcases:IsentropicVortex}
+
+\begin{figure}[h!tb]
+  \begin{center}
+    \insertimage[width=3.0in]{test_cases/euler_vortex}
+    \caption{Isentropic Euler vortex test case.}
+    \label{FIG:IsentropicVortex}
+  \end{center}
+\end{figure}
+
+This test case simulates the long term transport of a vortex by a
+uniform base flow over a 2D doubly periodic domain,
+as shown in \fref{FIG:IsentropicVortex}.
+%
+It is aimed at testing a high-order method’s capability to preserve
+vorticity in an unsteady inviscid flow.
+
+The flow solver will internally generate a uniform grid for this case
+if \inp[nmlGrid::GridFormat]{Grid\_Format}=-1.
+%
+Other parameters for this case are specified through the
+\inp[nmlTestcaseVortex]{nml\_testcase\_vortex} namelist block.
+%
+Grid resolution can be adjusted by changing the
+\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF}
+input parameter which specifies the degree-of-freedom (DoF)
+to be applied to each direction.
+%
+The number of grid cells in each direction is determined as:
+%
+\begin{equation*}
+    \left[ \text{\# of cells} \right]
+  = \mathrm{nint}
+    ( \text{\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF}}
+    / ( \text{\inp[nmlNumerics::SolutionOrder]{Solution\_Order}} + 1 )
+    ).
+\end{equation*}
+%
+For example:\\
+\begin{tabular}{@{\qquad}l}
+  \inptext{Internal\_Grid\_DoF} = 200 \\
+  \inptext{Solution\_Order} = 5 \\
+  Grid = 33x33 Cells
+\end{tabular}
+
+This case reaches its final simulation time in
+about 30 seconds using 52 MPI processes.
+%
+A detailed validation of the GFR flow solver for the isentropic vortex
+test case can be found in \linecite{Spiegel_2015}.
+
+\SeeAlso{
+\inp[nmlInitialization::Initialization]{Initialization}=5,
+\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF},
+\inp[nmlTestcaseVortex]{nml\_testcase\_vortex}
+}
+

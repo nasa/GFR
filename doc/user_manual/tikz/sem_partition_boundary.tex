@@ -1,0 +1,183 @@
+\documentclass[border=0pt]{standalone}
+
+\usepackage{tikz}        % drawing macros
+  \usetikzlibrary{math}
+  \usetikzlibrary{calc}  % calculations
+  \usetikzlibrary{arrows}  % arrowheads
+  \usetikzlibrary{arrows.meta}  % arrowheads
+  \usetikzlibrary{decorations.markings}
+\usepackage{tikz-3dplot} % drawing macros 3d
+\usepackage{pgfplots}
+%\pgfplotsset{compat=1.18}
+
+\begin{document}
+
+\tikzmath{
+  \lencell = 2;
+  \ybxval = 4;
+  %
+  \ybxmx = \ybxval;
+  \ybxmn = -1 * \ybxmx;
+  %
+  \yfigmx = 0.2 + \ybxval;
+  \yfigmn = -1 * \yfigmx;
+  %
+  \lgdtxt = 6.0;
+  \lgdsym = \lgdtxt - 0.5;
+  \lgdmnsym = \lgdsym - 0.2;
+  \lgdplsym = \lgdsym + 0.2;
+}
+%
+\begin{tikzpicture}
+  [scale=0.9,
+   cell/.style = {draw=black,thick},
+  %sembox/.style = {draw=semboxblue,very thick,fill=semboxblue,semitransparent},
+   sembox/.style = {draw=semboxblue,very thick,fill=semboxblue,nearly opaque},
+  %sembox/.style = {draw=semboxblue,very thick,fill=semboxblue,very nearly opaque},
+  %sembox/.style = {draw=semboxblue,very thick,fill=semboxblue,ultra nearly opaque},
+   sembnd/.style = {draw=sembndblue,thick,fill=sembndblue},
+   clprta/.style = {draw=partitiona,fill=partitiona,thick},
+   clprtb/.style = {draw=partitionb,fill=partitionb,thick},
+   facpnt/.style = {rectangle,fill=black,minimum size=1.5mm,inner sep=0pt},
+   eddypt/.style = {circle,fill=eddyred,minimum size=1mm,inner sep=0pt},
+   zoninf/.style = {circle,draw=zonelinered,thick,fill=zonered,minimum size=10mm,inner sep=0pt},
+   legend/.style = {font=\normalsize,anchor=west},
+   refpnt/.style = {minimum size=1mm,inner sep=0pt}]
+
+  %
+  \definecolor{yellowfill}{rgb}{0.929411765,0.921568627,0.878431373}
+  \definecolor{yellowdraw}{rgb}{0.768627451,0.741176471,0.592156863}
+ %\definecolor{semboxblue}{rgb}{0.815686274,0.901960784,1.0}
+ %\definecolor{semboxblue}{rgb}{0.815686274,0.952941176,1.0}
+  \definecolor{semboxblue}{RGB}{208,243,255}
+  \definecolor{sembndblue}{RGB}{0,103,206}
+  \definecolor{zonered}{RGB}{255,185,185}
+  \definecolor{zonelinered}{RGB}{255,141,141}
+  \definecolor{eddyred}{RGB}{175,0,0}
+  \definecolor{partitiona}{RGB}{204,255,204}
+  \definecolor{partitionb}{RGB}{255,255,204}
+  %
+  \useasboundingbox (-1.8,\yfigmn) rectangle (14,\yfigmx);
+  %
+  \draw [clprta] ( 0, 0) rectangle (4,4);
+  \draw [clprtb] ( 0, 0) rectangle (4,-4);
+  \draw [sembox] (-1.6,-4) rectangle (1.6,4);
+  %
+  \node at (-0.20000,0      ) [zoninf] {};
+  \node at (-1.21512,-1.2037) [zoninf] {};
+  \node at ( 0.09224, 1.1088) [zoninf] {};
+  \node at (-1.52784, 2.4137) [zoninf] {};
+  \node at ( 1.47928,-1.8615) [zoninf] {};
+  \node at ( 0.20160,-2.4445) [zoninf] {};
+  \node at ( 0.74632, 2.9637) [zoninf] {};
+  \node at ( 1.21032, 1.7112) [zoninf] {};
+  %
+  \node at (-0.20000,0      ) [eddypt] {};
+  \node at (-1.21512,-1.2037) [eddypt] {};
+  \node at ( 0.09224, 1.1088) [eddypt] {};
+  \node at (-1.52784, 2.4137) [eddypt] {};
+  \node at ( 1.47928,-1.8615) [eddypt] {};
+  \node at ( 0.20160,-2.4445) [eddypt] {};
+  \node at ( 0.74632, 2.9637) [eddypt] {};
+  \node at ( 1.21032, 1.7112) [eddypt] {};
+  %
+  \draw [sembnd] (-1.6,-4) -- (-1.6,4);
+  \draw [sembnd] ( 1.6,-4) -- ( 1.6,4);
+  %
+  % Cell boundaries
+  \draw [cell] ( 0, 0) -- ( 4, 0);
+  \draw [cell] ( 0, 4) -- ( 0,-4);
+  \draw [cell] ( 0,-3.2) -- ( 4,-3.2);
+  \draw [cell] ( 0, 3.2) -- ( 4, 3.2);
+  \draw [cell] ( 3.2,-4) -- ( 3.2, 4);
+  %
+  % Face points on SEM boundary
+  \node at (0,-0.24) [facpnt] {};
+  \node at (0, 0.24) [facpnt] {};
+  %
+  \node at (0,-2.96) [facpnt] {};
+  \node at (0, 2.96) [facpnt] {};
+  %
+  \node at (0,-0.96) [facpnt] {};
+  \node at (0, 0.96) [facpnt] {};
+  %
+  \node at (0,-2.24) [facpnt] {};
+  \node at (0, 2.24) [facpnt] {};
+  %
+  \node at (0,-3.44) [facpnt] {};
+  \node at (0, 3.44) [facpnt] {};
+  %
+ %\node at (-0.4,0.5)  [legend] {Cells on Partition A};
+ %\node at (-0.4,-0.5) [legend] {Cells on Partition B};
+  %
+  \draw [sembox] (\lgdmnsym, 2.2) rectangle (\lgdplsym, 2.8);
+  \draw [sembnd] (\lgdmnsym, 2.2) --        (\lgdmnsym, 2.8);
+  \draw [sembnd] (\lgdplsym, 2.2) --        (\lgdplsym, 2.8);
+  %
+  \draw [clprta] (\lgdmnsym,-1.7) rectangle (\lgdplsym,-1.3);
+  \draw [cell]   (\lgdmnsym,-1.7) rectangle (\lgdplsym,-1.3);
+  %
+  \draw [clprtb] (\lgdmnsym,-2.7) rectangle (\lgdplsym,-2.3);
+  \draw [cell]   (\lgdmnsym,-2.7) rectangle (\lgdplsym,-2.3);
+  %
+  \node at (\lgdsym, 1.5) [scale=1.75,eddypt] {};
+  \node at (\lgdsym, 0.5) [scale=0.5,zoninf] {};
+  \node at (\lgdsym,-0.5) [scale=1.5,facpnt] {};
+  %
+  \node at (\lgdtxt, 2.5) [scale=1.0,legend] {SEM Virtual Box};
+  \node at (\lgdtxt, 1.5) [scale=1.0,legend] {Synthetic eddy};
+  \node at (\lgdtxt, 0.5) [scale=1.0,legend] {Zone of influence for eddy};
+  \node at (\lgdtxt,-0.5) [scale=1.0,legend] {Face point of cell on SEM boundary};
+  \node at (\lgdtxt,-1.5) [scale=1.0,legend] {Grid Cells from partition A on SEM boundary};
+  \node at (\lgdtxt,-2.5) [scale=1.0,legend] {Grid Cells from partition B on SEM boundary};
+  %
+ %\draw [cell] (-1.8,\yfigmn) rectangle (14,\yfigmx);
+  %
+  % SEM box x-interval of [-3,-1]
+%%\draw [sembox] (-3,-3) rectangle (-1,3);
+%%%
+%%\node at (-2.125   ,0     ) [zoninf] {};
+%%\node at (-2.75945,-1.2037) [zoninf] {};
+%%\node at (-1.94235, 1.1088) [zoninf] {};
+%%\node at (-2.9549 , 2.4137) [zoninf] {};
+%%\node at (-1.07545,-1.8615) [zoninf] {};
+%%\node at (-1.874  ,-2.4445) [zoninf] {};
+%%\node at (-1.53355, 2.9637) [zoninf] {};
+%%\node at (-1.24355, 1.7112) [zoninf] {};
+%%%
+%%\node at (-2.125  ,0      ) [eddypt] {};
+%%\node at (-2.75945,-1.2037) [eddypt] {};
+%%\node at (-1.94235, 1.1088) [eddypt] {};
+%%\node at (-2.9549 , 2.4137) [eddypt] {};
+%%\node at (-1.07545,-1.8615) [eddypt] {};
+%%\node at (-1.874  ,-2.4445) [eddypt] {};
+%%\node at (-1.53355, 2.9637) [eddypt] {};
+%%\node at (-1.24355, 1.7112) [eddypt] {};
+%%%
+%%\draw [sembnd] (-3,-3) -- (-3,3);
+%%\draw [sembnd] (-1,-3) -- (-1,3);
+%%%
+%%\draw [cell] (-2,-3) -- (-2,3);
+%%\draw [cell] (-2,0) -- (3,0);
+%%%
+%%% Face points on partition B
+%%\node at (-2,-0.3) [facpnt] {};
+%%\node at (-2,-1.4) [facpnt] {};
+%%\node at (-2,-2.8) [facpnt] {};
+%%%
+%%% Face points on partition A
+%%\node at (-2,0.3)  [facpnt] {};
+%%\node at (-2,1.4)  [facpnt] {};
+%%\node at (-2,2.8)  [facpnt] {};
+%%%
+%%\node at (-1.4,0.5)  [legend] {Cells on Partition A};
+%%\node at (-1.4,-0.5) [legend] {Cells on Partition B};
+%%%
+%%\draw [sembox] (4.8,1.7) rectangle (5.2,2.3);
+%%\draw [sembnd] (4.8,1.7) -- (4.8,2.3);
+%%\draw [sembnd] (5.2,1.7) -- (5.2,2.3);
+%%\draw [cell]   (4.8,-2.2) rectangle (5.2,-1.8);
+  %
+\end{tikzpicture}
+
+\end{document}

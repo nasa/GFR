@@ -1,0 +1,526 @@
+\subsubsection{SEM Description and Theory}\label{SEC:SEM:theory}
+
+For turbulent flow, one rarely knows what precise unsteady values to
+specify at the inflow boundary.
+%
+Often, however, time-averaged boundary-layer profile data exists or can be
+estimated based on Reynolds number.
+%
+One way to provide an unsteady turbulent inflow is to add
+an upstream region of grid which has a steady uniform inflow,
+some numerical or physical tripping mechanism, and
+a long run of length for the boundary layer to grow to the desired
+thickness before entering the region of interest.
+%
+Unfortunately, this method is computationally expensive due to the added
+upstream length and unsteady iterations needed to obtain time-averaged
+statistics.
+%
+It also involves numerous parameters related to the trip and run length
+that likely require adjustment and repetition of the whole simulation.
+%
+Furthermore, the method might not even provide an adequate boundary layer
+due to other effects such as upstream surface curvature or pressure gradient.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The synthetic eddy method (SEM)\cite{Jarrin_2006} allows the user to specify a
+time-averaged inflow profile for the mean flow and turbulent stresses.
+%
+The algorithm will then use that data to artificially generate unsteady inflow
+values that, when averaged over a sufficient amount of time, will replicate
+the specified profiles.
+%
+The way in which the SEM works can be summarized as follows.
+%
+\begin{enumerate}
+\item
+The SEM profile file is read to obtain the mean flow and turbulent statistics
+to be imposed on the inflow boundary.
+%
+The height of the SEM profile is determined from the furthest point
+specified in the file.
+%
+\item
+A grid-free virtual upstream volume is created that overlaps the
+physical inflow plane in the streamwise direction.
+%
+\item
+Synthetic eddies with random intensities are randomly seeded within
+this virtual volume.
+%
+\item
+Each grid point on the physical inflow boundary computes its own unique
+fluctuating velocity based on a weighted aggregate of the intensities
+of the synthetic eddies within the specified turbulent length scale.
+%
+\item
+The fluctuating velocity is then combined with the user-provided
+time-averaged profile for the mean flow and turbulent stresses to
+create an unsteady turbulent inflow boundary condition.
+%
+\item
+The eddies within the virtual volume are convected as particles
+using the specified convective velocity in the direction perpendicular to the
+physical inflow plane and updated each time step.
+%
+Every time an eddy leaves the virtual volume, a new eddy,
+with a random intensity, is created at a random location on the inflow face
+of the virtual volume.
+%
+\item
+Repeat the process, starting from step 4.
+\end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The following sections, \ref{SEC:SEM:theory:Nomenclature} --
+\ref{SEC:SEM:theory:ConvectEddies}, provide additional details on
+the SEM implementation in GFR.
+
+%###############################################################################
+
+\subsubsubsection{SEM Nomenclature}
+\label{SEC:SEM:theory:Nomenclature}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this section, we define a number of variables that will be used
+quite often when describing the SEM.
+%
+Since multiple SEM inflow boundaries can be specified in the
+\inp[nmlBC]{nml\_bc} namelist input block, we will use $i$ to represent
+a specific \BCinptext[i]{SEM} instance.\\[12pt]
+%
+\begin{tabular}{%
+      @{\hspace{2.0em}} l%
+      @{\hspace{1.0ex}} c%
+      @{\quad} >{\raggedright\arraybackslash}p{0.8\linewidth}%
+      @{}}
+  %
+  \uBC & $\coloneq$ & The mean velocity at the freestream or edge
+    of the boundary layer in the provided SEM profile file,
+    \BCinpBC[nmlBC::BCInput/SEM/ProfileFile][i]{SEM\%Profile\_File}.
+    See \sref{SEC:SEM:usage:profile} for details of the profile file.\\
+  %
+   & & \\
+  %
+  \lBC & $\coloneq$ & The height of the boundary layer within the SEM
+    profile. It is important to note that \lBC{} is not necessarily the same
+    as \hSEM{} defined below. Ideally, the SEM profile should include the
+    entirety of the boundary layer, so in general, $\hSEM \geq \lBC$.
+    While \lBC{} is used in our description of the boundary layer to be
+    imposed, the SEM algorithm only uses \hSEM{}.\\
+  %
+   & & \\
+  %
+  \uSEM & $\coloneq$ & The SEM convective velocity, which is the speed
+    at which the synthetic eddies are propagated through the SEM box. It is
+    specified using the input
+    \BCinpBC[nmlBC::BCInput/SEM/ConvectiveVelocity]%
+            [i]{SEM\%Convective\_Velocity}.\\
+  %
+   & & \\
+  %
+  \lSEM & $\coloneq$ & The SEM length scale, which determines the
+  \quoterm{zone of influence} or \quoterm{sensory distance} of each synthetic
+  eddy. It is specified using the input
+  \BCinpBC[nmlBC::BCInput/SEM/LengthScale][i]{SEM\%Length\_Scale}.\\
+  %
+   & & \\
+  %
+  \hSEM & $\coloneq$ & The height of the SEM profile. This is obtained
+    from the furthest profile point specified in the SEM profile file.\\
+  %
+   & & \\
+  %
+  \key*[key:SEMVolume]{\vSEM}[Synthetic Eddy Method (SEM)!volume] & $\coloneq$ &
+  The volume of the SEM box, defined by \eref{EQN:VolSEM}.
+  \\
+  %
+   & & \\
+  %
+  \key*[key:EddyVolume]{\vEddy}[eddy volume] & $\coloneq$ &
+  The volume of an eddy,
+  $\lSEM^3$ for a cube or
+  $\sfrac{\pi}{6} \; \lSEM^3$ for a sphere,
+  depending on 
+  \inp[nmlSEM::UseSphericalEddyVolume]{Use\_Spherical\_Eddy\_Volume}.
+  %
+\end{tabular}
+
+%###############################################################################
+
+\subsubsubsection{Create a virtual box at SEM inflow}
+\label{SEC:SEM:theory:VirtualBox}
+
+To summarize how the SEM works, we start with \fref{FIG:SEM:FlatPlate} that
+gives a conceptual illustration of a flat plate case.
+%
+\begin{figure}[tb]
+  \centering
+  \insertimage[width=0.95\textwidth]{sem/traditional_inflow}
+% \caption[Idealized flat plate inflow profile.]{To illustrate the concept of
+% the SEM method, we are using a conceptual drawing of a simple flat plate
+% case. The no-slip wall is the gray surface extending downstream. The blue
+% plane is the inflow boundary surface, and the blue arrows show an idealized
+% flow profile over this flat plate including the boundary layer near the
+% wall.}
+  \caption{Illustration of an inflow profile for a flat plate.}
+  \label{FIG:SEM:FlatPlate}
+\end{figure}
+%
+The no-slip wall is the bottom gray surface extending downstream,
+and the blue plane on the left is the inflow boundary surface.
+%
+The blue arrows show an idealized flow profile over this flat plate including
+the boundary layer near the wall.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The SEM starts by creating a grid-free virtual volume\slash box that overlaps
+the physical inflow plane in the streamwise direction.
+%
+In \Fref{FIG:SEM:box}, the green rectangular box overlapping the blue inflow
+plane represents the virtual volume that is created for the SEM.
+%
+\begin{figure}[tb]
+  \centering
+  \insertimage[width=0.95\textwidth]{sem/sem_box}
+% \caption[SEM box added to flat plate inflow plane.]{The green rectangular box
+% overlapping the blue inflow plane represents the virtual volume that is
+% created to house the SEM.}
+  \caption{Illustration of the SEM virtual volume on flat plate inflow plane.}
+  \label{FIG:SEM:box}
+\end{figure}
+%
+In the streamwise direction ($x$ in this example), assuming the inflow plane is
+located at a constant $x$ value of $x_\subBC$, the SEM box is axially
+centered at $x_\subBC$ and extends upstream and downstream of the inflow
+plane by a distance of the SEM length scale, \lSEM.
+%
+In the spanwise direction ($z$ in this example), the SEM box extends the full
+span of the inflow plane (say from $z_{\textrm{min}}$ to $z_{\textrm{max}}$),
+with an extra \lSEM{} added to both ends.
+%
+In the wall normal direction ($y$ in this example), the SEM box extends from the
+wall surface, $y_{\textrm{wall}}$, to the height of the SEM profile, \hSEM, also
+with an extra \lSEM{} added to both ends.
+%
+The final SEM box is the rectangular volume contained by 
+%
+\begin{gather}
+  \begin{aligned}
+    x_\subBC          - \lSEM & \leq x \leq x_\subBC          + \lSEM \\
+    y_{\textrm{wall}} - \lSEM & \leq y \leq y_{\textrm{wall}} + \hSEM
+                                                              + \lSEM \\
+    z_{\textrm{min}}  - \lSEM & \leq z \leq z_{\textrm{max}}  + \lSEM
+  \end{aligned}
+\end{gather}
+%
+with volume of
+\begin{gather}
+  \label{EQN:VolSEM}
+  \vSEM = (2\lSEM)(\hSEM+2\lSEM)(2\lSEM)
+\end{gather}
+
+%###############################################################################
+
+\subsubsubsection{Define flow profile for SEM}
+\label{SEC:SEM:theory:DefineProfile}
+
+The SEM requires a data file containing mean flow and turbulent stress
+variables for the boundary layer profile that the user wants to impose at
+the SEM inflow.
+%
+Details regarding the required content and format of this data file are given in
+\sref{SEC:SEM:usage:profile}.
+%
+Continuing with the previous flat plate example, \fref{FIG:SEM:InflowProfile}
+shows the boundary layer section of the idealized flow profile, identified by
+the green arrows, which will be imposed at the inflow.
+%
+\begin{figure}[tb]
+  \centering
+  \insertimage[width=0.95\textwidth]{sem/sem_profile}
+  \caption[Illustration of the boundary layer section of the inflow profile.]%
+  {Illustration of the boundary layer section of the inflow profile,
+  shown in green.
+  The mean flow and turbulent stress variables defining this boundary layer
+  are given in a data file that is input to the SEM boundary condition.
+  The SEM will use this profile information to create an unsteady boundary
+  condition with velocity fluctuations that should recreate this profile when
+  averaged over time.}
+  \label{FIG:SEM:InflowProfile}
+\end{figure}
+%
+This flow profile will contain the mean flow variables
+%
+\begin{equation*}
+  \overline{\bm{q}} =
+  \left[\overline{\rho},\overline{u}_i,\overline{T}\right]
+\end{equation*}
+%
+at a set of locations within the boundary layer with an accompanying wall
+distance variable.
+%
+The specific Reynolds stress tensor,
+$R_{ij}=\ReyAve{\ReyFlx{u}_i\ReyFlx{u}_j}$,
+also needs to be provided in the data file
+to transform randomly generated numbers into velocity fluctuations that are
+physically correlated to the turbulent boundary layer profile.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The wall distance for each face point is used to interpolate the mean flow and
+Reynolds stress variables from the profile data to the face point.
+%
+The Cholesky lower-triangular decomposition of the Reynolds stress tensor
+is performed resulting in the following matrix being defined at each face point
+%
+\begin{equation*}
+  L_{ij} = 
+  \left[\begin{array}{ccc}
+    \sqrt{R_{11}} & 0 & 0 \\[1.0ex]
+    \frac{R_{21}}{L_{11}} & \sqrt{R_{22} - L^2_{21}} & 0 \\[1.0ex]
+    \frac{R_{31}}{L_{11}} & \frac{R_{32} - L_{21} L_{31}}{L_{22}} & 
+              \sqrt{R_{33} - L^2_{31} - L^2_{32}}
+  \end{array}\right]
+\end{equation*}
+
+%###############################################################################
+
+\subsubsubsection{Populate virtual box with randomly placed synthetic eddies}
+\label{SEC:SEM:theory:AddEddies}
+
+The SEM box is populated with randomly located synthetic eddies, with the
+general idea shown in \fref{FIG:SEM:InflowBoxEddies}.
+%
+\begin{figure}[tb]
+  \insertimage[width=0.95\textwidth]{sem/sem_eddies}
+  \caption[Illustration of the SEM synthetic eddies.]%
+  {Illustration of the SEM synthetic eddies randomly placed within the
+  SEM virtual box. The red arrows represent the random intensity\slash spin
+  for the eddy in the streamwise direction.}
+  \label{FIG:SEM:InflowBoxEddies}
+\end{figure}
+%
+Each synthetic eddy is not truly an eddy in the physical sense.
+%
+In reality, they are just source points that contain a randomized
+\quoterm{intensity} in each coordinate direction.
+%
+Using a random number generator that produces a value $\sigma$ between 0 and 1,
+each intensity is simply
+%
+\begin{equation*}
+  \epsilon_j = 
+  \begin{cases}
+    -1 & \textrm{if } \sigma\leq 0.5\\
+    +1 & \textrm{if } \sigma > 0.5
+  \end{cases}
+\end{equation*}
+%
+A random number is generated separately for each coordinate direction to get the
+$\pm 1$ intensity value in each direction.
+%
+Since the term \quoterm{intensity} often implies the scale of a variable
+instead of a binary value, it might be better to think of this as a
+positive\slash negative \quoterm{spin} for the eddy in each direction.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The input value for the SEM length scale, \lSEM, determines the
+\quoterm{zone of influence} for each eddy.
+%
+This zone of influence is used in a distance-weighted shape function, described
+in \sref{SEC:SEM:theory:SumFluctuations}, to determine how much an eddy affects
+nearby face points.
+%
+Any face point that is beyond the distance \lSEM{} from the eddy will not be
+affected by the eddy at all.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The volume for an individual eddy,
+\key[key:EddyVolume]{\vEddy}[eddy volume],
+can be thought of as the eddy's total zone of influence.
+%
+By default, the zone of influence is applied separately for each coordinate
+direction, so the volume of an eddy is approximated as a cube, $\vEddy=\lSEM^3$.
+%
+The input
+\inp[nmlSEM::UseSphericalEddyVolume]{Use\_Spherical\_Eddy\_Volume}
+can be used to treat the volume of the eddy as spherical,
+$\vEddy = \sfrac{4}{3} \; \pi \left( \lSEM / 2 \right)^3
+        = \sfrac{1}{6} \; \pi \: \lSEM^3$,
+where \lSEM{} is the diameter of the sphere.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Finally, the number of eddies, $N$, placed in an individual SEM box is
+dependent on
+\key[key:SEMVolume]{\vSEM}[Synthetic Eddy Method (SEM)!volume] and
+\key[key:EddyVolume]{\vEddy}[eddy volume] using the equation
+%
+\begin{equation*}
+  N = [\inp[nmlSEM::BoxNumEddiesMultiplier]{Box\_Num\_Eddies\_Multiplier}]
+      \times \frac{\vSEM}{\vEddy}
+\end{equation*}
+%
+The multiplier is an input that can be used to globally increase or decrease the
+density of eddies within all of the SEM volumes.
+
+%###############################################################################
+
+\subsubsubsection{Sum SEM fluctuations at each face point}
+\label{SEC:SEM:theory:SumFluctuations}
+
+Velocity fluctuations are imposed at each face point on the SEM boundary by
+summing the contributions from each synthetic eddy on that face point.
+%
+Let $u^*_{j,k}$ be the unscaled fluctuating velocity in direction $j$ for face
+point $k$.
+%
+The contribution of the synthetic eddy $n$ towards $u^*_{j,k}$ is given by
+\begin{equation*}
+  u^*_{j,k,n} = \epsilon_j \tentfunc\left(\frac{x_k - x_n}{\lSEM}\right)
+                           \tentfunc\left(\frac{y_k - y_n}{\lSEM}\right)
+                           \tentfunc\left(\frac{z_k - z_n}{\lSEM}\right)
+\end{equation*}
+%
+where
+$\epsilon_j$ is the ``intensity'' or spin in the $j$-coordinate direction, and
+$\tentfunc(a)$ is a distance-weighted shape function. 
+%
+GFR uses a tent function (hence the \tentsymbol) which is defined as
+%
+\begin{equation*}
+  \tentfunc(a) = 
+  \begin{cases}
+    \sqrt{\tfrac{3}{2}}\left(1-\abs{a}\right) & \text{if } \abs{a} < 1 \\
+    0                                         & \text{otherwise}
+  \end{cases}
+\end{equation*}
+%
+The total unscaled fluctuating velocity vector for face point $k$ is
+obtained by summing the influence of all of the eddies on that point.
+%
+\begin{equation*}
+  u^*_{j,k} = \sum_{n=1}^{N} u^*_{j,k,n}
+\end{equation*}
+
+%###############################################################################
+
+\subsubsubsection{Compute BC states using SEM fluctuations}
+\label{SEC:SEM:theory:ComputeBC}
+
+Our ultimate goal is to compute the interior common fluxes from
+\sref{SEC:Intro:FR:Upwind} for each face point on the SEM boundary.
+%
+Since we already know the interior state at each face point (found by evaluating
+the solution polynomial from the interior cell at the face point), all that
+remains is to determine the boundary\slash exterior state for these points.
+%
+Once the unscaled fluctuating velocity has been computed for face point $k$ as
+shown in the previous section, it can be used with the SEM profile
+data that was interpolated to this face point in
+\sref{SEC:SEM:theory:DefineProfile}.
+%
+The scaled fluctuating velocity in coordinate direction $i$, $u'_i$, is computed
+as the matrix multiplication
+%
+\begin{equation*}
+  u'_{i,k} = L_{ij,k} u^*_{j,k}
+\end{equation*}
+%
+Finally, the velocity for the boundary state, $u_{\subBC,i}$, in the coordinate
+direction $i$ is the sum of the mean and fluctuating parts
+%
+\begin{equation*}
+  u_{\subBC,i} = \overline{u}_{i} + u'_i
+\end{equation*}
+%
+where each of these terms is assumed to be unique for the current face point $k$
+so the subscript $k$ has been removed from each term for clarity.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+If the namelist input variable
+\inp[nmlSEM::IncludeThermoFluctuations]{Include\_Thermo\_Fluctuations}%
+=\texttt{.FALSE.} is used, then
+SEM fluctuations will not be applied to the thermodynamic variables from
+the SEM profile.
+%
+The remaining two boundary state variables,
+%If SEM fluctuations are not being applied to the thermodynamic variables from
+%the SEM profile, the remaining two boundary state variables,
+$\rho_\subBC$ and $T_\subBC$, are set to the
+value of the respective variable interpolated from the profile to the wall
+distance of the face point, \thatis
+%
+\begin{align*}
+  \rho_\subBC & = \overline{\rho}_k \\
+  T_\subBC & = \overline{T}_k
+\end{align*}
+%
+If \inp[nmlSEM::IncludeThermoFluctuations]{Include\_Thermo\_Fluctuations}%
+=\texttt{.TRUE.}, then
+SEM fluctuations will be applied to the thermodynamic variables.
+%
+These fluctuations are based on the Strong Reynolds Analogy following
+equations 38 and 39 from Touber and Sandham\cite{Touber_2008}.
+%
+After some simplifications, the temperature fluctuations are given by
+\begin{equation*}
+  T' = \frac{- u' \overline{u}}{c_p}
+\end{equation*}
+%
+Here, $u$ is the component of velocity in the streamwise direction and $c_p$ is
+the specific heat at constant pressure.
+%
+The boundary state temperature is just the sum of the mean and fluctuating
+temperatures
+%
+\begin{equation*}
+  T_\subBC = \overline{T} + T'
+\end{equation*}
+%
+and the boundary state density is then evaluated as
+%
+\begin{equation*}
+  \rho_\subBC = \overline{\rho}\left(1-\frac{T'}{\overline{T}}\right)
+\end{equation*}
+
+%###############################################################################
+
+\subsubsubsection{Convect eddies through the box}
+\label{SEC:SEM:theory:ConvectEddies}
+
+The last part of the SEM is convecting the eddies through the virtual box
+(although, technically, this is the first step of the SEM for every time step
+beyond the initialization).
+%
+All eddies are convected through the SEM box based on the SEM
+convective velocity, \uSEM, specified in the input file.
+%
+With $x_n (t)$ giving the streamwise location of eddy $n$ at time $t$,
+and $\Delta t$ giving the change in time between the current and
+previous time steps, the new streamwise location of the eddy is
+%
+\begin{equation*}
+  x_n (t+\Delta t) = x_n (t) + \uSEM \Delta t
+\end{equation*}
+%
+If the new location for any eddy takes it outside the box, \thatis
+$x_n>x_\subBC+\lSEM$, that respective eddy is deleted, and a new eddy is created
+at a random location on the inflow of the SEM box to take the place of the old
+eddy.
+%
+Because it is highly probable that multiple eddies will leave the box each time
+step, a small randomized offset is added to the streamwise location of each new
+eddy to prevent \quoterm{waves of eddies} that share the same axial location in
+the SEM box.
+
+%###############################################################################
+

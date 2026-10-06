@@ -1,0 +1,216 @@
+\documentclass[border=0pt]{standalone}
+
+\usepackage{tikz}        % drawing macros
+  \usetikzlibrary{math}
+  \usetikzlibrary{calc}  % calculations
+  \usetikzlibrary{arrows}  % arrowheads
+  \usetikzlibrary{arrows.meta}  % arrowheads
+  \usetikzlibrary{decorations.markings}
+\usepackage{tikz-3dplot} % drawing macros 3d
+\usepackage{pgfplots}
+%\pgfplotsset{compat=1.18}
+
+\begin{document}
+
+%\usepackage{tikz}
+%\usepackage{tikz-3dplot}
+%
+\tdplotsetmaincoords{ 75}{ 50}% x-rot,z-rot
+\begin{tikzpicture}[scale=2.5,tdplot_main_coords]
+  \begin{scope}[thick,->]
+    % Inertial Frame
+    \coordinate (O)  at (0,0,0);
+    \begin{scope}
+      \draw (O)  -- +(1,0,0) node[          right= 0]{$\hat{e}_x$};
+      \draw (O)  -- +(0,1,0) node[below=3,  right= 0]{$\hat{e}_y$};
+      \draw (O)  -- +(0,0,1) node[below      left= 0]{$\hat{e}_z$};
+    \end{scope}
+    \node at (-0.5,0.5,-0.5) {Inertial Frame};
+    % Non-Inertial Frame
+    \coordinate (O2)  at (2,0,1);
+    \begin{scope}[dotted,thin,-]
+      \draw (O2) -- +(1,0,0) node[          right= 0]{}; %{$\hat{e}_x$};
+      \draw (O2) -- +(0,1,0) node[below=3,  right= 0]{}; %{$\hat{e}_y$};
+      \draw (O2) -- +(0,0,1) node[below      left= 0]{}; %{$\hat{e}_z$};
+    \end{scope}
+%
+% Use the fortran code to rotate the unit vectors about the specified
+% rotation vector.
+% NOTE: The Fortran source to create this output is commented out at the
+%       bottom of this file, and the output is 
+%--------------------------------------------------------------------------
+% OUTPUT FROM FORTRAN CODE
+%--------------------------------------------------------------------------
+% Info for the rotating frame:
+%   angle_deg =        10.00000
+%   angle_rad =         0.17453
+%   axis      =         0.88465       0.44233       0.14744
+%   omega     =         0.15440       0.07720       0.02573
+%   ex        =         0.99670       0.03155      -0.07483
+%   ey        =        -0.01966       0.98778       0.15461
+%   ez        =         0.07879      -0.15263       0.98514
+%--------------------------------------------------------------------------
+    % Rotation Vector (not a unit vector)
+    \begin{scope}[violet,thick,->]
+      \draw (O2)  -- +(0.88,0.44,0.15) node[right= 0]{$\Omega$};
+    \end{scope}
+    % Rotated Unit Vectors
+    \begin{scope}[red,thick,->]
+%     \draw (O)  -- +( 0.99, 0.03,-0.07) node[          right= 0]{$\hat{e}_x$};
+%     \draw (O)  -- +(-0.02, 0.99, 0.15) node[below=3,  right= 0]{$\hat{e}_y$};
+%     \draw (O)  -- +( 0.08,-0.15, 0.99) node[below      left= 0]{$\hat{e}_z$};
+      \draw (O2) -- +( 0.99, 0.03,-0.07) node[          right= 0]{$\hat{e}_{\hat{x}}$};
+      \draw (O2) -- +(-0.02, 0.99, 0.15) node[below=3,  right= 0]{$\hat{e}_{\hat{y}}$};
+      \draw (O2) -- +( 0.08,-0.15, 0.99) node[below      left= 0]{$\hat{e}_{\hat{z}}$};
+    \end{scope}
+%
+    % Vectors
+    \coordinate (X)  at (2.25,0.25,1.50);
+    \begin{scope}[blue,thick,->]
+      \draw (O)  -- (O2) node[midway, above=1, right=12]{${\mathbf{o}}$};
+      \draw (O2) -- (X)  node[midway,          right   ]{$\hat{\mathbf{x}}$};
+      \draw (O)  -- (X)  node[midway, above            ]{${\mathbf{x}}$};
+    \end{scope}
+    \node at (3.00,0.5,0.70) {Non-Inertial Frame};
+  \end{scope}
+\end{tikzpicture}
+
+\end{document}
+
+%###############################################################################
+%###############################################################################
+%###############################################################################
+
+%!==========================================================================
+%!> Program to compute rotated non-inertial reference frame for tikz image.
+%!==========================================================================
+%program main
+%
+%  implicit none
+%
+%  real, parameter      :: rad_per_deg = 3.14159 / 180.
+%  real, parameter      :: deg_per_rad = 1. / rad_per_deg
+%
+%! rotation angle and axis
+%  real                 :: rot_angle_deg = 10.0
+%  real                 :: rot_angle_rad
+%  real, dimension(3)   :: rot_axis = (/ 0.60, 0.30, 0.10 /)
+%  real, dimension(3)   :: rot_vec
+%  real, dimension(3,3) :: rot_ten
+%
+%! coordinate transformation tensors
+%  real, dimension(3,3) :: Q, Q_inv
+%
+%! x,y,z unit vectors
+%  real, dimension(3)   :: ex  = (/ 1.00, 0.00, 0.00 /)
+%  real, dimension(3)   :: ey  = (/ 0.00, 1.00, 0.00 /)
+%  real, dimension(3)   :: ez  = (/ 0.00, 0.00, 1.00 /)
+%
+%  continue
+%
+%! Rotation angle, (unit) axis, vector, and tensor.
+%  rot_angle_rad = rot_angle_deg * rad_per_deg
+%  rot_axis(:)   = rot_axis(:) / &
+%                  sqrt( rot_axis(1)**2 + rot_axis(2)**2 + rot_axis(3)**2 )
+%  rot_vec(:)    = rot_axis(:) * rot_angle_rad
+%  rot_ten       = get_rot_ten( rot_vec )
+%
+%! Moving frame coordinate transformation tensor, $Q_{ij}$
+%  Q     = get_rotation_matrix(rot_axis,rot_angle_rad) ! fix_to_rot
+%  Q_inv = transpose(Q)                                ! rot_to_fix
+%
+%! Transform x,y,z unit vectors
+%  ex = matmul( Q, ex )
+%  ey = matmul( Q, ey )
+%  ez = matmul( Q, ez )
+%
+%! Output
+%  101 format(a,x,99(f14.5))
+%  write(*,'(a)')   'Info for the rotating frame:'
+%  write(*,101)     '  angle_deg = ', rot_angle_deg
+%  write(*,101)     '  angle_rad = ', rot_angle_rad
+%  call output_vec( '  axis      = ', rot_axis )
+%  call output_vec( '  omega     = ', rot_vec )
+%  call output_vec( '  ex        = ', ex )
+%  call output_vec( '  ey        = ', ey )
+%  call output_vec( '  ez        = ', ez )
+%
+%contains
+%
+%!==========================================================================
+%!> Compute the moving frame rotation rate tensor from the rotation rate
+%!> vector.
+%function get_rot_ten( rot_vec ) &
+%  result(rot_ten)
+%
+%  implicit none
+%
+%  real, dimension(3,3)           :: rot_ten
+%  real, dimension(3), intent(in) :: rot_vec
+%  
+%  real, dimension(3,3,3) :: eijk
+%  integer :: i,j,k
+%
+%! Permutation tensor, $\epsilon_{ijk}$
+%  eijk(:,:,:) =  0.0
+%  eijk(1,2,3) =  1.0
+%  eijk(2,3,1) =  1.0
+%  eijk(3,1,2) =  1.0
+%  eijk(3,2,1) = -1.0
+%  eijk(2,1,3) = -1.0
+%  eijk(1,3,2) = -1.0
+%
+%! Moving frame rotation rate tensor, $\Omega_{ij}$
+%  do k = 1, 3
+%  do j = 1, 3
+%  do i = 1, 3
+%    rot_ten(i,j) = -eijk(i,j,k) * rot_vec(k)
+%  enddo
+%  enddo
+%  enddo
+%
+%  return
+%end function get_rot_ten
+%!==========================================================================
+%!
+%!> Compute the transformation matrix to convert from Cartesian frame to
+%!> a rotating frame defined by unit rotation axis and rotation angle.
+%!>
+%!> Ref: https://en.wikipedia.org/wiki/Rotation_matrix
+%!
+%function get_rotation_matrix(axis,angle) &
+%  result (rot_mat)
+%  !
+%  !.. Formal Arguments ..
+%  real, dimension(3,3)             :: rot_mat !< transformation matrix
+%  real, dimension(3)  , intent(in) :: axis    !< unit vector of rotation axis
+%  real                , intent(in) :: angle   !< angle in radians
+%  !
+%  !.. Local Scalars ..
+%  real :: x, y, z, c, s, omc
+%  !
+%  ! Make axis a unit vector, if not already.
+%  s = sqrt( axis(1)**2 + axis(2)**2 + axis(3)**2 )
+%  x = axis(1) / s
+%  y = axis(2) / s
+%  z = axis(3) / s
+%  c = cos(angle)
+%  s = sin(angle)
+%  omc = 1.0 - c
+%  rot_mat = transpose( &
+%              reshape( (/ x*x*omc +   c , x*y*omc - z*s, x*z*omc + y*s ,  &
+%                          x*y*omc + z*s , y*y*omc +   c, y*z*omc - x*s ,  &
+%                          x*z*omc - y*s , y*z*omc + x*s, z*z*omc +   c /) &
+%                   , (/ 3, 3 /) ) &
+%            )
+%end function get_rotation_matrix
+%!==========================================================================
+%subroutine output_vec(text,v)
+%  character*(*),      intent(in) :: text
+%  real, dimension(3), intent(in) :: v
+%  write(*,101) text,v
+%  101 format(a,x,99(f14.5))
+%end subroutine output_vec
+%!==========================================================================
+%end program main
+

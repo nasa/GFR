@@ -1,0 +1,166 @@
+\subsection{nml\_testcase\_tcf}
+\label{SEC:nml_testcase_tcf}
+\inp*[nmlTestcaseTCF]{}[nml\_testcase\_tcf][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify inputs for the Taylor-Couette flow test case.
+%
+This version of the Taylor-Couette flow case is based on that found
+in \linecite{Wang_2021}, which uses the initial conditions from the Taylor-Green
+vortex problem as inspiration for the initial conditions for this case to speed
+up the time it takes for the flow to become fully turbulent.
+%
+The default values in this namelist determining the domain extents are based on
+that paper.
+%
+The default cell counts here are slightly coarser than their work which used
+64, 20, and 80 grid cells in the respective $x$, $r$, and $\theta$ directions.
+
+\begin{nmlblocklst}[
+,label={LST:nml_testcase_tcf}
+,caption={Namelist nml\_testcase\_tcf.}
+]
+&nml_testcase_tcf
+  Inner_Radius       = 0.5     ! [m]
+  Inner_Wall_Spacing = 0.002   ! [m]
+  Outer_Radius       = 1.0     ! [m]
+  Outer_Wall_Spacing = 0.0025  ! [m]
+  Aspect_Ratio       = 6.2832  ! 2*pi
+  Axial_Cells        = 24
+  Radial_Cells       = 20
+  Azimuthal_Cells    = 48
+  Theta_Shift        = 0.0     ! [deg]
+  Periodic_Sectors   = 1
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Inner_Radius = 0.5  ! [m]
+\end{nmldescitem}
+\inp*[nmlTestcaseTCF::InnerRadius]{}[Inner\_Radius][]
+
+\begin{nmldescbody}
+This gives the radius of the inner wall for the Taylor-Couette flow problem.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Inner_Wall_Spacing = 0.002  ! [m]
+\end{nmldescitem}
+\inp*[nmlTestcaseTCF::InnerWallSpacing]{}[Inner\_Wall\_Spacing][]
+
+\begin{nmldescbody}
+This gives the wall spacing at the inner wall for the Taylor-Couette flow
+problem.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Outer_Radius = 1.0  ! [m]
+\end{nmldescitem}
+\inp*[nmlTestcaseTCF::OuterRadius]{}[Outer\_Radius][]
+
+\begin{nmldescbody}
+This gives the radius of the outer wall for the Taylor-Couette flow problem.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Outer_Wall_Spacing = 0.0025  ! [m]
+\end{nmldescitem}
+\inp*[nmlTestcaseTCF::OuterWallSpacing]{}[Outer\_Wall\_Spacing][]
+
+\begin{nmldescbody}
+This gives the wall spacing at the outer wall for the Taylor-Couette flow
+problem.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Aspect_Ratio = 6.2832  ! 2*pi
+\end{nmldescitem}
+\inp*[nmlTestcaseTCF::AspectRatio]{}[Aspect\_Ratio][]
+
+\begin{nmldescbody}
+This is used to specify the axial length, $l_x$, of the domain for the
+Taylor-Couette flow problem. The length is determined by the equation:
+
+$
+  l_x = \inptext{Aspect\_Ratio} \times
+        \left| \inptext{Outer\_Radius}
+             - \inptext{Inner\_Radius}
+        \right|
+$
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Axial_Cells = 24
+\end{nmldescitem}
+\inp*[nmlTestcaseTCF::AxialCells]{}[Axial\_Cells][]
+
+\begin{nmldescbody}
+This specifies the number of axial cells to use for the Taylor-Couette flow
+problem.
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Radial_Cells = 20
+\end{nmldescitem}
+\inp*[nmlTestcaseTCF::RadialCells]{}[Radial\_Cells][]
+
+\begin{nmldescbody}
+This specifies the number of radial cells to use for the Taylor-Couette flow
+problem.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Azimuthal_Cells = 48
+\end{nmldescitem}
+\inp*[nmlTestcaseTCF::AzimuthalCells]{}[Azimuthal\_Cells][]
+
+\begin{nmldescbody}
+This specifies the number of azimuthal cells to use for the Taylor-Couette
+flow problem.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Theta_Shift = 0.0  ! [deg]
+\end{nmldescitem}
+\inp*[nmlTestcaseTCF::ThetaShift]{}[Theta\_Shift][]
+
+\begin{nmldescbody}
+This specifies an angle (in degrees) to shift the grid in theta for the
+Taylor-Couette flow problem. The purpose of this input is to rotate the grid
+so that a cell boundary is not located at the angle 0\slash 360 degrees.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Periodic_Sectors = 1
+\end{nmldescitem}
+\inp*[nmlTestcaseTCF::PeriodicSectors]{}[Periodic\_Sectors][]
+
+\begin{nmldescbody}
+This input can be used to run only a sector of the Taylor-Couette flow
+problem. This value specifies how many pie slices to divide the grid into,
+with the final grid domain consisting of only one pie slice.
+\end{nmldescbody}
+
+%==========================================================================
+

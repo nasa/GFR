@@ -1,0 +1,184 @@
+\subsubsection{Setting Boundary Condition through Name Match}
+\label{SEC:BC:NameMatch}
+
+\NOTE The method described here for assigning a boundary condition type should
+be avoided.
+%
+Instead, \BCinpBC[nmlBC::BCInput/SetBCValue]{Set\_BC\_Value} should be used to
+specify the boundary condition type for all boundary conditions.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For a given boundary condition, if both \inptext{Set\_BC\_Value} is not set and
+a boundary condition type is not provided by the grid file, GFR will attempt to
+assign a boundary condition type based on the boundary condition name.
+%
+This was the previous method used by GFR before \BCinptext{} was added to the
+code.
+%
+It was retained for backwards compatibility mainly for use with Plot3D grid
+files, but was included as a double redundancy for other grid files.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Before continuing, it should be noted that it is \emph{highly recommended} that
+all boundary condition types are specified in the input file using
+\inptext{Set\_BC\_Value}.
+%
+If using a CGNS grid file, it is also good practice that each boundary condition
+is given a GFR-compatible boundary condition type in the grid file as backup.
+%
+As stated at the beginning of this section, this method of using the boundary
+condition name to assign a boundary condition type should be avoided.
+%
+It is only documented here to make the user aware that this behavior exists
+within the code.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The name for the boundary condition is taken from \BCinptext{Name} if provided;
+otherwise, it is taken from the name assigned to the boundary condition in the
+grid file.
+%
+The boundary condition name is parsed for keywords which will assign
+certain boundary conditions depending on any keywords that might be found.
+%
+Before checking for a name match, the boundary condition name is processed
+through the following steps to create a final character string for matching:
+%
+\begin{itemize}
+  \item All alphabet characters are converted to upper case.
+  \item All spaces, underscores, and hyphens are removed.
+  \item The substring \quotett{SUPERSONIC} is reduced to \quotett{SUP}.
+  \item The substrings \quotett{BOUNDARY}, \quotett{BC}, and \quotett{SONIC} are
+    removed.
+\end{itemize}
+%
+At this point, two special checks are attempted on the remaining string.
+%
+If any substring within the remaining string matches \quotett{SEM} or
+\quotett{PERIODIC}, \inptext{Set\_BC\_Value} will be set to an SEM boundary
+condition or a periodic boundary condition, respectively.
+%
+If neither of those substrings exist, then the remaining strings from
+\tref{TBL:BC:NameMatch} will be used to provide a positive name match and
+successfully assign a boundary condition type.
+%
+The first column of \tref{TBL:BC:NameMatch} lists the boundary condition value
+assigned to \inptext{Set\_BC\_Value} if, after manipulating \inptext{Name}
+using the above steps, the string that remains is equivalent to any of the
+strings in the last column.
+%
+If no name match is made, \inptext{Set\_BC\_Value} is set to \texttt{-9999}
+(Unknown boundary condition) and GFR will stop with an error message.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{table}[tb]
+  \centering
+% \caption{List of strings that will provide a positive match when trying to
+%          assign the type of boundary condition based on a name match.}
+  \caption{Boundary condition name strings.}
+  \label{TBL:BC:NameMatch}
+  \small{
+  \begin{tabular}{ @{} r l @{\quad} c @{\qquad} l @{} }
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \toprule
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   %\multirow[b]{2}{*}{Section \#} &
+   %\multirow[b]{2}{*}{Boundary Condition Description} &
+    \inptext{Set\_BC\_Value} & 
+    Boundary Condition &
+    Section \# &
+    Matching Strings \\
+   %(PW \texttt{"CAE Type"}) & Value & & \\ % Header bottom row
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \midrule
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        1 & General Inflow
+          & (\ref{SEC:BC:Inflow:General})
+          & \quotett{INFLOW} \quotett{INLET} \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        2 & Subsonic Inflow
+          & (\ref{SEC:BC:Inflow:Subsonic})
+          & \quotett{SUBINFLOW} \quotett{SUBIN} \\
+      & & & \quotett{INFLOWSUB} \quotett{INSUB} \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        3 & Supersonic Inflow
+          & (\ref{SEC:BC:Inflow:Supersonic})
+          & \quotett{SUPINFLOW} \quotett{SUPIN} \\
+      & & & \quotett{INFLOWSUP} \quotett{INSUP} \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        5 & SEM Turbulent Inflow
+          & (\ref{SEC:BC:Inflow:SEM})
+          & \quotett{SEM} \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+       11 & General Outflow
+          & (\ref{SEC:BC:Outflow:General})
+          & \quotett{OUTFLOW} \quotett{EXIT} \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+       12 & Subsonic Outflow
+          & (\ref{SEC:BC:Outflow:Subsonic})
+          & \quotett{SUBOUTFLOW} \quotett{SUBOUT} \\
+      & & & \quotett{OUTFLOWSUB} \quotett{OUTSUB} \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+       13 & Supersonic Outflow
+          & (\ref{SEC:BC:Outflow:Supersonic})
+          & \quotett{SUPOUTFLOW} \quotett{SUPOUT} \\
+      & & & \quotett{OUTFLOWSUP} \quotett{OUTSUP} \\
+      & & & \quotett{EXTRAP} \quotett{EXTRAPOLATE} \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+       21 & Characteristic Inflow\slash Outflow
+          & (\ref{SEC:BC:Farfield:Characteristic})
+          & \quotett{CHARACTERISTIC} \quotett{CHAR} \quotett{CHARACTER}
+          \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+       22 & General Inflow\slash Outflow
+          & (\ref{SEC:BC:Farfield:General})
+          & \quotett{GENERAL} \quotett{FREEFLOW} \quotett{FARFIELD} \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+       23 & Freestream (Fixed) Farfield
+          & (\ref{SEC:BC:Farfield:General})
+          & \quotett{FREESTREAM} \quotett{REFERENCE} \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+       24 & Fixed Farfield
+          & (\ref{SEC:BC:Farfield:General})
+          & \quotett{FIXED} \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+       50 & Slip Wall
+          & (\ref{SEC:BC:Wall:Slip})
+          & \quotett{SWALL} \quotett{SLIP} \quotett{SLIPWALL} \\
+      & & & \quotett{WALLINVISCID} \\
+      & & & \quotett{EWALL} \quotett{EULER} \quotett{EULERWALL} \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+       52 & Adiabatic Wall
+          & (\ref{SEC:BC:Wall:Adiabatic})
+          & \quotett{AWALL} \quotett{ADIABATIC} \quotett{WALL} \\
+      & & & \quotett{WALLVISCOUS} \quotett{WALLVISCOUSHEATFLUX} \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+       53 & Isothermal Wall
+          & (\ref{SEC:BC:Wall:Isothermal})
+          & \quotett{IWALL} \quotett{ISOTHERMAL} \\
+      & & & \quotett{WALLVISCOUSISOTHERMAL} \\[0.5em]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+       80 & Symmetry Boundary
+          & (\ref{SEC:BC:Numerical:Symmetry})
+          & \quotett{SYMM} \quotett{SYMMETRY} \quotett{SYMMETRYPLANE} \\
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+       81 & Periodic Boundary
+          & (\ref{SEC:BC:Numerical:Periodic})
+          & \quotett{PERIODIC} \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\devNotes{Need to modify \inptext{bc\_string\_to\_integer} so that
+\quotett{GENERAL} returns \quotett{bc\_generic\_freeflow}. Also need to add
+matches for \inptext{SUBIN, INSUB, SUPIN, INSUP, SUBOUT, OUTSUB, SUPOUT,
+OUTSUP}. Also need to add removal of hyphens.}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

@@ -1,0 +1,121 @@
+\subsection{Grid Input}
+\label{SEC:Files:Grid_Input}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For specific test cases with trivial geometry, the flow solver will internally
+generate a grid.
+%
+In general, though, the user must provide the mesh to be used for the
+simulation.  
+%
+Grids that are two- or three-dimensional, structured or unstructured, can be
+read from 
+  CGNS,
+  Plot3D, or
+  Gmsh (very limited support)
+files.
+%
+The GFR code will always assume the grid coordinates are in units of meters.
+%
+However, sometimes it can be easier or more useful to generate a grid in other
+units~---~we refer to these as
+\key[key:GridUnits]{\emph{grid units}}[grid units] which could be in anything
+from millimeters, to inches, or even nondimensional~---~and the user-specified
+input \inptext{Grid\_Scaling\_Factor} provides a way to scale these grid units
+to meters as assumed by the solver.
+%
+See \sref{SEC:Grid_Scaling} and
+\inp[nmlGrid::GridScalingFactor]{Grid\_Scaling\_Factor} for more information.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+If any of the surface geometries contain curvature, it is \emph{highly}
+recommended to use a high-order curved grid with at least \PO[2] grid cells to
+accurately represent the surfaces with curvature.
+%
+This recommendation is simply so that the grid represents the curved boundary
+surfaces with at least some amount of curvature and not linear segments.
+%
+Increasing the grid order to \PO[3+] can help improve the simulation accuracy,
+but how much of an improvement depends on the flow conditions, the amount of
+curvature in individual cells (think coarse cells with high curvature), etc.
+%
+One example scenario that can show improved accuracy and stability from
+increasing the grid order to \PO[3+] is when significant regions of the geometry
+surfaces are defined by circles, \thatis cylindrical\slash axisymmetric or
+spherical geometries, simply because a \PO[3+] polynomial provides a markedly
+better approximation of a circle compared to a \PO[2] polynomial approximation.
+%
+Note, the grid order and solution order are completely independent.
+%
+The grid order does not need to match or exceed the solution order, or vice
+versa.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Grid files are currently subject to the following limitations:
+%
+\begin{itemize}
+  \item
+    GFR does not support structured zones in CGNS grid files.
+  \item
+    Gmsh grid files should be avoided since GFR only supports Gmsh files in the
+    older ASCII Legacy Version 2 format, and the Gmsh grid reader has been
+    minimally tested.
+  \item
+    Multizone grids must have contiguous, point-matched, non-overlapping faces.
+  \item
+   %Only 2D quadrilateral or 3d hexahedral elements are permitted.
+    Only the element types described in \sref{SEC:Element_Types} are permitted.
+  \item
+    GFR does not support elements with collapsed faces or edges. 
+    %
+    For example, this can happen if trying to create a 3D axisymmetric
+    unstructured grid by rotating a 2D unstructured grid about a pole boundary,
+    and the 2D grid contains one or more quad cells with only a single node on
+    the pole boundary.
+    %
+    This will create an invalid hexahedral element with a single collapsed edge
+    at the pole boundary.
+    %
+    In this particular situation, it is generally recommended to create the 2D
+    grid such that it does not go all the way to the pole boundary \slash
+    rotation axis, create the 3D grid by rotating the 2D grid about the rotation
+    axis, and finally create a separate 3D grid within the void that is created
+    along the rotation axis.
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The flow solver hides much of the complicated grid manipulation from the user.
+%
+During the flow solution process, structured grids are converted to unstructured
+quadrilaterals or hexahedra, multizone grids are merged, and redundant faces are
+removed.
+%
+The required number of solution points will then be inserted into the cell
+volume for the specified solution order.
+%
+The coordinates of these points are determined using linear interpolation
+between the cell vertices and the chosen Gauss or Lobatto locations.
+%
+The domain is then partitioned to make efficient use of the computational
+resources available.
+%
+Before output files are generated, the domain is recombined to simplify flow
+visualization.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+  \inp[nmlGrid::GridFile]{Grid\_File},
+  \inp[nmlGrid::GridFormat]{Grid\_Format},
+  \inp[nmlGrid::GridScalingFactor]{Grid\_Scaling\_Factor},
+  \inp[nmlInitialization::Initialization]{Initialization},
+  \inp[nmlNumerics::LocSolutionPts]{Loc\_Solution\_Pts},
+  \inp[nmlNumerics::SolutionOrder]{Solution\_Order}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

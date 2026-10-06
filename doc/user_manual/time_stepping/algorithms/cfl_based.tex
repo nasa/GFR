@@ -1,0 +1,125 @@
+\subsubsection{CFL-based Time Stepping}
+\label{SEC:Time:Algorithms:CFL}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The majority of the Runge-Kutta methods in GFR use a time step that is loosely
+based on the CFL condition.
+%
+With \CFLmax{} being the maximum stable CFL value for a given method, the
+maximum time step size, \dt, allowed for the method is
+%
+\[ \dt = \frac{h}{\eigmax}\:\CFLmax \]
+%
+where $h$ is a characteristic length scale for the cell and \eigmax{} is the
+magnitude of the maximum eigenvalue for the governing equations, also sometimes
+referred to as the spectral radius.
+%
+For traditional ERK methods, \CFLmax{} is somewhere in the range of 0.2--2.0.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+GFR uses an approximation to compute the ratio $h/\eigmax$, which means
+\CFLmax{} --- which is a property of a given ERK method that can be analytically
+determined --- no longer applies.
+%
+The \inp[nmlTimestep::CFL]{CFL} used by GFR is analogous to the true \CFLmax{}
+in that it scales the GFR approximation of $h/\eigmax$ to determine \dt.
+%
+The GFR \inptext{CFL} is generally on the same order as \CFLmax, with stable
+values ranging between 0.5--10.0 depending on the ERK method being used.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Most ERK methods implemented in GFR have been implemented using a low-storage
+algorithm that requires three registers per stage (3S*).\cite{Ketcheson_2010}
+%
+The low-storage 3S* algorithm for $s$ stages is shown in
+\cref{ALG:Time:Algorithms:OERK}.
+%
+\input{Figures/timestepping/combined_rk_alg}%
+%
+A register is essentially an array that consumes the same amount of memory as
+the solution array, \thatis all the conserved variables at all the solution
+points.
+%
+The three registers required are: 1) the actual solution array for the current
+Runge-Kutta stage, $S_1$; 2) the solution array from the previous iteration,
+$S_3$, and 3) an auxiliary array, $S_2$.
+%
+The function $\bm{\mathrm{R}}\left(t^n,u^n\right)$ represents the evaluation of
+the right-hand-side residual of the system of equations, where $t^n$ and $u^n$
+are respectively the time and solution at iteration $n$, and $\Delta t$ is the
+change in time for the current iteration.
+%
+The low-storage 3S* coefficients [$\gamma_{1,i}$, $\gamma_{2,i}$,
+$\gamma_{3,i}$, $\delta_i$, $\beta_i$, $c_i$] can be found in the references for
+the ERK schemes.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+There are two different methods in GFR for computing an approximation to
+\eigmax.
+%
+When
+\inp[nmlTimestep::TimestepType]{$\left|\text{Timestep\_Type}\right|$}[Timestep\_Type]=1,
+\eigmax{} is computed in each cell by taking the maximum value of the spectral
+radius evaluated at each face point of the cell.
+%
+This is the recommended method to use.
+%
+When \inptext{$\left|\text{Timestep\_Type}\right|$}=2, \eigmax{} is computed in
+each cell by taking the maximum value of the inviscid eigenvalue evaluated at
+each solution point of the cell.
+%
+This second method is experimental and not recommended.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsubsection{Global CFL-based Time Stepping}
+\label{SEC:Time:Algorithms:CFL:Global}
+
+Global time stepping is required for time-accurate simulations like LES.
+%
+When using CFL-based time stepping, a global time step is used when
+$\inptext{Timestep\_Type}>0$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+At the beginning of each solver iteration, each grid cell computes its own
+unique time step size, and the minimum time step size across all grid cells
+is taken to be the global time step size that all cells use to update their
+solutions in time.
+%
+Using the same time step size for all cells ensures that the solution across the
+entire computational domain is synchronized in time, and taking the minimum time
+step size ensures stability for all cells.
+%
+This of course leads to the inefficiency in that the cell with the smallest time
+step size \quoterm{slows} all the other cells down.
+%
+This makes global time stepping inefficient for steady-state problems.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsubsection{Local CFL-based Time Stepping}
+\label{SEC:Time:Algorithms:CFL:Local}
+
+A local time step is used when $\inptext{Timestep\_Type}<0$.
+%
+For CFL-based local time stepping, each cell uses its own time step size to
+advance the simulation in time.
+%
+At the beginning of each solver iteration, each grid cell computes its own
+unique time step size that is used to update the solution within the cell at
+the end of each Runge-Kutta stage.
+%
+Small cells with strong gradients tend to have the smallest local time step.
+%
+Since all cells are updated with different time step sizes, this can only be
+used for steady-state simulations and cannot be used for time-accurate
+simulations (\forexample LES) which require all cells to be synchronized in
+time.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

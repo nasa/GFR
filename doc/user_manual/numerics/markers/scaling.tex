@@ -1,0 +1,107 @@
+\subsubsection{Scaling the Marker Results to Identify Troubled Cells}
+\label{SEC:ScaledMarker}
+\key*{}[marker!scaled marker]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+From the local marker, a local {\em scaled} marker can be computed
+\begin{align}
+    \label{EQN:ScaledResolutionMarker}
+    \scaledmarker
+ =& \begin{cases}
+      0                                  &
+      \phantom{\bigl|} \zeta \phantom{\bigr|} \leq -\pi/2
+ \\
+      \left( 1 + \sin \zeta \right) / 2  & 
+               \bigl|  \zeta          \bigr|  \leq  \pi/2
+ \\
+      1                                  & 
+      \phantom{\bigl|} \zeta \phantom{\bigr|} \geq  \pi/2
+    \end{cases}
+  & 
+    \zeta
+ =& \frac{\pi}{2} \, \frac{ \marker - \Psi_0 }{ \Delta \Psi }
+\end{align}
+where
+\begin{align}
+    \Psi_0 =& -\left[ C_1 + C_2 \log_{10} (\PO) \right]
+  & \Delta \Psi =& 0.5
+\end{align}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+As shown in \fref{FIG:Scaled_Marker}, the scaled marker varies between
+0 (region to retain) and 1 (region to filter).
+%
+Other works sometimes use this smooth variation to modify the
+strength of the dissipation applied.
+%
+In GFR, this smoothly varying scaled marker can be output for
+visualization purposes.
+%
+However, troubled cells are simply identified by
+${\cal S} > \scinum{1.0}{-8}$.
+%
+This approach is more aggressive at identifying troubled cells.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{figure}
+  \begin{centering}
+    \insertimage[width=4.0in]{Scaled_Marker/Scaled_Marker}
+    \caption{Scaled Marker}
+    \label{FIG:Scaled_Marker}
+  \end{centering}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Description for the old version, when $(C_1,C_2)$ were still inputs:
+%
+% The default values of the $(C_1,C_2)$ coefficients are
+% (4.00,4.25) when using the resolution marker and
+% (2.25,3.00) when using the jump marker.
+% %
+% GFR allows one to either specify $(C_1,C_2,\Delta\Psi)$
+% or to directly specify
+% \inp[nmlLimiter::MarkerMin]{Marker\_Min} = $\Psi_{min}$
+%                                          = $(\Psi_0-\Delta\Psi)$ and
+% \inp[nmlLimiter::MarkerMax]{Marker\_Max} = $\Psi_{max}$
+%                                          = $(\Psi_0+\Delta\Psi)$
+% in which the variation in the scaled marker $\scaledmarker$ occurs.
+
+The default values of the $(C_1,C_2)$ coefficients are
+$(4.0,4.25)$ when using the resolution marker and
+$(2.25,3.0)$ when using the jump marker.
+%
+GFR will use $(C_1,C_2,\Delta\Psi)$ to compute 
+$\Psi_{min} = \Psi_0-\Delta\Psi$ and
+$\Psi_{max} = \Psi_0+\Delta\Psi$
+unless the inputs for
+(\inp[nmlLimiter::MarkerMin]{Marker\_Min},%
+ \inp[nmlLimiter::MarkerMax]{Marker\_Max})
+=
+($\Psi_{min},\Psi_{max}$) are used instead.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+When using the MLP marker, the scaled marker is simply computed as
+a binary flag to indicate a troubled cell, \thatis any cell in which
+the multidimensional limiting process would reduce the solution
+polynomial order.
+\begin{align}
+    \scaledmarker
+ =& \begin{cases}
+       0 & \text{if $\marker = \PO$}
+    \\ 1 & \text{otherwise}
+    \end{cases}
+\end{align}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlLimiter::MarkerDpsi]{Marker\_Dpsi},
+\inp[nmlLimiter::MarkerMin]{Marker\_Min},
+\inp[nmlLimiter::MarkerMax]{Marker\_Max}
+}
+

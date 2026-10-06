@@ -1,0 +1,12 @@
+#
+# Recommended convective velocity & length scale combinations from
+# channel flow tests.
+#
+Variables="U<sub>SEM</sub> / U<sub>BL</sub>","l<sub>SEM</sub> / <greek>d</greek><sub>BL</sub>"
+Zone T="Recommended Values", F=POINT
+#  Usem/Ubl    lsem/deltasem
+     0.25          0.2
+     0.50          0.2
+     0.50          0.25
+     0.50          0.2667
+     1.00          0.2667

@@ -1,0 +1,259 @@
+\subsubsubsection{Past Examples of Periodic Boundary Conditions}
+\label{SEC:BC:Numerical:Periodic:Examples}
+
+These are examples taken from GFR input files that have been used in the past to
+run simulations for problems including periodic boundaries.
+%
+Note that the array indices used for \inptext{BC\_Input} are simply copied over
+from the input files, meaning each index is relative to the other boundary
+conditions that also existed in the input file it was taken from.
+%
+Part of the intent behind keeping these array indices as they originally were in
+their respective input file is to demonstrate that the previously used variable
+indices of $i$ and $j$ are can represent any array element of
+\inptext{BC\_Input} provided that they link to each other when they form a pair
+of periodic boundaries.
+%
+\begin{itemize}
+  \item Streamwise and spanwise periodic channel flow
+   %\begin{nmldescitem}[escapechar=@]
+   %\begin{nmldescitem}[fontupper=\ttfamily\footnotesize,
+    \begin{nmldescitem}[fontupper=\ttfamily\scriptsize,
+                        listing options={escapeinside={!@}{!@}}]
+&nml_bc
+  BC_Input(1)%Name = "INFLOW"
+  BC_Input(1)%Set_BC_Value = 81
+  BC_Input(1)%Periodic%Matching_BC_Name = "OUTFLOW"
+  BC_Input(1)%Periodic%Matching_BC_Idx = 2
+  BC_Input(1)%Periodic%Translation(1) = 0.036576 !@\vspace{5pt}!@
+  BC_Input(2)%Name = "OUTFLOW"
+  BC_Input(2)%Set_BC_Value = 81
+  BC_Input(2)%Periodic%Matching_BC_Name = "INFLOW"
+  BC_Input(2)%Periodic%Matching_BC_Idx = 1
+  BC_Input(2)%Periodic%Translation(1) = -0.036576 !@\vspace{5pt}!@
+  BC_Input(5)%Name = "ZMIN"
+  BC_Input(5)%Set_BC_Value = 81
+  BC_Input(5)%Periodic%Matching_BC_Name = "ZMAX"
+  BC_Input(5)%Periodic%Matching_BC_Idx = 6
+  BC_Input(5)%Periodic%Translation(3) = 0.018288 !@\vspace{5pt}!@
+  BC_Input(6)%Name = "ZMAX"
+  BC_Input(6)%Set_BC_Value = 81
+  BC_Input(6)%Periodic%Matching_BC_Name = "ZMIN"
+  BC_Input(6)%Periodic%Matching_BC_Idx = 5
+  BC_Input(6)%Periodic%Translation(3) = -0.018288
+/
+    \end{nmldescitem}
+   %\FINALFIX{\newpage}
+  \item Single rotor blade from spacecraft cabin ventilation
+    fan\cite{Spiegel_2025}
+    \begin{itemize}[before=\small]
+      \item Rotor consists of nine blades spinning about the $x$-axis resulting
+        in a rotationally periodic domain that is rotated 40\textdegree{} about
+        the $x$-axis.
+      \item This grid has two pairs of rotationally periodic boundaries: one for
+        the primary computational domain, and a second for a sponge region
+        appended onto the regular outflow boundary to damp out non-physical
+        pressure waves from reflecting off the outflow boundary.
+        The periodic boundary is split in this way for convenience, but could
+        be combined.
+    \end{itemize}
+   %\begin{nmldescitem}[escapechar=@]
+   %\begin{nmldescitem}[fontupper=\ttfamily\footnotesize,
+    \begin{nmldescitem}[fontupper=\ttfamily\scriptsize,
+                        listing options={escapeinside={!@}{!@}}]
+&nml_bc
+  BC_Input(8)%Name = "ThetaMin"
+  BC_Input(8)%Set_BC_Value = 81
+  BC_Input(8)%Periodic%Matching_BC_Name = "ThetaMax"
+  BC_Input(8)%Periodic%Matching_BC_Idx = 9
+  BC_Input(8)%Periodic%RotationAngle(1) = 40.0 !@\vspace{5pt}!@
+  BC_Input(9)%Name = "ThetaMax"
+  BC_Input(9)%Set_BC_Value = 81
+  BC_Input(9)%Periodic%Matching_BC_Name = "ThetaMin"
+  BC_Input(9)%Periodic%Matching_BC_Idx = 8
+  BC_Input(9)%Periodic%RotationAngle(1) = -40.0 !@\vspace{5pt}!@
+  BC_Input(10)%Name = "ThetaMinSponge"
+  BC_Input(10)%Set_BC_Value = 81
+  BC_Input(10)%Periodic%Matching_BC_Name = "ThetaMaxSponge"
+  BC_Input(10)%Periodic%Matching_BC_Idx = 11
+  BC_Input(10)%Periodic%RotationAngle(1) = 40.0 !@\vspace{5pt}!@
+  BC_Input(11)%Name = "ThetaMaxSponge"
+  BC_Input(11)%Set_BC_Value = 81
+  BC_Input(11)%Periodic%Matching_BC_Name = "ThetaMinSponge"
+  BC_Input(11)%Periodic%Matching_BC_Idx = 10
+  BC_Input(11)%Periodic%RotationAngle(1) = -40.0
+/
+    \end{nmldescitem}
+  \item Ceramic Matrix Composite 9\% thickness (CMC9) blade
+    cascade\cite{Giel_2020} with spanwise and vertical
+    periodicity\cite{Miki_2022}
+   %\begin{nmldescitem}[escapechar=@]
+   %\begin{nmldescitem}[fontupper=\ttfamily\footnotesize,
+    \begin{nmldescitem}[fontupper=\ttfamily\scriptsize,
+                        listing options={escapeinside={!@}{!@}}]
+&nml_bc
+  BC_Input(3)%Name = "periodic_yp13"
+  BC_Input(3)%Set_BC_Value = 81
+  BC_Input(3)%Periodic%Matching_BC_Name = "periodic_ym"
+  BC_Input(3)%Periodic%Matching_BC_Idx = 4
+  BC_Input(3)%Periodic%Translation(2) = -0.13 !@\vspace{5pt}!@
+  BC_Input(4)%Name = "periodic_ym"
+  BC_Input(4)%Set_BC_Value = 81
+  BC_Input(4)%Periodic%Matching_BC_Name = "periodic_yp13"
+  BC_Input(4)%Periodic%Matching_BC_Idx = 3
+  BC_Input(4)%Periodic%Translation(2) = 0.13 !@\vspace{5pt}!@
+  BC_Input(5)%Name = "periodic_zp013"
+  BC_Input(5)%Set_BC_Value = 81
+  BC_Input(5)%Periodic%Matching_BC_Name = "periodic_z0"
+  BC_Input(5)%Periodic%Matching_BC_Idx = 6
+  BC_Input(5)%Periodic%Translation(3) = -0.052 !@\vspace{5pt}!@
+  BC_Input(6)%Name = "periodic_z0"
+  BC_Input(6)%Set_BC_Value = 81
+  BC_Input(6)%Periodic%Matching_BC_Name = "periodic_zp013"
+  BC_Input(6)%Periodic%Matching_BC_Idx = 5
+  BC_Input(6)%Periodic%Translation(3) = 0.052
+/
+    \end{nmldescitem}
+  \item Taylor-Couette flow\cite{Wang_2021} with streamwise periodicity
+   %\begin{nmldescitem}[escapechar=@]
+   %\begin{nmldescitem}[fontupper=\ttfamily\footnotesize,
+    \begin{nmldescitem}[fontupper=\ttfamily\scriptsize,
+                        listing options={escapeinside={!@}{!@}}]
+&nml_bc
+  BC_Input(3)%Name = "Inflow"
+  BC_Input(3)%Set_BC_Value = 81
+  BC_Input(3)%Periodic%Matching_BC_Name = "Outflow"
+  BC_Input(3)%Periodic%Matching_BC_Idx = 4
+  BC_Input(3)%Periodic%Translation(1) = 6.283185307 !@\vspace{5pt}!@
+  BC_Input(4)%Name = "Outflow"
+  BC_Input(4)%Set_BC_Value = 81
+  BC_Input(4)%Periodic%Matching_BC_Name = "Inflow"
+  BC_Input(4)%Periodic%Matching_BC_Idx = 3
+  BC_Input(4)%Periodic%Translation(1) = -6.283185307
+/
+    \end{nmldescitem}
+\end{itemize}
+
+%###############################################################################
+
+%\begin{itemize}
+%  \item Streamwise and spanwise periodic channel flow
+%    \begin{InputExample}[before=\footnotesize]
+%      %
+%      \item[{\BCinptext[\texttt{1}]{Name = "INFLOW"}}]
+%      \item[{\BCinptext[\texttt{1}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{1}]{Periodic\%Matching\_BC\_Name = "OUTFLOW"}}]
+%      \item[{\BCinptext[\texttt{1}]{Periodic\%Matching\_BC\_Idx = 2}}]
+%      \item[{\BCinptext[\texttt{1}]{Periodic\%Translation(1) = 0.036576}}]
+%      %
+%      \item[{\BCinptext[\texttt{2}]{Name = "OUTFLOW"}}]\vspace{5pt}
+%      \item[{\BCinptext[\texttt{2}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{2}]{Periodic\%Matching\_BC\_Name = "INFLOW"}}]
+%      \item[{\BCinptext[\texttt{2}]{Periodic\%Matching\_BC\_Idx = 1}}]
+%      \item[{\BCinptext[\texttt{2}]{Periodic\%Translation(1) = -0.036576}}]
+%      %
+%      \item[{\BCinptext[\texttt{5}]{Name = "ZMIN"}}]\vspace{5pt}
+%      \item[{\BCinptext[\texttt{5}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{5}]{Periodic\%Matching\_BC\_Name = "ZMAX"}}]
+%      \item[{\BCinptext[\texttt{5}]{Periodic\%Matching\_BC\_Idx = 6}}]
+%      \item[{\BCinptext[\texttt{5}]{Periodic\%Translation(3) = 0.018288}}]
+%      %
+%      \item[{\BCinptext[\texttt{6}]{Name = "ZMAX"}}]\vspace{5pt}
+%      \item[{\BCinptext[\texttt{6}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{6}]{Periodic\%Matching\_BC\_Name = "ZMIN"}}]
+%      \item[{\BCinptext[\texttt{6}]{Periodic\%Matching\_BC\_Idx = 5}}]
+%      \item[{\BCinptext[\texttt{6}]{Periodic\%Translation(3) = -0.018288}}]
+%      %
+%    \end{InputExample}
+%  \item Single rotor blade from spacecraft cabin ventilation
+%    fan\cite{Spiegel_2025}
+%    \begin{itemize}
+%      \item Rotor consists of nine blades spinning about the $x$-axis resulting
+%        in a rotationally periodic domain that is rotated 40\textdegree{} about
+%        the $x$-axis.
+%      \item This grid has two pairs of rotationally periodic boundaries: one for
+%        the primary computational domain, and a second for a sponge region
+%        appended onto the regular outflow boundary to damp out non-physical
+%        pressure waves from reflecting off the outflow boundary.
+%    \end{itemize}
+%    \begin{InputExample}[before=\footnotesize]
+%      %
+%      \item[{\BCinptext[\texttt{8}]{Name = "ThetaMin"}}]
+%      \item[{\BCinptext[\texttt{8}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{8}]{Periodic\%Matching\_BC\_Name = "ThetaMax"}}]
+%      \item[{\BCinptext[\texttt{8}]{Periodic\%Matching\_BC\_Idx = 9}}]
+%      \item[{\BCinptext[\texttt{8}]{Periodic\%RotationAngle(1) = 40.0}}]
+%      %
+%      \item[{\BCinptext[\texttt{9}]{Name = "ThetaMax"}}]\vspace{5pt}
+%      \item[{\BCinptext[\texttt{9}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{9}]{Periodic\%Matching\_BC\_Name = "ThetaMin"}}]
+%      \item[{\BCinptext[\texttt{9}]{Periodic\%Matching\_BC\_Idx = 8}}]
+%      \item[{\BCinptext[\texttt{9}]{Periodic\%RotationAngle(1) = -40.0}}]
+%      %
+%      \item[{\BCinptext[\texttt{10}]{Name = "ThetaMinSponge"}}]\vspace{5pt}
+%      \item[{\BCinptext[\texttt{10}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{10}]{Periodic\%Matching\_BC\_Name = "ThetaMaxSponge"}}]
+%      \item[{\BCinptext[\texttt{10}]{Periodic\%Matching\_BC\_Idx = 11}}]
+%      \item[{\BCinptext[\texttt{10}]{Periodic\%RotationAngle(1) = 40.0}}]
+%      %
+%      \item[{\BCinptext[\texttt{11}]{Name = "ThetaMaxSponge"}}]\vspace{5pt}
+%      \item[{\BCinptext[\texttt{11}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{11}]{Periodic\%Matching\_BC\_Name = "ThetaMinSponge"}}]
+%      \item[{\BCinptext[\texttt{11}]{Periodic\%Matching\_BC\_Idx = 10}}]
+%      \item[{\BCinptext[\texttt{11}]{Periodic\%RotationAngle(1) = -40.0}}]
+%      %
+%    \end{InputExample}
+%  \item Ceramic Matrix Composite 9\% thickness (CMC9) blade\cite{Giel_2020} with
+%    spanwise and vertical periodicity\cite{Miki_2022}
+%    \begin{InputExample}[before=\footnotesize]
+%      %
+%      \item[{\BCinptext[\texttt{3}]{Name = "periodic\_yp13"}}]
+%      \item[{\BCinptext[\texttt{3}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{3}]{Periodic\%Matching\_BC\_Name = "periodic\_ym"}}]
+%      \item[{\BCinptext[\texttt{3}]{Periodic\%Matching\_BC\_Idx = 4}}]
+%      \item[{\BCinptext[\texttt{3}]{Periodic\%Translation(2) = -0.13}}]
+%      %
+%      \item[{\BCinptext[\texttt{4}]{Name = "periodic\_ym"}}]\vspace{5pt}
+%      \item[{\BCinptext[\texttt{4}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{4}]{Periodic\%Matching\_BC\_Name = "periodic\_yp13"}}]
+%      \item[{\BCinptext[\texttt{4}]{Periodic\%Matching\_BC\_Idx = 3}}]
+%      \item[{\BCinptext[\texttt{4}]{Periodic\%Translation(2) = 0.13}}]
+%      %
+%      \item[{\BCinptext[\texttt{5}]{Name = "periodic\_zp013"}}]\vspace{5pt}
+%      \item[{\BCinptext[\texttt{5}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{5}]{Periodic\%Matching\_BC\_Name = "periodic\_z0"}}]
+%      \item[{\BCinptext[\texttt{5}]{Periodic\%Matching\_BC\_Idx = 6}}]
+%      \item[{\BCinptext[\texttt{5}]{Periodic\%Translation(3) = -0.052}}]
+%      %
+%      \item[{\BCinptext[\texttt{6}]{Name = "periodic\_z0"}}]\vspace{5pt}
+%      \item[{\BCinptext[\texttt{6}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{6}]{Periodic\%Matching\_BC\_Name = "periodic\_zp013"}}]
+%      \item[{\BCinptext[\texttt{6}]{Periodic\%Matching\_BC\_Idx = 5}}]
+%      \item[{\BCinptext[\texttt{6}]{Periodic\%Translation(3) = 0.052}}]
+%      %
+%    \end{InputExample}
+%  \item Taylor-Couette flow\cite{Wang_2021} with streamwise periodicity
+%    \begin{InputExample}[before=\footnotesize]
+%      %
+%      \item[{\BCinptext[\texttt{3}]{Name = "Inflow"}}]
+%      \item[{\BCinptext[\texttt{3}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{3}]{Periodic\%Matching\_BC\_Name = "Outflow"}}]
+%      \item[{\BCinptext[\texttt{3}]{Periodic\%Matching\_BC\_Idx = 4}}]
+%      \item[{\BCinptext[\texttt{3}]{Periodic\%Translation(1) = 6.283185307}}]
+%      %
+%      \item[{\BCinptext[\texttt{4}]{Name = "Outflow"}}]\vspace{5pt}
+%      \item[{\BCinptext[\texttt{4}]{Set\_BC\_Value = 81}}]
+%      \item[{\BCinptext[\texttt{4}]{Periodic\%Matching\_BC\_Name = "Inflow"}}]
+%      \item[{\BCinptext[\texttt{4}]{Periodic\%Matching\_BC\_Idx = 3}}]
+%      \item[{\BCinptext[\texttt{4}]{Periodic\%Translation(1) = -6.283185307}}]
+%      %
+%    \end{InputExample}
+%\end{itemize}
+
+%###############################################################################
+
+\IDEA{Each example should include a schematic of the labeled boundary
+surfaces to help visualize the periodicity.}
+
+%###############################################################################
+

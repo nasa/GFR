@@ -1,0 +1,391 @@
+\section{Geometry and Mesh}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Surface Curvature}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+When constructing a mesh for use with GFR, it is highly recommended to
+include the high-order surface curvature information.
+%
+To export a high-order mesh, your mesh generation software may require
+that every boundary surface be defined by a CAD or database surface, even those
+that are planar surfaces.
+%
+Therefore, it is important to understand the requirements of your meshing
+software before you begin.
+
+Without the high-order surface curvature information, GFR will be forced
+to construct the elements using straight line segments.
+%
+This can cause faceting of the surface shape, and
+with a high-order code like GFR, this can significantly degrade the solution
+accuracy in the best case scenario, with a high likelihood of instabilities.
+%
+For purely planar or rectangular geometries, which have no curvature,
+this is not a problem.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Element Types}
+\label{SEC:Element_Types}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The standard element types supported by GFR are shown in
+\fref{FIG:Element_Types}.
+%
+These include:
+1D line,
+2D triangle,
+2D quadrilateral,
+3D tetrahedron,
+3D pyramid,
+3D prism, and
+3D hexahedron.
+%
+The number of \key{degrees-of-freedom (DoF)}[degree-of-freedom (DoF)],
+\thatis solution points, within a given
+element type is a function of the order \PO{} of the solution polynomial used.
+%
+\Tref{TAB:Element_DoF} lists this function for each element type and gives
+example DoF counts for \p[1]--\p[4].
+%
+The last column of \Tref{TAB:Element_DoF} also provides the maximum solution
+order that can be used for each element type.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{figure}[htb]
+  \begin{centering}
+    \begin{subfigure}{1.5in}
+      \insertimage[width=\textwidth]{Elements/Elem_1D_Line}
+      \caption{1D Line}
+      \label{FIG:Elem_1D_Line}
+    \end{subfigure}%
+    \begin{subfigure}{1.5in}
+      \insertimage[width=\textwidth]{Elements/Elem_2D_TriRt}
+      \caption{2D Triangle}
+      \label{FIG:Elem_2D_Tri}
+    \end{subfigure}%
+    \begin{subfigure}{1.5in}
+      \insertimage[width=\textwidth]{Elements/Elem_2D_Quad} 
+      \caption{2D Quadrilateral} 
+      \label{FIG:Elem_2D_Quad} 
+    \end{subfigure}
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \begin{subfigure}{1.5in}
+      \insertimage[width=\textwidth]{Elements/Elem_3D_TetRt}
+      \caption{3D Tetrahedron}
+      \label{FIG:Elem_3D_Tet}
+    \end{subfigure}%
+    \begin{subfigure}{1.5in}
+      \insertimage[width=\textwidth]{Elements/Elem_3D_PyrTall}
+      \caption{3D Pyramid}
+      \label{FIG:Elem_3D_Pyr}
+    \end{subfigure}
+    \begin{subfigure}{1.5in}
+      \insertimage[width=\textwidth]{Elements/Elem_3D_PrismRt}
+      \caption{3D Prism}
+      \label{FIG:Elem_3D_Pri}
+    \end{subfigure}%
+    \begin{subfigure}{1.5in}
+      \insertimage[width=\textwidth]{Elements/Elem_3D_Hex}
+      \caption{3D Hexahedron}
+      \label{FIG:Elem_3D_Hex}
+    \end{subfigure}
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \caption{Supported element types.}
+    \label{FIG:Element_Types}
+  \end{centering}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{table}
+  % The scope of these commands is limited to within this table environment.
+  % Degrees of freedom of different geometries in terms of polynomial order.
+  \newcommand{\dofLine}{$(\PO+1)$}
+  \newcommand{\dofTria}{$(\PO+1)(\PO+2)/2$}
+  \newcommand{\dofQuad}{$(\PO+1)^2$}
+  \newcommand{\dofTetr}{$(\PO+1)(\PO+2)( \PO+3)/6$}
+  \newcommand{\dofPyra}{$(\PO+1)(\PO+2)(2\PO+3)/6$}
+  \newcommand{\dofPris}{$(\PO+1)(\PO+1)( \PO+2)/2$}
+  \newcommand{\dofHexa}{$(\PO+1)^3$}
+  %
+  \centering
+  \caption{Degrees of freedom of supported element types.}
+  \label{TAB:Element_DoF}
+ %\begin{center}
+    \begin{tabular}{lllrrrrc}
+       Dim & Element Type  & Degrees of Freedom & % P1 &   P2 &   P3 &   P4 \\
+       $\PO[1]$ & $\PO[2]$ & $\PO[3]$ & $\PO[4]$ & Maximum \PO{} \\
+       \hline
+       1D  & Line          & \dofLine &    2 &    3 &    4 &    5 & unlimited \\
+       2D  & Triangle      & \dofTria &    3 &    6 &   10 &   15 & 8 \\
+       2D  & Quadrilateral & \dofQuad &    4 &    9 &   16 &   25 & unlimited \\
+       3D  & Tetrahedron   & \dofTetr &    4 &   10 &   20 &   35 & 6 \\
+       3D  & Pyramid       & \dofPyra &    5 &   14 &   30 &   55 & unlimited \\
+       3D  & Prism         & \dofPris &    6 &   18 &   40 &   75 & 8 \\
+       3D  & Hexahedron    & \dofHexa &    8 &   27 &   64 &  125 & unlimited
+    \end{tabular}
+ %\end{center}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\IDEA{
+\begin{itemize}
+\item
+Describe which element types are best and why.
+\item
+Describe mixed element parallel efficiency.
+\end{itemize}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Grid Scaling}
+\label{SEC:Grid_Scaling}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+GFR expects the mesh file to be in units of meters.
+%
+However, in many instances the mesh file may be in another set of units
+or perhaps nondimensional.
+%
+For these situations, the code allows the user to specify a
+multiplicative scaling factor that will convert the coordinates of the
+existing grid into units of meters.
+
+\NOTE
+Throughout this document, we shall refer to the units of the mesh file as
+  \key*[key:GridUnits]{\emph{grid units}}[grid units]
+and the units after applying the grid scaling as
+  \key*[key:GridScaledUnits]{\emph{grid scaled units}}[grid scaled units]
+($=[grid~units]*\inptext{Grid\_Scaling\_Factor}$).
+%
+For example, if the grid units are inches, the input file should include the
+line
+\begin{InputExample}
+\item[{\inptext{Grid\_Scaling\_Factor = 0.0254~~~!~convert inches to meters}}]
+\end{InputExample}
+
+\SeeAlso{
+\inp[nmlGrid::GridScalingFactor]{Grid\_Scaling\_Factor}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Mesh Resolution Requirements for Large-Eddy Simulation}
+\label{SEC:Grid_LES}
+\key*{}[large-eddy simulation (LES)!mesh requirements]
+
+%In order to comprehend the mesh resolution requirements for
+%\key{Large-Eddy Simulation (LES)}[large-eddy simulation],
+%the user must first have some understanding of the turbulence cascade process.
+%
+In order to comprehend the mesh resolution requirements for
+large-eddy simulation (LES), one must have some understanding of the
+turbulent eddies that are being simulated.
+%
+Even though an instantaneous turbulent velocity field often appears chaotic,
+it is actually composed of a multitude of swirling three-dimensional
+turbulent eddies that are all intertwined.
+%
+These eddies span a continuous range of varying sizes,
+from the (largest) integral length scale ($l=k/\epsilon$)
+to the (smallest) Kolmogorov scale ($\eta=(\nu^3/\epsilon)^{1/4}$),
+where
+$k$ is the turbulent kinetic energy,
+$\epsilon$ is the turbulent dissipation rate ($-dk/dt$), and
+$\nu$ is the kinematic viscosity.
+%
+The energy contained in each eddy is proportional to its size.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+At any given point in the flow, we can perform a Fourier decomposition of
+the energy containing eddies to examine the spectral distribution in terms of
+wavenumber, $\kappa = 2 \pi / (\text{eddy diameter})$.
+%
+Doing so produces the energy spectral density, $E(\kappa)$, which is the
+distribution of energy as a function of wavenumber.
+%
+As shown in \fref{FIG:EnergySpectra}, the horizontal axis represents
+(from left to right) the range of eddy sizes from the largest to the
+smallest.
+%
+This range increases with increasing Reynolds number.
+%
+The vertical axis represents the energy contained in those eddies,
+and the area under the curve represents the turbulent kinetic energy
+at that particular point in the flow.
+%
+Instabilities in the largest structures generate turbulence,
+the intermediate structures transfer that energy, and
+the smallest structures dissipate the energy into heat.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{figure}
+  \begin{centering}
+%   Sample figure:  https://eaglepubs.erau.edu/introductiontoaerospaceflightvehicles/chapter/turbulent-flows/
+    \insertimage[width=5.5in]{tikz/EnergySpectra}
+    \caption[Energy spectra for a turbulent flow.]%
+            {Energy spectra for a turbulent flow, log-log scales.}
+    \label{FIG:EnergySpectra}
+  \end{centering}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The idea behind
+\key*{LES}[large-eddy simulation (LES)]
+is that we need not simulate the full range of scales, only the largest ones
+that contain the predominant share of energy
+(\forexample 80 percent of the area under the curve starting from the left).
+%
+Thus the grid should be fine enough to fully resolve (\thatis represent)
+eddies at the highest desired wavenumber, typically within the inertial
+subrange or outer part of the viscous subrange.
+%
+The dissipation effect of the high wavenumber (small scale) turbulence that
+is not properly resolved by the grid is sometimes represented using an
+explicit subgrid-scale model.
+%
+\key*{Implicit large-eddy simulation (ILES)}%
+     [large-eddy simulation (LES)!implicit LES (ILES)]
+takes a different approach, using the inherent dissipation of the
+numerical scheme to act as the subgrid model.
+%
+For boundary layer flows at high Reynolds numbers, it may not be feasible to
+perform a wall-resolved LES due to the extremely fine grid resolution
+required to resolve the small-scale turbulent structures.
+%
+In such cases, some codes offer near-wall models or wall functions
+in what is referred to as wall-modeled LES.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In isotropic turbulence, the eddies are statistically uniform with no
+preferred direction, resulting in 
+$\ReyAve{\ReyFlx{u}\ReyFlx{u}}=
+ \ReyAve{\ReyFlx{v}\ReyFlx{v}}=
+ \ReyAve{\ReyFlx{w}\ReyFlx{w}}$.
+%
+This situation might occur far away from boundaries.
+%
+%
+In boundary layer flows, the turbulent eddies are distorted by the mean shear
+and physical spatial limitation in the wall-normal direction,
+resulting in anisotropic turbulence that can exhibit long streamwise
+vortex filaments.
+%
+The streamwise ($\ReyAve{\ReyFlx{u}\ReyFlx{u}}$) turbulence is accentuated
+and the wall-normal ($\ReyAve{\ReyFlx{v}\ReyFlx{v}}$) component is reduced.
+%
+%
+In free shear flows, such as jets and mixing layers, the mean shear
+again causes an increase in the streamwise ($\ReyAve{\ReyFlx{u}\ReyFlx{u}}$)
+component and a decrease in the shear direction
+($\ReyAve{\ReyFlx{v}\ReyFlx{v}}$), but not to the same extent.
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\Tref{TAB:WRLES_Grid_Reqs} summarizes the grid spacing requirements for
+wall-resolved LES from a number of sources.
+%
+These are given in terms of near-wall coordinates (\thatis
+$\Delta x^+ = \Delta x \, \utau / \nu$,
+where $\utau$ is the friction velocity).
+%
+Note that the wall-normal direction uses grid stretching with an initial
+wall spacing $\Delta y^+_\text{min} \leq 1$ and 3--40 points within
+$y^+ < 10$.
+%
+The spanwise spacing $(\Delta z^+)$ is typically 10--20, and
+the streamwise spacing $(\Delta x^+)$ is often double or triple that.
+%
+\Linecite{Breuer_2007} notes that using overly coarse values for
+$\Delta x^+$ or $\Delta z^+$ can lead to unphysical boundary layer streaks
+and error in the predicted skin friction.
+%
+Based on these sources, for traditional finite-difference or finite-volume
+solvers, a good starting grid would have
+$(\Delta x^+, \Delta y^+_\text{min}, \Delta z^+) = (20\text{--}30,1,15)$
+with 10 points below $y^+ < 10$
+(which corresponds to a geometric growth rate of 1.02).
+%
+For free shear flows, 50 points or more are likely needed across the
+shear layer thickness, $\delta$.
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Our discussion at GRC recommended (x+,y+,z+)=(20-30,1,15).
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For GFR, the volume solution points are often defined using either
+Gauss or Lobatto points, which are non-uniformly distributed toward the
+boundaries of each cell (see \fref{FIG:1D_Points}).
+%
+In addition, the number of points in each cell is determined by the
+chosen polynomial order for the solution, $\PO$.
+%
+When building a mesh, we therefore compare the above values to the
+average solution point spacing within a high-order cell (\thatis
+$\overline{\Delta x^+} = \Delta x^+_\text{cell} / (\PO+1)$).
+%
+%When building a mesh, we therefore recommend \emph{cell spacings} of
+From that, we obtain the recommended \emph{cell spacings} of
+$\Delta x^+_\text{cell}$ = (10--80)(\PO+1),
+$\Delta y^+_\text{cell,min}$ = 2,
+$\Delta z^+_\text{cell}$ = (10--40)(\PO+1),
+and a wall-normal growth rate of 1.5 for boundary layer flows.
+%
+For free shear flows, we recommend isotropic cells with 
+$\Delta y_\text{cell} / \delta = (\PO+1) / 50$ across the
+shear layer thickness, $\delta$.
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Note: The comments in the table source below provide more specific
+%       reference info than just citation, to make finding that info easier
+%       in the future. Some values or ranges have been rounded here for
+%       consistency.
+\begin{table}
+\begin{center}
+\caption{Grid requirements for wall-resolved large-eddy simulation.}
+\label{TAB:WRLES_Grid_Reqs}
+\begin{tabular}{ccccl}
+  \toprule
+  $\Delta x^+$ & $\Delta y^+_\text{min}$ & $\Delta z^+$ &
+  $N_{pts}$, $y^+ \!\! < \!\! 10$ & Reference \\
+  \midrule
+  50--150 &   $< 1$  & 15--40 & 20--40 & Georgiadis\cite{Georgiadis_2009} \\
+  50--150 &      1   & 10--40 &  3--5  & Breuer\cite{Breuer_2007} \\
+                                       % Breuer_2007, Table 5.4, p.209.
+                                       % Jiang\cite{Jiang_2016} \\
+                                       % Jiang_2016, Table 2.1, p.46.
+                                       %   Cites Breuer(2007).
+  50--100 &      1   & 10--20 &     3  & Sagaut\cite{Sagaut_2007} \\
+                                       % Sagaut_2007, Table 3.4, p.107.
+  50      &      1   & 15     &        & Sagaut\cite{Sagaut_2009} \\
+                                       % Sagaut_2009, p.2850.
+  25      &   $< 1$  & 11     & 10     & Schlatter\cite{Schlatter_2010} \\
+                                       % Schlatter_2010, p.6.
+  20--30  & 0.8--1.2 & 10--15 &        & Debroeyer\cite{Debroeyer_2024} \\
+                                       % Debroeyer_2024, Table 1, p.A9-4.
+  10--50  & 0.5--2.5 & 10--20 &        & Ameri\cite{Ameri_2016} \\
+                                       % Range of values in Table 1, p.13.
+  \bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+

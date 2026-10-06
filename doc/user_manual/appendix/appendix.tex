@@ -1,0 +1,185 @@
+\clearpage
+\appendix
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Polynomials}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The following sections summarize the key properties of the
+polynomial functions used in formulating the Flux Reconstruction
+method.
+%
+Additional details can be found in \linecite{Huynh_2007}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Legendre Polynomials}
+\label{SEC:LegendrePoly}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The \key*{Legendre polynomial}[polynomial!Legendre]
+of degree $k$ on the interval $-1\leq r\leq1$ is given
+by the following recurrence relation\cite{Szego_1967,Hildebrand_1974}:
+%
+\begin{align}
+    \Leg{-1}\pvp[r] =& 0 &
+    \Leg{ 0}\pvp[r] =& 1 &
+    \Leg{ k}\pvp[r] =& \frac{2k-1}{k} r \Leg{k-1}\pvp[r]
+                    -  \frac{ k-1}{k}   \Leg{k-2}\pvp[r]
+    \quad\text{for $k \geq 1$}
+\end{align}
+%
+Its derivative can likewise be computed from:
+\begin{align}
+    \dLeg{-1}\pvp[r] =  
+    \dLeg{ 0}\pvp[r] =& 0 &
+    \dLeg{ k}\pvp[r] =& \frac{2k-1}{k}    \Leg{k-1}\pvp[r]
+                      + \frac{2k-1}{k} r \dLeg{k-1}\pvp[r]
+                      - \frac{ k-1}{k}   \dLeg{k-2}\pvp[r]
+    \quad\text{for $k \geq 1$}
+\end{align}
+%
+Using these formulas, the first few Legendre polynomials and their
+derivatives can be written explicitly as:
+\begin{align}
+     \Leg{0}\pvp[r] =& 1 &
+    \dLeg{0}\pvp[r] =& 0 \\
+     \Leg{1}\pvp[r] =& r &
+    \dLeg{1}\pvp[r] =& 1 \\
+     \Leg{2}\pvp[r] =& \left(  3 r^2 -  1         \right) / 2 &
+    \dLeg{2}\pvp[r] =& 3 r \\
+     \Leg{3}\pvp[r] =& \left(  5 r^3 -  3 r       \right) / 2 &
+    \dLeg{3}\pvp[r] =& \left( 15 r^2 -  3         \right) / 2 \\
+     \Leg{4}\pvp[r] =& \left( 35 r^4 - 30 r^2 + 3 \right) / 8 &
+    \dLeg{4}\pvp[r] =& \left( 35 r^3 - 15 r       \right) / 2
+\end{align}
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+These polynomials are plotted in \fref{FIG:LegendrePoly}.
+%
+%Note that each Legendre polynomial of (even,odd) order is an (even,odd)
+%function.
+Note that each order of the Legendre polynomial alternates between
+being an even or odd function.
+%
+That is to say,
+\begin{gather}
+    \Leg{k}\pvp[-r] = (-1)^k \Leg{k}\pvp[r]
+    \label{EQN:LegendreEvenOdd}
+\end{gather}
+%
+Values and derivatives on the left and right edges of the cell are given
+by\cite{Huynh_2007} (for $k \geq 0$):
+\begin{align}
+    \Leg{k}\pvp[-1] =& (-1)^k
+ &  \Leg{k}\pvp[ 1] =&   1
+ \\
+    \dLeg{k}\pvp[-1] =& (-1)^{k-1} k (k+1) / 2
+ &  \dLeg{k}\pvp[ 1] =&            k (k+1) / 2
+\end{align}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The zeros of the Legendre polynomial are referred to as the Gauss points.
+%
+As seen in the \fref{FIG:LegendrePoly}, the number of such zeros is equal
+to the order of the polynomial.
+%
+%These points are symmetrically, but non-uniformly, distributed across the cell.
+These points are symmetrically distributed across the cell, but biased
+toward the edges of the cell.
+%
+For every odd polynomial order, one of the zeros is located in the center
+of the cell.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{figure}
+  \begin{centering}
+    \insertimage[width=4.00in]{Intro/Legendre}
+    \caption{Legendre polynomials and Gauss points.}
+    \label{FIG:LegendrePoly}
+  \end{centering}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+One can also show that the inner product of any two Legendre polynomials
+of orders ($k,l$) is given by:
+\begin{gather}
+    (\Leg{k},\Leg{l})
+ =  \int_{-1}^{1} \Leg{k}\pvp[r] \Leg{l}\pvp[r] dr
+ =  \begin{cases}
+        0               &  \text{for $k \neq l$} \\
+        \frac{2}{2k+1}  &  \text{for $k = l$}
+    \end{cases}
+\end{gather}
+%
+Therefore, Legendre polynomials of different orders are orthogonal.
+%
+Also, the inner product of a Legendre polynomial with itself provides a
+measure of the magnitude of the polynomial, which is useful in DG schemes
+but not of particular importance for FR.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Using the above relation, one can further show that for $k \geq 1$:
+\begin{gather}
+    (\Leg{0},\Leg{k})
+ =  \int_{-1}^{1} \Leg{k}\pvp[r] dr
+ =  0
+\end{gather}
+This indicates that the net area under any Legendre polynomial curve
+of degree $\geq 1$ is zero.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Radau Polynomials}
+\label{SEC:RadauPoly}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The left and right \key*{Radau polynomials}[polynomial!Radau]
+are defined in terms of \key{Legendre polynomials}[polynomial!Legendre].
+\begin{align}
+    \RadL{k}\pvp[r] =& \frac{  1   }{2} \left( \Leg{k  }\pvp[r]
+                                             + \Leg{k-1}\pvp[r] \right)
+ &  \RadL{k}\pvp[-1] =& 0
+ &  \RadL{k}\pvp[ 1] =& 1
+ \nonumber % It is easier to ref this whole group as 1 eqn, not 2.
+ \\
+    \RadR{k}\pvp[r] =& \frac{(-1)^k}{2} \left( \Leg{k  }\pvp[r]
+                                             - \Leg{k-1}\pvp[r] \right)
+    \label{EQN:RadauPoly}
+ &  \RadR{k}\pvp[-1] =& 1
+ &  \RadR{k}\pvp[ 1] =& 0
+\end{align}
+and are shown in \fref{FIG:RadauPoly}.
+%
+From \eref{EQN:LegendreEvenOdd},
+\eref{EQN:RadauPoly},
+and  \fref{FIG:RadauPoly},
+one can see they are mirror images of each other.
+\begin{gather}
+   %\RadR{k}\pvp[-r] = (-1)^k \RadL{k}\pvp[r]
+    \RadR{k}\pvp[-r] = \RadL{k}\pvp[r]
+\end{gather}
+We therefore focus on the left Radau polynomials,
+the first few of which and their derivatives can be written as:
+\begin{align}
+     \RadL{1}\pvp[r] =& \left( r + 1 \right) / 2
+ &  \dRadL{1}\pvp[r] =& 1 / 2
+ \\  \RadL{2}\pvp[r] =& \left(                    3 r^2 +  2 r - 1 \right) / 4
+ &  \dRadL{2}\pvp[r] =& \left(                    3 r   +  1       \right) / 2
+ \\  \RadL{3}\pvp[r] =& \left(           5 r^3 +  3 r^2 -  3 r - 1 \right) / 4
+ &  \dRadL{3}\pvp[r] =& \left(          15 r^2 +  6 r   -  3       \right) / 4
+ \\  \RadL{4}\pvp[r] =& \left( 35 r^4 + 20 r^3 - 30 r^2 - 12 r + 3 \right) / 16
+ &  \dRadL{4}\pvp[r] =& \left( 35 r^3 + 15 r^2 - 15 r   -  6       \right) / 4
+\end{align}
+
+
+

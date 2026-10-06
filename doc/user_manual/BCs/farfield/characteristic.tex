@@ -1,0 +1,155 @@
+\subsubsection{Characteristic \slash{} Riemann-Invariant Boundary Condition}
+\label{SEC:BC:Farfield:Characteristic}
+
+The characteristic boundary condition is an inflow\slash outflow boundary
+condition that works for both subsonic and supersonic flows.
+%
+This boundary condition uses the Riemann invariants to compute the right state
+variables based on what flow regime the boundary condition state is in, which is
+determined by the magnitude and direction normal to the boundary face of the
+interior velocity.
+%
+Here are a few comments\slash warnings about using this boundary condition
+before continuing on with describing how it is formulated:
+%
+\begin{itemize}[itemsep=5pt,topsep=5pt,parsep=0pt]
+  \item When used as a subsonic inflow boundary condition, there is no
+    guarantee that the total conditions at the inflow will be enforced.
+    This should not be a problem if the inflow is significantly far
+    upstream from the computational body of interest (\forexample external
+    flows).
+  \item This works well as a farfield boundary condition and has not shown any
+    problems when the boundary condition velocity is aligned tangent to the
+    boundary face.
+  \item This works well for an outflow boundary condition for both internal and
+    external flows, whether they are subsonic, supersonic, or mixed.
+  \item If used for an outflow boundary condition, the prescribed velocity for
+    the boundary condition is important for subsonic outflows, whereas the
+    boundary condition velocity is ignored for the subsonic outflow boundary
+    condition in \sref{SEC:BC:Outflow:Subsonic}. It should be noted that,
+    similar to when used for subsonic inflows, this boundary condition applied
+    to subsonic outflows does not guarantee that any specified boundary
+    condition state will be held constant.
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Recalling that \normal{} is the outward-facing unit normal for the boundary
+face, let $v_{n,\subL}=\vec{u}_\subL\cdot\normal$ be the magnitude of the
+interior velocity normal to the boundary face, and
+$v_{n,\subBC}=\vec{u}_\subBC\cdot\normal$ be the same but for the prescribed
+boundary condition velocity.
+%
+Similarly, let $a_\subL$ and $a_\subBC$ respectively be the speed of sound for
+the interior and boundary condition states.
+%
+In order to compute the final right state, we need to compute four quantities:
+$R^+$, the outgoing Riemann invariant; $R^-$, the incoming Riemann invariant;
+$\vec{v}_{t,\subR}$, the tangential velocity vector at the boundary
+face; and $s_\subR$, the entropy for the right state.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The outgoing Riemann invariant, $R^+$, is evaluated as
+%
+\[
+  R^+ =
+  \begin{cases}
+    v_{n,\subBC} + \dfrac{2 a_\subBC}{\gamma-1} &
+      \text{\;if } \dfrac{v_{n,\subBC}}{a_\subBC} \leq -1
+    \quad \text{(supersonic inflow)} \\[2.5ex]
+    v_{n,\subL} + \dfrac{2 a_\subL}{\gamma-1} &
+      \text{\;otherwise}
+  \end{cases}
+\]
+The incoming Riemann invariant, $R^-$, is evaluated as
+%
+\[
+  R^- =
+  \begin{cases}
+    v_{n,\subL} - \dfrac{2 a_\subL}{\gamma-1} &
+      \text{\;if } \dfrac{v_{n,\subL}}{a_\subL} \geq 1
+    \quad \text{(supersonic outflow)} \\[2.5ex]
+    v_{n,\subBC} - \dfrac{2 a_\subBC}{\gamma-1} &
+      \text{\;otherwise}
+  \end{cases}
+\]
+%
+The tangential velocity vector, $\vec{v}_{t,\subR}$, is evaluated as
+%
+\[
+  \vec{v}_{t,\subR} =
+  \begin{cases}
+    \vec{u}_\subBC - \left(\vec{u}_\subBC\cdot\normal\right)\normal &
+      \text{\;if } v_{n,\subL} \leq 0 \quad \text{(inflow)} \\[1.5ex]
+    \vec{u}_\subL - \left(\vec{u}_\subL\cdot\normal\right)\normal &
+      \text{\;if } v_{n,\subL} > 0 \quad \text{(outflow)}
+  \end{cases}
+\]
+%
+Finally, the entropy, $s_\subR$, is evaluated as
+\[
+  s_\subR =
+  \begin{cases}
+    \dfrac{p_\subBC}{\rho^{\gamma}_{\subBC}} &
+      \text{\;if } v_{n,\subL} \leq 0 \quad \text{(inflow)} \\[2.5ex]
+    \dfrac{p_\subL}{\rho^{\gamma}_{\subL}} &
+      \text{\;if } v_{n,\subL} > 0 \quad \text{(outflow)}
+   %  \\[2.0ex]
+   %p_\subBC / \rho^{\gamma}_{\subBC} &
+   %  \text{\;if } v_{n,\subL} \leq 0 \quad \text{(inflow)} \\[1.0ex]
+   %p_\subL / \left(\rho^{\gamma}_{\subL}\right) &
+   %  \text{\;if } v_{n,\subL} > 0 \quad \text{(outflow)}
+  \end{cases}
+\]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+These four quantities are used to compute the right state in the following way.
+%
+First, the characteristic normal velocity is computed by averaging the Riemann
+invariants
+%
+\[
+  v_{n,\subR} = \frac{1}{2}\left(R^+ + R^-\right)
+\]
+%
+From there, the right state velocity can be determined by simply adding the
+normal and tangential components.
+%
+\[
+  \vec{u}_\subR = v_{n,\subR}\normal + \vec{v}_{t,\subR}
+\]
+%
+Next, the speed of sound is computed.
+%
+\[
+  a_\subR = \frac{\gamma-1}{4} \left( R^+ - R^- \right)
+\]
+%
+Finally, the right state density and pressure can be computed as
+%
+\begin{alignat*}{1}
+  \rho_\subR &
+      = \left(\frac{a^2_\subR}{\gamma s_\subR}\right)^{\tfrac{1}{\gamma-1}}
+      \\[1.0ex]
+  p_\subR &
+      = \frac{a^2_\subR \rho_\subR}{\gamma}
+\end{alignat*}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\devNotes{Currently, the characteristic speed of sound is calculated as $a_c =
+(R^+ - R^-)(\gamma-1)/4$. From the first paragraph on page 379 of Hirsch vol.
+2, this does not enforce total temperature, and that the equation $a_c^2 =
+(H_\subBC - \vec{u}^2_\subR)(\gamma-1)/2$ should be used instead. Also the way
+pressure is computed should be changed from $p=s\rho^{\gamma}$ to $p=a_c^2
+\rho/\gamma$. These are equivalent, but the latter is just nicer without the
+$\gamma$ in the exponent.
+%
+When switching to this notation, need to clarify what the subscript $c$
+means in $a_c$ and how it relates to $a_\subR$.
+}
+
+%###############################################################################
+

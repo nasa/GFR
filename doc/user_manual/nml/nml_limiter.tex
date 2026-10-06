@@ -1,0 +1,975 @@
+\subsection{nml\_limiter}
+\label{SEC:nml_limiter}
+\inp*[nmlLimiter]{}[nml\_limiter][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify limiter, filter, and marker controls.
+
+\begin{nmlblocklst}[
+,label={LST:nml_limiter}
+,caption={Namelist nml\_limiter.}
+]
+&nml_limiter
+  Global_Filter_Interval      =  0
+  Global_Filter_Option        =  0
+  Global_Filter_Order         = 16
+  Global_Filter_Alpha         = 36.0
+  Global_Filter_Etac          =  0.0
+  Sponge_Filter_Interval      =  0
+  Sponge_Filter_Option        =  0
+  Sponge_Filter_Order         =  8
+  Sponge_Filter_Alpha         = 36.0
+  Sponge_Filter_Etac          =  0.0
+  Sponge_Filter_X_Start       = huge(0.0)  ! [input grid units]
+  Local_Limiter_Interval      =  0
+  Local_Limiter_Option        =  0
+  Local_Filter_Order          = 16
+  Local_Filter_Alpha          = 36.0
+  Local_Filter_Etac           =  0.0
+  Marker_Option               =  0
+  Marker_Variable             =  0
+  Marker_Min                  =  1.0
+  Marker_Max                  =  1.0
+  Marker_Dpsi                 = -1.0
+  Marker_Stored_Interval      =  1
+  Thermofix%Method            =  0
+  Thermofix%Iterations        = 10
+  Thermofix%Check_Cells       =  T
+  Thermofix%Check_Faces       =  T
+  Thermofix%Check_Nodes       =  T
+  Thermofix%Verbose           =  T
+  Thermofix%Scale_Factor      = 0.5
+  Thermofix%Min_Pressure      = 10000.  ! [Pa]
+  Thermofix%Min_Temperature   =   100.  ! [K]
+  Thermofix%Min_Density       = 0.001   ! [kg/m^3]
+  Positivity%Option           = 0
+  Positivity%Density_Limit    = 1.0e-6  ! [kg/m^3]
+  Positivity%Pressure_Limit   = 1.0e-6  ! [Pa]
+  Entropy_Limiter%Option      = 0
+  Entropy_Limiter%Interpolant = 0
+  Entropy_Limiter%Tolerance   = 0.001
+  Entropy_Limiter%Check_Faces = F
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+%\begin{nmldescitem}
+%Pyramid_Filter_Option = 1
+%\end{nmldescitem}
+%\inp*[nmlLimiter::PyramidFilterOption]{}[Pyramid\_Filter\_Option][]
+%
+%\begin{nmldescbody}
+%This input specifies how to filter the modes of pyramid elements.
+%%
+%All options use a tensor product of a 1D exponential filter with
+%a 2D quad exponential filter to generate the pyramid filter matrices for
+%all exponential filters: global, limiter, and sponge.
+%
+%The 1D filter is relative to the pyramid height from base to peak, with the
+%base being the constant mode, and the peak being the \p{}-th mode, where
+%$\p{}=\inp[nmlNumerics::SolutionOrder]{Solution\_Order}$.
+%%
+%The same 1D filter is used for all options below.
+%
+%The 2D filter at the base is equivalent for all options below, and is also
+%the same as the 2D filter for an actual quad element of order \p{}.
+%%
+%Each increase in height of the pyramid subtracts 1 from the order of the
+%quad used to create the 2D filter (\thatis the base is a quad of order \p{},
+%the next level up is a quad of order \p{}-1, then a quad of order \p{}-2,
+%and eventually at the peak a ``quad'' of order \p{}-\p{}=0).
+%%
+%The options below essentially amount to differences in how the 2D filter
+%is defined for all of the pyramid layers above the base.
+%
+%Let $k$ be the level of the pyramid ranging from 0 to \p{}, where 0 is the
+%base and \p{} is the peak.
+%%
+%Let the cutoff order \pc{} at level $k$, denoted by \pc{\p{}-k}{},
+%be defined as
+%  $\pc{\p{}-k}=\eta_c * \mathrm{real}(\p{}{-k})$,
+%where $\eta_c$ is the cutoff ratio defined in
+%\sref{SEC:Filtering}.
+%
+%The permissible values for \inptext{Pyramid\_Filter\_Option}
+%can be summarized as:
+%\\
+%\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+%    1 & Scale $\eta_c$ so that the cutoff order \pc{} remains constant
+%        relative to \p{} for all $k$. Note that $\eta_c$ will take the
+%        value 1 if it evaluates to something larger than 1.\\
+%    2 & Use the same value of $\eta_c$ for each level of the pyramid.
+%        This means the cutoff order will change at each level.
+%        For example, if
+%        \p{}=3 and $\eta_c$=0.5: at the base level ($k$=0)
+%        $\pc{\p{}-0}=0.5*\mathrm{real}(\p{}{-0})=2$ and at the second level
+%        ($k$=2) $\pc{\p{}-2}=0.5*\mathrm{real}(\p{}{-2})=1$.
+%        This results in a slightly more dissipative filter than the
+%        first option.\\
+%    3 & Use a full 3D tensor product of the 1D exponential filter.
+%        This is equivalent to extracting only the pyramid modes from
+%        the hex filter.
+%\end{tabular}
+%
+%\NOTE
+%After examining how the modes of other cell geometries are filtered,
+%the default value of 1 appears to be the ``most correct'' way
+%to filter the modes of pyramid cells.
+%\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Global_Filter_Interval = 0
+\end{nmldescitem}
+\inp*[nmlLimiter::GlobalFilterInterval]{}[Global\_Filter\_Interval][]
+
+\begin{nmldescbody}
+Specifies the frequency to apply the global filter.
+\\
+\begin{tabular}{ @{\quad} r @{ \quad } p{0.85\linewidth} @{} }
+  $\le 0$ & Apply the global filter after each Runge-Kutta stage. \\
+ %$> 0$   & Apply the global filter after the last Runge-Kutta stage
+ %          of every
+ %          $\inptext{Global\_Filter\_Interval}^{\;\textrm{th}}$
+ %          time step. \\
+  $> 0  $ & Apply the global filter after the last Runge-Kutta stage if
+            \newline
+            $\textrm{mod} \left(         {current\_iteration},
+                                 \inptext{Global\_Filter\_Interval}
+                          \right) = 0$.
+            \newline
+            The ${current\_iteration}$ is the total aggregate iteration
+            number including previous jobs.
+ %          \\
+ %$< 0  $ & The global filter will NOT be applied even if
+ %          $\inptext{Global\_Filter\_Option} \neq 0$
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Global_Filter_Option = 0
+\end{nmldescitem}
+\inp*[nmlLimiter::GlobalFilterOption]{}[Global\_Filter\_Option][]
+
+\begin{nmldescbody}
+Specifies whether the global filter is used for stabilization.
+%
+This filter is denoted as a global filter because it is used on
+all cells regardless of the quality of the solution in each cell.
+%
+The available options are as follows:
+\\
+\begin{tabular}{ @{\quad} r @{\quad} p{0.80\linewidth} @{} }
+  $0=$ & Disable the global filter.\\
+  $1=$ & Use the exponential filter, \eref{EQN:ExpFilterMatrix}, 
+         where the polynomial order is given by 
+         $\PO=\inp[nmlNumerics::SolutionOrder]{Solution\_Order}$
+         for 1D, 2D, and 3D.
+\end{tabular}
+
+GFR uses a three-pass filtering approach involving global, local, and
+sponge filters.
+%
+Each of them and their sequence of application is described in
+\sref{SEC:Filtering}.
+%
+Generally, we recommend that the global filter not be used, because it can
+introduce significant dissipation.
+%
+When it is absolutely necessary to use the global filter, the filter settings
+should be set as weak as possible.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Global_Filter_Order = 16
+\end{nmldescitem}
+\inp*[nmlLimiter::GlobalFilterOrder]{}[Global\_Filter\_Order][]
+
+\begin{nmldescbody}
+This is an integer value between ($2 \leq s \leq 32$) that specifies the
+exponent\slash order of the global exponential filter,
+\eref{EQN:ExpFilterMatrix}.
+%
+As discussed in \sref{SEC:Filtering} and shown in \fref{FIG:Filter_s},
+the filter order controls how rapidly the filter decays.
+Larger values act to concentrate the filtering toward the highest mode.
+
+Because the global filter is applied to all cells regardless of the
+solution quality in each cell, one generally wants to use
+as large a value as possible so as not to affect the lower modes.
+%
+Starting with \inptext{Global\_Filter\_Order} of 32 or 16
+and halving if necessary is a good approach.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Global_Filter_Alpha = 36.0
+\end{nmldescitem}
+\inp*[nmlLimiter::GlobalFilterAlpha]{}[Global\_Filter\_Alpha][]
+
+\begin{nmldescbody}
+This is a real value between ($0. < \alpha \leq 36.$) that specifies the damping
+parameter of the global exponential filter, \eref{EQN:ExpFilterMatrix}.
+%
+As discussed in \sref{SEC:Filtering}, and shown in \fref{FIG:Filter_alpha},
+this parameter controls the level of damping applied to the highest mode;
+larger values apply more damping.
+%
+A value of 36.0 effectively filters the highest mode to machine zero.
+
+Because the global filter is applied to all cells regardless of the
+solution quality in each cell, one ideally wants to use
+as small a value as possible so as not to introduce unwanted dissipation.
+%
+However, since numerical error often first appears in the highest modes
+it may be necessary to aggressively filter those modes before it
+contaminates the lower modes.
+%
+Starting with \inptext{Global\_Filter\_Alpha} of 2 or 4
+and doubling if necessary is a good approach.
+
+In the special case of \PO[=1], the \PO[1] mode will be multiplied by
+$e^{-\alpha}$.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Global_Filter_Etac = 0.0
+\end{nmldescitem}
+\inp*[nmlLimiter::GlobalFilterEtac]{}[Global\_Filter\_Etac][]
+
+\begin{nmldescbody}
+This is a real value between ($0. \leq \eta_c \le 1.$) that specifies the modal
+cutoff fraction for the global exponential filter, \eref{EQN:ExpFilterMatrix}.
+%
+As discussed in \sref{SEC:Filtering} and shown in \fref{FIG:Filter_etac},
+modes at or below this cutoff fraction will be entirely preserved.
+%
+A value of $1.0$ applies no filter and wastes computational resources.
+
+For most simulations it is desirable to preserve the linear mode,
+and so a good approach is to set this input value to $\eta_c=1/{\PO}$ where
+$\PO=\inp[nmlNumerics::SolutionOrder]{Solution\_Order}$.
+%
+However, if ${\PO} \leq 2$ it may be best to use a value of 0,
+and if ${\PO} > 4$ it may be possible to use a larger fraction.
+
+In the special case of \PO[=1], any value $<1.0$ will just multiply the \PO[1]
+mode by $e^{-\alpha}$.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Sponge_Filter_Interval =  0
+Sponge_Filter_Option   =  0
+Sponge_Filter_Order    =  8
+Sponge_Filter_Alpha    = 36.0
+Sponge_Filter_Etac     =  0.0
+Sponge_Filter_X_Start  = huge(0.0)  ! [input grid units]
+\end{nmldescitem}
+\inp*[nmlLimiter::SpongeFilterInterval]{}[Sponge\_Filter\_Interval][]
+\inp*[nmlLimiter::SpongeFilterOption]{}[Sponge\_Filter\_Option][]
+\inp*[nmlLimiter::SpongeFilterOrder]{}[Sponge\_Filter\_Order][]
+\inp*[nmlLimiter::SpongeFilterAlpha]{}[Sponge\_Filter\_Alpha][]
+\inp*[nmlLimiter::SpongeFilterEtac]{}[Sponge\_Filter\_Etac][]
+\inp*[nmlLimiter::SpongeFilterXStart]{}[Sponge\_Filter\_X\_Start][]
+
+\begin{nmldescbody}
+GFR uses a three-pass filtering approach involving global, local, and
+sponge filters.
+%
+Each of them and their sequence of application is described in
+\sref{SEC:Filtering}.
+%
+Setting \inptext{Sponge\_Filter\_Option}=1 activates the sponge filter,
+which is ideally used as an extra-strong exponential filter to damp
+non-physical pressure reflections near the outflow boundary.
+%
+It is applied to any cells where all the $x$-coordinate values
+(in \key[key:GridUnits]{grid units}) are larger than
+that specified by \inptext{Sponge\_Filter\_X\_Start}.
+
+The details for these inputs are the same as for the similarly
+named \inptext{Global\_Filter} options.
+% 
+The user must manually specify the starting $x$-location
+(in \key[key:GridUnits]{grid units}) of the sponge region via
+\\% Prevent next word from entering right margin.
+\inptext{Sponge\_Filter\_X\_Start},
+since the default value of \inptext{huge(0.0)} will be beyond
+any current grid location.
+
+\noindent\NOTE
+If $\inp[nmlReference::AoAAlpha]{AoA\_Alpha}=\pm90$\textdegree{} and
+$\inp[nmlReference::AoABeta]{AoA\_Beta}=0$\textdegree{}, the $y$-axis will be
+assumed as the axial coordinate direction, and this input will be applied to the
+$y$-coordinate.
+%
+If $\inptext{AoA\_Alpha}=0$\textdegree{} and
+$\inptext{AoA\_Beta}=\pm90$\textdegree{}, the $z$-axis will be assumed as the
+axial coordinate direction, and this input will be applied to the
+$z$-coordinate.
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Local_Limiter_Interval = 0
+\end{nmldescitem}
+\inp*[nmlLimiter::LocalLimiterInterval]{}[Local\_Limiter\_Interval][]
+
+\begin{nmldescbody}
+Specifies the frequency to apply the local limiter.
+\\
+\begin{tabular}{ @{\quad} r @{ \quad } p{0.85\linewidth} @{} }
+  $\le 0$ & Apply the limiter after each Runge-Kutta stage. \\
+  $> 0  $ & Apply the limiter after the last Runge-Kutta stage if
+            \newline
+            $\textrm{mod} \left(         {current\_iteration},
+                                 \inptext{Local\_Limiter\_Interval}
+                          \right) = 0$.
+            \newline
+            For example, if $\inptext{Local\_Limiter\_Interval}=1$, the local
+            limiter will be applied at the end of every time step. The
+            ${current\_iteration}$ is the total aggregate iteration
+            number including previous jobs.
+ %          \\
+ %$< 0  $ & The limiter will NOT be applied even if \newline
+ %          $\inptext{Local\_Limiter\_Option} \neq 0$
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Local_Limiter_Option = 0
+\end{nmldescitem}
+\inp*[nmlLimiter::LocalLimiterOption]{}[Local\_Limiter\_Option][]
+
+\begin{nmldescbody}
+GFR uses a three-pass filtering approach involving global, local, and
+sponge filters.
+%
+Each of them and their sequence of application is described in
+\sref{SEC:Filtering}.
+%
+\inptext{Local\_Limiter\_Option} specifies the type of limiter to apply to
+locally marked cells.
+\\
+\begin{tabular}{ @{\quad} r @{ $=$ } p{0.85\linewidth} @{} }
+  $   0$ & Do not apply any kind of limiter. \\
+  $   1$ & Apply filtering. \\
+  $   2$ & Apply scaled filtering.
+           The filter value is scaled by the magnitude of the scaled marker. \\
+  $   3$ & Apply the multi-dimensional limiting process (MLP). \\
+  $9001$ & Apply recursive projection.
+           For any troubled cell that is marked, project the solution down one
+           order; recheck that cell to see if it is still troubled; keep
+           repeating this process until the cell is no longer marked or has been
+           reduced to a \PO[1] solution.
+           \\
+  $9002$ & Apply scaled projection.
+           For any troubled cell that is marked,
+           project the solution down to a order that is dynamically
+           chosen by the value of the local marker.
+           Cells with higher marker values will be projected to lower orders,
+           whereas cells with lower marker values will be projected down
+           only an order or two from the solution order.
+\end{tabular}
+
+\noindent
+\NOTE
+%
+The locally marked cells are determined from the inputs for
+  \inp[nmlLimiter::MarkerOption]{Marker\_Option} and
+  \inp[nmlLimiter::MarkerVariable]{Marker\_Variable}.
+%
+The local filter settings are defined by input values for
+  \inp[nmlLimiter::LocalFilterOrder]{Local\_Filter\_Order},
+  \inp[nmlLimiter::LocalFilterAlpha]{Local\_Filter\_Alpha}, and
+  \inp[nmlLimiter::LocalFilterEtac]{Local\_Filter\_Etac}.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Local_Filter_Order  = 16
+Local_Filter_Alpha  = 36.0
+Local_Filter_Etac   =  0.0
+\end{nmldescitem}
+\inp*[nmlLimiter::LocalFilterOrder]{}[Local\_Filter\_Order][]
+\inp*[nmlLimiter::LocalFilterAlpha]{}[Local\_Filter\_Alpha][]
+\inp*[nmlLimiter::LocalFilterEtac]{}[Local\_Filter\_Etac][]
+
+\begin{nmldescbody}
+As discussed in \sref{SEC:Filtering}, the local filter is applied
+to those cells identified by the troubled cell marker.
+%
+A good approach is to use the local options to apply a stronger filter
+to only those cells that have been marked as a troubled.
+%
+This will help prevent the oscillatory solutions in these cells
+from causing the simulation to diverge.
+%
+Then, if necessary, a weaker global filter can be applied
+to all cells to damp any other disturbances.
+
+The details for these inputs are the same as for the similarly
+named \inptext{Global\_Filter} options, but one likely wants
+to apply a stronger local filter setting.
+%
+Use
+\inptext{Local\_Filter\_Order}=16 and halve if necessary, and
+\inptext{Local\_Filter\_Alpha}=36 and halve if possible.
+For \inptext{Local\_Filter\_Etac}, use the same recommendations as
+for \inp[nmlLimiter::GlobalFilterEtac]{Global\_Filter\_Etac}.
+
+\IDEA{
+Create two paragraphs here: one with recommendations for
+$\inptext{Local\_Limiter\_Option}=1$, and one with recommendations for 
+$\inptext{Local\_Limiter\_Option}=2$.
+}
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Marker_Stored_Interval = 1
+\end{nmldescitem}
+\inp*[nmlLimiter::MarkerStoredInterval]{}[Marker\_Stored\_Interval][]
+
+\begin{nmldescbody}
+This determines if the marker values written to the CGNS solution files
+are from the final Runge-Kutta stage or from each Runge-Kutta stage.
+\\
+\begin{tabular}{ @{\qquad} r @{ \quad } p{0.85\linewidth} @{} }
+  $<0$ & Store markers at the same frequency of
+         \inp[nmlLimiter::LocalLimiterInterval]{Local\_Limiter\_Interval}.
+         This can be used to synchronize the marker storage and
+         limiter application.
+         \\
+  $=0$ & Store markers after each Runge-Kutta stage. \\
+  $>0$ & Store markers after the last Runge-Kutta stage.
+\end{tabular}
+\\
+\NOTE
+Storing markers each stage increases memory and file size
+(if \inp[nmlOutputVariables::MarkerVariables]{Marker\_Variables}
+are being output).
+\end{nmldescbody}
+
+%==========================================================================
+
+%##%\FINALFIX{\newpage}
+\begin{nmldescitem}
+Marker_Option = 0
+\end{nmldescitem}
+\inp*[nmlLimiter::MarkerOption]{}[Marker\_Option][]
+
+\begin{nmldescbody}
+Specifies which type of local marker to use.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  0 & Use the default marker option for the chosen
+      \inp[nmlLimiter::LocalLimiterOption]{Local\_Limiter\_Option}. \\
+  1 & Use the resolution marker described in \sref{SEC:ResolutionMarker}.\\
+  2 & Use the jump marker described in \sref{SEC:JumpMarker}.\\
+  3 & Use the MLP marker described in \sref{SEC:MLPMarker}.\\
+  4 & Use the Ducros marker described in \sref{SEC:DucrosMarker}.
+\end{tabular}\\
+%
+\Tref{TAB:Permissible_Marker_Option} lists the
+permissible and default values for \inptext{Marker\_Option},
+depending on
+\\ % Prevent next word from entering right margin.
+\inptext{Local\_Limiter\_Option}.
+
+\IDEA{Add Ducros and Ducros$\times$Jump markers.}
+
+\begin{table}[h]
+\begin{center}
+\caption{Permissible values for \inptext{Marker\_Option}.}
+\label{TAB:Permissible_Marker_Option}
+\begin{tabular}{rlc}
+  \multicolumn{2}{c}{\inptext{Local\_Limiter\_Option}} &
+  \inptext{Marker\_Option} \\
+  \hline
+     0 & None                & $1^*,2,3,4$ \\
+     1 & Filtering           & $1^*,2,3,4$ \\
+     2 & Scaled Filtering    & $1^*,2,3,4$ \\
+     3 & MLP                 & $3^*$     \\
+  9001 & Recusive Projection & $1^*,2$   \\
+  9002 & Scaled   Projection & $1^*,2$   \\
+  \hline
+\end{tabular}
+\\
+${}^*$ indicates default value.
+\end{center}
+\end{table}
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Marker_Variable = 0
+\end{nmldescitem}
+\inp*[nmlLimiter::MarkerVariable]{}[Marker\_Variable][]
+
+\begin{nmldescbody}
+This determines which variable is used to evaluate the local marker.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  -2 & Use the Ducros variable based upon velocity divergence (only valid for
+       $\inptext{Marker\_Option}=4$).\\
+  -1 & Use pressure.\\
+   0 & Use the default marker variable for the chosen
+       \inp[nmlLimiter::MarkerOption]{Marker\_Option}.
+       \\
+   1 & Use density.\\
+   2 & Use $x$-momentum.\\
+   3 & Use $y$-momentum.\\
+   4 & Use $z$-momentum.\\
+   5 & Use total energy.\\
+   6 & Use the max value after evaluating the marker
+       for each conserved variable.
+\end{tabular}\\
+%
+\Tref{TAB:Permissible_Marker_Variable} lists the
+permissible and default values for \inptext{Marker\_Variable},
+depending on
+\\ % Prevent next word from entering right margin.
+\inptext{Marker\_Option}.
+
+\begin{table}[h]
+\begin{center}
+\caption{Permissible values for \inptext{Marker\_Variable}.}
+\label{TAB:Permissible_Marker_Variable}
+\begin{tabular}{rlc}
+  \multicolumn{2}{c}{\inptext{Marker\_Option}} & \inptext{Marker\_Variable} \\
+  \hline
+     1 & Resolution & $ 1^*,2,3,4,5,6$ \\
+     2 & Jump       & $-1^*,1,2,3,4,5$ \\
+     3 & MLP        & $ 1^*,2,3,4,5$ \\
+     4 & Durcos     & $-2^*$ \\
+  \hline
+\end{tabular}
+\\
+${}^*$ indicates default value.
+\end{center}
+\end{table}
+
+\NOTE
+Using all conserved variables (option 6) will result in marking
+the most number of cells.
+This will increase stability, but has the tendency to add unnecessary
+dissipation where it is not needed.
+The default of using only density seems to result in the best mix of
+stability with minimal unnecessary dissipation.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Marker_Min = 1.0
+\end{nmldescitem}
+\inp*[nmlLimiter::MarkerMin]{}[Marker\_Min][]
+
+\begin{nmldescbody}
+This gives the value for $\Psi_{min} = \Psi_0 - \Delta \Psi$,
+which is the bottom-end of the $s$-curve used to scale
+the marker value from the interval ($-\infty$,0] to the interval [0,1].
+%
+Any cell with a marker value less than the value of this input will have
+a scaled marker value of 0, which means that cell will receive no limiting.
+%
+See the discussion of the scaled marker in \sref{SEC:ScaledMarker}
+for a more information
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Marker_Max = 1.0
+\end{nmldescitem}
+\inp*[nmlLimiter::MarkerMax]{}[Marker\_Max][]
+
+\begin{nmldescbody}
+This gives the value for $\Psi_{max} = \Psi_0 + \Delta \Psi$,
+which is the top-end of the $s$-curve used to scale
+the marker value from the interval ($-\infty$,0] to the interval [0,1].
+%
+Any cell with a marker value greater than the value of this input will have
+a scaled marker value of 1, which means that cell will receive
+the maximum strength of the limiting method being employed.
+%
+See the discussion of the scaled marker in \sref{SEC:ScaledMarker}
+for a more information
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Marker_Dpsi = -1.0
+\end{nmldescitem}
+\inp*[nmlLimiter::MarkerDpsi]{}[Marker\_Dpsi][]
+
+\begin{nmldescbody}
+This gives the value for the constant $\Delta\Psi$ that is used to scale
+the marker value from the interval ($-\infty$,0] to the interval [0,1].
+%
+See the discussion of the scaled marker in \sref{SEC:ScaledMarker}
+for a more information
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Thermofix%Method          = 0
+Thermofix%Iterations      = 10
+Thermofix%Check_Cells     = T
+Thermofix%Check_Faces     = T
+Thermofix%Check_Nodes     = T
+Thermofix%Verbose         = T
+Thermofix%Scale_Factor    = 0.5
+Thermofix%Min_Pressure    = 10000.  ! [Pa]
+Thermofix%Min_Temperature = 100.    ! [K]
+Thermofix%Min_Density     = 0.001   ! [kg/m^3]
+\end{nmldescitem}
+\inp*[nmlLimiter::Thermofix/Method]{}[Thermofix\%Method][]
+\inp*[nmlLimiter::Thermofix/Iterations]{}[Thermofix\%Iterations][]
+\inp*[nmlLimiter::Thermofix/CheckCells]{}[Thermofix\%Check\_Cells][]
+\inp*[nmlLimiter::Thermofix/CheckFaces]{}[Thermofix\%Check\_Faces][]
+\inp*[nmlLimiter::Thermofix/CheckNodes]{}[Thermofix\%Check\_Nodes][]
+\inp*[nmlLimiter::Thermofix/Verbose]{}[Thermofix\%Verbose][]
+\inp*[nmlLimiter::Thermofix/ScaleFactor]{}[Thermofix\%Scale\_Factor][]
+\inp*[nmlLimiter::Thermofix/MinPressure]{}[Thermofix\%MinPressure][]
+\inp*[nmlLimiter::Thermofix/MinTemperature]{}[Thermofix\%Min\_Temperature][]
+\inp*[nmlLimiter::Thermofix/MinDensity]{}[Thermofix\%Min\_Density][]
+
+\begin{nmldescbody}
+Sometimes during the course of a simulation, the solution will
+encounter a negative thermodynamic property
+(pressure, temperature, or density),
+which can cause a NaN (\forexample when computing speed of sound).
+%
+The \inptext{Thermofix} inputs are intended to help remedy this
+situation.
+%
+While they provide additional stability when needed, they also introduce
+additional dissipation, and should be avoided if possible.
+
+\inptext{Method} specifies the method used to repair
+cells with bad thermodynamic properties.
+Checks are performed during each Runge-Kutta stage.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  0 & None \\
+  1 & Limit the high-order modes using the exponential sponge filter. \\
+  2 & Scale the high-order modes by \inptext{Scale\_Factor}.
+\end{tabular}
+
+\inptext{Iterations} specifies how many passes to
+make before abandoning further repair efforts.
+
+\inptext{Scale\_Factor} specifies the scaling factor to apply
+to the high-order modes when using \inptext{Method}=2.
+
+\inptext{Check\_Cells},
+\inptext{Check\_Faces}, and
+\inptext{Check\_Nodes}
+specifies whether to check the thermodynamic properties at points within the
+cell volume, the cell faces, or the cell nodes (corners).
+%
+If any of these checks identifies a troubled point,
+the solution within the cell volume is treated and
+re-interpolated to the faces and nodes.
+
+\inptext{Verbose} is used to output information about
+the bad cells to the display output.
+
+\inptext{Min\_Pressure},
+\inptext{Min\_Temperature}, and
+\inptext{Min\_Density}
+are used to specify threshold values below which action should be taken.
+%
+These limits are imposed individually, so the three specified values need not
+satisfy the equation of state.
+%
+Using small yet positive values is intended to identify problem
+regions before the solution has deteriorated too severely.
+%
+The actual values for these parameter may need to be adjusted
+for each flow problem.
+%
+These values should be small enough to not be physically encountered within
+the flow but large enough that the solution can still be recovered before
+fully diverging.
+
+The thermofix limiter is applied at the end of each Runge-Kutta stage.
+%
+The order in which the thermofix limiter is applied relative to
+other limiting\slash filtering methods can be found in the enumerated list
+towards the beginning \sref{SEC:Numerics}.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Positivity%Option         = 0
+Positivity%Density_Limit  = 1.0e-6 ! [kg/m^3]
+Positivity%Pressure_Limit = 1.0e-6 ! [Pa]
+\end{nmldescitem}
+\inp*[nmlLimiter::Positivity/Option]{}[Positivity\%Option][]
+\inp*[nmlLimiter::Positivity/DensityLimit]{}[Positivity\%Density\_Limit][]
+\inp*[nmlLimiter::Positivity/PressureLimit]{}[Positivity\%Pressure\_Limit][]
+
+\begin{nmldescbody}
+ 
+%ADD REFERENCE TO ZHANG AND SHU, and JOHNSON AND CHING.
+
+Sometimes during the course of a simulation, the solution will encounter a
+negative thermodynamic property (pressure, temperature, or density), which can
+cause a NaN (\forexample when computing speed of sound).
+%
+The \inptext{Positivity} inputs are intended to help remedy this situation using
+a positivity-preserving limiter.
+%
+While this method provides additional stability when needed, it will also
+introduce additional dissipation, and should therefore be avoided if possible.
+
+\inptext{Option} simply specifies if the positivity limiter is activated.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  0 & Off (Default) \\
+  1 & On
+\end{tabular}
+
+\inptext{Density\_Limit} specifies the minimum dimensional density allowable for
+any of the solution or flux points of a cell.
+ 
+\inptext{Pressure\_Limit} specifies the minimum dimensional pressure allowable
+for any of the solution or flux points of a cell.
+
+When the positivity limiter is activated, if any solution or flux point of a
+cell has a density or pressure value below their respective limits, the
+positivity limiter will be applied to this cell.
+
+The positivity limiter is applied at the end of each Runge-Kutta stage.
+%
+The order in which the positivity-preserving limiter is applied relative to
+other limiting\slash filtering methods can be found in the enumerated list
+towards the beginning \sref{SEC:Numerics}.
+%
+%The positivity limiter will be applied \emph{after} any of the following (if
+%also active): sponge filter or weak global filter (\thatis
+%$\inptext{Global\_Filter\_Alpha} \leq 1$).
+%%
+%The positivity limiter will be applied \emph{before} any of the following (if
+%also active): entropy limiter, local limiter (\thatis
+%$\inptext{Local\_Limiter\_Option}\neq 0$), strong global filter (\thatis
+%$\inptext{Global\_Filter\_Alpha}>1$), or \inptext{Thermofix}.
+
+When the positivity limiter is applied to a cell, the solution in the cell is
+modified in the following way:
+%
+\begin{equation}
+  \tilde{u} = \check{u} + \theta_{PL}\left(u-\check{u}\right)
+  \label{EQN:PLSolution}
+\end{equation}
+%
+where $u$ is the conserved variable being limited, $\check{u}$ is the average
+value of the polynomial $u$ in the cell, $\theta_{PL}$ is the limiter scaling
+factor, and $\tilde{u}$ is the resulting limited polynomial.
+%
+The limiter scaling factor, $\theta_{PL}$, is computed as
+%
+\begin{equation}
+  \theta_{PL} = 0.99 \left(
+                           \frac{\check{a}-a_{\textrm{Lim}}}
+                                {\check{a}-a_{\textrm{min}}}
+                     \right)
+  \label{EQN:PLScalingFactor}
+\end{equation}
+%
+where $a$ is either density or pressure depending on which positivity limit was
+violated in the cell, $\check{a}$ is the average value of the variable $a$ in
+the cell, $a_{\textrm{Lim}}$ is the value of the respective input
+\inptext{Density\_Limit} or \inptext{Pressure\_Limit}, and $a_{\textrm{min}}$ is
+the minimum value of the respective variable from all solution and flux points
+of the cell.
+
+\NOTE
+If \inptext{Density\_Limit} is violated in the cell, only the density polynomial
+is limited by the positivity limiter, with the scaling factor $\theta_{PL}$
+evaluated with $a=\rho$.
+%
+If \inptext{Pressure\_Limit} is violated in the cell, all conserved variables
+are limited by the positivity limiter, with the scaling factor $\theta_{PL}$
+evaluated with $a=p$.
+
+\NOTE
+The density and pressure limits needed for the positivity limiter are generally
+much smaller than what is needed for \inptext{Thermofix}.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Entropy_Limiter%Option      = 0
+Entropy_Limiter%Interpolant = 0
+Entropy_Limiter%Tolerance   = 0.001
+Entropy_Limiter%Check_Faces = F
+\end{nmldescitem}
+\inp*[nmlLimiter::EntropyLimiter/Option]{}[Entropy\_Limiter\%Option][]
+\inp*[nmlLimiter::EntropyLimiter/Interpolant]{}[Entropy\_Limiter\%Interpolant][]
+\inp*[nmlLimiter::EntropyLimiter/Tolerance]{}[Entropy\_Limiter\%Tolerance][]
+\inp*[nmlLimiter::EntropyLimiter/CheckFaces]{}[Entropy\_Limiter\%Check\_Faces][]
+
+\begin{nmldescbody}
+ 
+%ADD REFERENCE TO ZHANG AND SHU, and JOHNSON AND CHING.
+
+Sometimes during the course of a simulation, the solution will encounter a
+negative thermodynamic property (pressure, temperature, or density), which can
+cause a NaN (\forexample when computing speed of sound).
+%
+The \inptext{Entropy\_Limiter} inputs are intended to help remedy this situation
+using a limiter to prevent violations of the local entropy bound in a cell.
+%
+While this method provides additional stability when needed, it will also
+introduce additional dissipation, and should therefore be avoided if possible.
+
+\inptext{Option} specifies if the entropy limiter is active, and if so, which
+method to use to limit any cells that violate the minimum entropy bounds.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  0 & Off (Default) \\
+  1 & Flat filter \\
+  2 & Scaled filter
+\end{tabular}
+
+\inptext{Interpolant} specifies the interpolant used by the entropy limiter.
+%
+For each cell that is found to be in violation of the local entropy bounds, the
+interpolant is used to compute the filter strength, $\theta_{EL}$, necessary to
+prevent the cell from committing the violation.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  0 & method used by Lv-Ihme; equation 44 from \linecite{Lv_2015} (Default) \\
+  1 & linear \\
+  2 & density weighted \\
+  3 & log scaling \\
+  4 & Pad\'{e} approximation
+\end{tabular}
+   
+\inptext{Tolerance} specifies how much the local entropy bounds can be violated
+before limiting the cell.
+%
+As this value gets closer to zero, the limiter gets more strict about not
+allowing the solution to violate the bounds by adding more dissipation to
+prevent the violation from occurring.
+
+\inptext{Check\_Faces} specifies if the entropy values from the faces of each
+cell (both internal and from the adjacent neighboring cells) are included when
+computing the minimum entropy for said cell.
+%
+Including the face entropy values in the minimum entropy will help with
+maintaining a stable solution, but at the expense of additional dissipation.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+When the entropy limiter uses the flat filter to modify the solution in a cell,
+the limited solution polynomial is given by
+%
+\begin{equation}
+  \tilde{u} = \check{u} + \theta_{EL}\left(u-\check{u}\right)
+  \label{EQN:ELFlatSolution}
+\end{equation}
+%
+where $u$ is the conserved variable being limited, $\check{u}$ is the average
+value of the polynomial $u$ in the cell, $\tilde{u}$ is the resulting
+limited polynomial, and the filter strength is in the range $\theta_{EL} =
+\left[0,1\right]$.
+%
+When using the scaled filter, the entropy limiter modifies the solution in one
+of two ways depending on the value of $\theta_{EL}$:
+%
+\begin{equation}
+  \tilde{u} = 
+  \begin{cases}
+    u + \theta_{EL}\left({\cal F}\left(u\right) - u\right) & 
+       \textrm{if } \theta_{EL} \leq 1 \\
+    \check{u} + \left(2-\theta_{EL}\right) \left({\cal F}\left(u\right) -
+    \check{u}\right) &
+       \textrm{if } \theta_{EL} > 1
+  \end{cases}
+  \label{EQN:ELScaledSolution}
+\end{equation}
+%
+where ${\cal F}\left(u\right)$ is the result of applying the full local filter
+to the unmodified solution $u$, and the filter strength is in the range
+$\theta_{EL} = \left[0,2\right]$.
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The entropy limiter is applied at the end of each Runge-Kutta stage.
+%
+The order in which the entropy limiter is applied relative to other
+limiting\slash filtering methods can be found in the enumerated list towards the
+beginning \sref{SEC:Numerics}.
+%
+%The entropy limiter will be applied \emph{after} any of the following (if also
+%active): sponge filter, weak global filter (\thatis
+%$\inptext{Global\_Filter\_Alpha} \leq 1$), or positivity-preserving limiter.
+%%
+%The entropy limiter will be applied \emph{before} any of the following (if also
+%active): local limiter (\thatis $\inptext{Local\_Limiter\_Option}\neq 0$),
+%strong global filter (\thatis $\inptext{Global\_Filter\_Alpha}>1$), or
+%\inptext{Thermofix}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\NOTE
+When using $\inptext{Option}=2$, the local filter will be used to compute a
+filtered solution to use as part of the limiting process; therefore, the input
+coefficients for the local filter (\inptext{Local\_Filter\_Order},
+\inptext{Local\_Filter\_Alpha}, and \inptext{Local\_Filter\_Etac}) will become
+an important part of the entropy limiter settings and need to be adjusted
+accordingly.
+
+\NOTE
+When the entropy limiter is applied to a cell, all conserved variables are
+modified together with the same filter strength.
+
+\NOTE
+So far, our experience seems to indicate that the \inptext{Interpolant} has
+little effect on the stability or accuracy of the solution; however, this could
+be something that is problem dependent and we have yet to find a case that
+demonstrates the effect of different interpolant methods.
+%
+Because of this, it is recommended to first look at adjusting other inputs when
+encountering stability issues.
+
+\end{nmldescbody}
+
+%==========================================================================
+

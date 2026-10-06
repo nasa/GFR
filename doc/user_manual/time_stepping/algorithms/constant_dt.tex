@@ -1,0 +1,44 @@
+\subsubsection{Constant Global Time Stepping}
+\label{SEC:Time:Algorithms:Constant}
+
+Constant global time stepping is exactly as it sounds: a constant time step
+size, taken from the input \inp[nmlTimestep::Timestep]{Timestep}, is globally
+used by all cells to update their solutions in time.
+%
+This method is used by setting the input
+\inp[nmlTimestep::TimestepType]{Timestep\_Type}=0.
+%
+In general, the time step size is constant in that the value of
+\inptext{Timestep} is used for every solver iteration with a
+\inp[nmlTimestep::CFL]{CFL} of 1.0.
+%
+However, if CFL ramping is being used, the time step size will change based on
+the ramping schedule.
+%
+Once the ramping schedule finishes, \inptext{CFL} will revert to a value of
+$1.0$.
+%
+%Once the ramping schedule finishes, the time step size will go back to being
+%constant with a value of \[\Delta t = \inp[nmlTimestep::Timestep]{Timestep}
+%\times \inp[nmlTimestep::CFLRampingEnd]{CFL\_Ramping\_End} \]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Being a global time stepping method, this option is suitable for time-accurate
+simulations like LES.
+%
+The difficulty in using a constant global time step is that the maximum
+allowable time step for a simulation is problem dependent, so it can only really
+be used when you have an idea of what time step size is needed for a problem.
+%
+The primary use for constant time stepping would be for running a followup
+simulation using the restart file of a simulation that used a CFL-based global
+time step in which all initial transients have been removed from the flow.
+%
+However, continuing the use of CFL-based global time stepping for this followup
+situation is just as good as, if not better than, switching to a constant time
+step size, since the CFL-based approach can reduce the time step size if
+something develops within the simulation that requires a smaller time step.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

@@ -1,0 +1,29 @@
+\subsection{nml\_removed}
+\label{SEC:nml_removed}
+\inp*[nmlRemoved]{}[nml\_removed][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to track which options have been removed from the previous
+input file format.
+
+%==========================================================================
+
+\begin{nmldescitem}
+Time_Average_Restart_Files = F
+\end{nmldescitem}
+\inp*[nmlRemoved::TimeAverageRestartFiles]{}[Time\_Average\_Restart\_Files][]
+
+\begin{nmldescbody}
+Logical flag to run a utility that creates a time-averaged solution from a
+list of existing restart files given in the file specified by the
+\inptext{Restart\_List\_File} input parameter. This utility will finish by
+writing out a time-averaged restart file and a time-averaged CGNS solution
+file. This utility does not execute anything within the solver.
+\end{nmldescbody}
+
+%==========================================================================
+
+%\AddEntry[nmlRemoved::LocInitPts]{nml\_removed}{Loc\_Init\_Pts}
+
+%==========================================================================
+

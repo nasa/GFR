@@ -1,0 +1,471 @@
+%#%%\FINALFIX{\newpage}%
+\subsection{nml\_timestep}
+\label{SEC:nml_timestep}
+\inp*[nmlTimestep]{}[nml\_timestep][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify time stepping features.
+
+\begin{nmlblocklst}[
+,label={LST:nml_timestep}
+,caption={Namelist nml\_timestep.}
+]
+&nml_timestep
+  Runge_Kutta_Scheme        =    113
+  Num_Timesteps_Min         =    100
+  Num_Timesteps             =  25000
+  Final_Time                =  -10.0  ! non-dim time, t*
+  Timestep_Type             =      1
+  Timestep                  = 1.0e-6  ! t[s] * ( a[m/s] / L=1.0[m])
+  CFL                       =    1.0
+  CFL_Ramping_Beg           =    0.1
+  CFL_Ramping_End           =    1.0
+  CFL_Ramping_Iterations    =      1
+  CFL_Ramping_Start_Iter    =      0
+  Convergence_Order_Abs_Res =  -16.0
+  Convergence_Order_Max_Res =  -16.0
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Runge_Kutta_Scheme = 113
+\end{nmldescitem}
+\inp*[nmlTimestep::RungeKuttaScheme]{}[Runge\_Kutta\_Scheme][]
+
+\begin{nmldescbody}
+Specifies which Runge-Kutta (RK) method to use.
+%
+See \sref{SEC:Time:Methods} for additional details.
+%
+Speedup is relative to the 3-stage/\nth{3}-order SSP ERK method.
+
+\begin{longtable}{ r @{ = } r @{/} p{3.55in} c }
+  \toprule
+  \multicolumn{1}{l@{ \phantom{=} }}{Option} &
+  \multicolumn{2}{@{}l}{Description} &
+  Speedup \\
+  \midrule%\\[-0.75em]
+  \endhead
+%\multicolumn{4}{l}{}\\[-0.75em]
+         \multicolumn{1}{r@{}}{}
+       & \multicolumn{2}{@{}l}{\textbf{Recommended options.}} & \\
+   113 &  11-stage & \nth{3}-order VOERK\cite{AlJahdali_2022} & 1.33x \\
+   154 &  15-stage & \nth{4}-order VOERK\cite{AlJahdali_2022} & 1.33x \\
+     4 &   5-stage & \nth{4}-order SSP ERK\cite{Spiteri_2002} & 1.22x \\
+   165 &  16-stage & \nth{5}-order VOERK\cite{AlJahdali_2022} & 1.18x \\
+   943 &   9-stage & \nth{4}(\nth{3})-order
+                     EPERK FSAL\cite{Ranocha_2022}            & 1.22x \\
+   532 &   5-stage & \nth{3}(\nth{2})-order
+                     EPERK FSAL\cite{Ranocha_2022}            & 1.09x
+\\[0.5em]
+\pagebreak[3]
+%
+         \multicolumn{1}{r@{}}{}
+       & \multicolumn{2}{@{}l}{\textbf{Other options that work well.}}   & \\
+    -2 &   2-stage & \nth{2}-order Classic RK                       & n/a   \\
+    -3 &   3-stage & \nth{3}-order Classic RK                       & n/a   \\
+    -4 &   4-stage & \nth{4}-order Classic RK                       & n/a   \\
+     2 &   2-stage & \nth{2}-order SSP ERK\cite{Gottlieb_1998}      & n/a   \\
+     3 &   3-stage & \nth{3}-order SSP ERK\cite{Gottlieb_1998}      & 1.00x \\
+     5 &   5-stage & \nth{4}-order Carpenter-Kennedy low storage
+                                   RK\cite{Carpenter_1994}          & 0.99x \\
+    53 &   5-stage & \nth{3}-order VOERK\cite{AlJahdali_2022}       & 1.08x \\
+    64 &   6-stage & \nth{4}-order VOERK\cite{AlJahdali_2022}       & 1.02x \\
+    85 &   8-stage & \nth{5}-order VOERK\cite{AlJahdali_2022}       & 1.05x \\
+  -943 &   9-stage & \nth{4}(\nth{3})-order
+                     EPERK non-FSAL\cite{Ranocha_2022}              & n/a   \\
+  -532 &   5-stage & \nth{3}(\nth{2})-order
+                     EPERK non-FSAL\cite{Ranocha_2022}              & n/a
+\\[0.5em]
+\pagebreak[3]
+%
+         \multicolumn{1}{r@{}}{}
+       & \multicolumn{2}{@{}l}{\textbf{Options that do not perform as well.}}&\\
+  $\pm$1 &   1-stage & \nth{1}-order Forward Euler method       & n/a   \\
+     -53 &   5-stage & \nth{3}-order AOERK\cite{AlJahdali_2022} & n/a \\
+    -113 &  11-stage & \nth{3}-order AOERK\cite{AlJahdali_2022} & n/a \\
+     -64 &   6-stage & \nth{4}-order AOERK\cite{AlJahdali_2022} & n/a \\
+    -154 &  15-stage & \nth{4}-order AOERK\cite{AlJahdali_2022} & n/a \\
+     -85 &   8-stage & \nth{5}-order AOERK\cite{AlJahdali_2022} & n/a \\
+    -165 &  16-stage & \nth{5}-order AOERK\cite{AlJahdali_2022} & 0.98x \\
+      54 &   6-stage & \nth{5}(\nth{4})-order
+                       Dormand-Prince EPERK\cite{Dormand_1980}  & 0.64x \\
+     853 &  12-stage & \nth{8}(\nth{5})-order
+                       Dormand-Prince EPERK\cite{Hairer_1993}   & 0.61x \\
+    1054 &  10-stage & \nth{5}(\nth{4})-order
+                       EPERK FSAL\cite{Ranocha_2022}            & 0.85x \\
+   -1054 &  10-stage & \nth{5}(\nth{4})-order
+                     EPERK non-FSAL\cite{Ranocha_2022}        & n/a \\
+  \bottomrule
+\end{longtable}
+
+\noindent
+Acronyms used in the description above:
+\\
+\begin{tabular}{ @{\qquad} l @{ : } p{0.75\linewidth} @{} }
+  SSP   & Strong stability preserving \\
+  VOERK & Vortex-optimized explicit Runge-Kutta (ERK) \\
+  AOERK & Advection-optimized ERK \\
+  FSAL  & First-same-as-last \\
+  EPERK & Embedded-pair ERK with adaptive time stepping
+\end{tabular}
+\\
+
+\NOTE
+EPERK methods do not work with limiting or filtering.
+
+\NOTE
+The value in parenthesis for EPERK methods is the order of the embedded method.
+%
+The difference between the actual method and embedded method represents the
+time-error from the time step.
+%
+This is used by the adaptive time stepping proportional–integral–derivative
+(PID) controller to compute the size of the next time step.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Num_Timesteps_Min = 100
+\end{nmldescitem}
+\inp*[nmlTimestep::NumTimestepsMin]{}[Num\_Timesteps\_Min][]
+
+\begin{nmldescbody}
+The minimum number of time steps to complete before checking whether any of
+the convergence criteria have been met.
+
+\NOTE When initializing a simulation to a uniform flow, the very
+small changes that occur during the first few time steps can trigger a false
+positive convergence check if this is set to a small number,
+\forexample $\leq5$.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Num_Timesteps = 25000
+\end{nmldescitem}
+\inp*[nmlTimestep::NumTimesteps]{}[Num\_Timesteps][]
+
+\begin{nmldescbody}
+Number of time steps for the simulation to run, unless
+\inp[nmlTimestep::FinalTime]{Final\_Time}
+is reached before completing all time steps.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Final_Time = -10.0  ! non-dim time, t*
+\end{nmldescitem}
+\inp*[nmlTimestep::FinalTime]{}[Final\_Time][]
+
+\begin{nmldescbody}
+Stops the simulation when the time within the simulation reaches this
+final time value.
+%
+This value is specified in nondimensional units
+(\key[key:tstar]{\tstar}[t *@\tstar]), \eref{EQN:tstar}, based on the input
+provided for
+\inp[nmlOutput::TimeScalingFactor]{Time\_Scaling\_Factor}.
+%
+For the isentropic vortex problem
+(\inp[nmlInitialization::Initialization]{Initialization}=5 or 55), a
+negative value specifies the total number of periods to run the simulation.
+%
+For all other cases, a negative value disables the use of
+\inptext{Final\_Time} to stop a simulation.
+
+\NOTE
+The nondimensional simulation time
+(\key[key:tstar]{\tstar}[t *@\tstar]), \eref{EQN:tstar},
+is written to standard output with the convergence information
+and to the residual file.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Timestep_Type = 1
+\end{nmldescitem}
+\inp*[nmlTimestep::TimestepType]{}[Timestep\_Type][]
+
+\nopagebreak
+\begin{nmldescbody}
+This determines the method used to compute the time step size and the type of
+time stepping to use for the simulation (unless using one of the EPERK methods
+for adaptive time stepping, see note below).
+%
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.80\linewidth} @{} }
+  -2 & Local time step from the inviscid eigenvalue. (Experimental) \\
+  -1 & Local time step from the spectral radius. \\
+   0 & Global time step from user specified time step. \\
+   1 & Global time step from the spectral radius. \\
+   2 & Global time step from the inviscid eigenvalue.  (Experimental)
+\end{tabular}
+ 
+\begin{InputList}[font=\mdseries]
+  \item[Local time stepping:]
+    At the beginning of each solver iteration, each grid cell computes its own
+    unique time step size that is used to update the solution within the cell at
+    the end of each Runge-Kutta stage.
+    %
+    Since all cells are updated with different time step sizes, this can only be
+    used for steady-state simulations and cannot be used for time-accurate
+    simulations (\forexample LES) which require all cells to be synchronized in
+    time.
+  \item[Global time stepping:]
+    At the beginning of each solver iteration, the time step for each cell is
+    computed in the same way as with local time stepping.
+    %
+    However, the minimum time step size across all grid cells is taken to be the
+    global time step size that all cells use to update their solutions in time.
+    %
+    Global time stepping is required for time-accurate simulation like LES, but
+    is generally inefficient for steady-state problems.
+  \item[Inviscid eigenvalue:]
+    The maximum inviscid eigenvalue is used to compute a time step size at
+    each solution point within a cell, and the minimum of these values is
+    taken to be the time step for the cell.
+  \item[Spectral radius:]
+    The time step within each cell is taken as the minimum value of the
+    spectral radius evaluated at every face\slash flux point of the cell.
+  \item[User specified time step:]
+    A constant global time step is obtained from the user input for
+    \inp[nmlTimestep::Timestep]{Timestep}.
+    %
+    \NOTE The input \inptext{Timestep} is specified as a nondimensional value.
+    It is the physical time step nondimensionalized by the reference speed of
+    sound and a length of 1 meter.
+%
+%   A constant global time step is computed from the inputs
+%   $\inp[nmlTimestep::CFL]{CFL} \times
+%    \inp[nmlTimestep::Timestep]{Timestep}$.
+%   \newline
+%   %
+%   For this option, \inptext{CFL}=1.0 unless CFL ramping is being used.
+%   See \inp[nmlTimestep::Timestep]{Timestep}.
+\end{InputList}
+
+\vspace{1.0ex}\noindent\NOTE
+For each of the methods above,
+once the time step is determined, the effective $\Delta t$ will be computed as
+\begin{equation}
+  \Delta t = CFL \times \text{time step}
+\end{equation}
+where $CFL$ is obtained from
+  \inp[nmlTimestep::CFL]{CFL}
+or from
+  \inp[nmlTimestep::CFLRampingBeg]{CFL\_Ramping\_Beg}/%
+  \inp[nmlTimestep::CFLRampingEnd]{End}[CFL\_Ramping\_End]
+if CFL ramping is being used.
+%
+If \inptext{Timestep\_Type}=0 (user specified time step), then
+\inp[nmlTimestep::CFL]{CFL} will be set to 1.0,
+however ramping may still be used.
+See \inp[nmlTimestep::Timestep]{Timestep}.
+\\ % Adds an extra blank line.
+
+\noindent\NOTE
+If using one of the EPERK methods for adaptive time stepping, the CFL column
+written to \file{stdout} for each iteration will contain an approximate CFL
+value, $\text{CFL}_\textsc{eperk}$, for the adaptive time step size relative
+to the time step size that would have been computed for one of the CFL-based
+ERK methods, \thatis
+%
+\[
+  \text{CFL}_\textsc{eperk} \approx
+                   \frac{\Delta t_\textsc{eperk}}{\Delta t_\textsc{erk}}
+\]
+%
+where $\Delta t_\textsc{eperk}$ is the time step size computed by the PID
+controller for the EPERK method, and $\Delta t_\textsc{erk}$ is the time step
+size that would have been computed using the method specified by
+\inptext{Timestep\_Type} for a CFL-based ERK method with $\text{CFL}=1.0$.
+
+\devNotes{
+For \inptext{Timestep\_Type=0} (user specified time step), have the
+code force CFL=1.0 rather than just ignore it.
+}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Timestep = 1.0e-6  ! t[s] * (a[m/s] / L=1.0[m])
+\end{nmldescitem}
+\inp*[nmlTimestep::Timestep]{}[Timestep][]
+
+\begin{nmldescbody}
+Specifies the size of the time step that is used when
+\inp[nmlTimestep::TimestepType]{Timestep\_Type}=0
+(constant global time step).
+%\thatis $\inptext{Timestep\_Type}=0$.
+%
+The value specified by this input is nondimensionalized by
+$L/a_{\infty}$, the reference length (1~m) and 
+speed of sound.
+Thus, the dimensional time step size will be
+\inp[nmlTimestep::Timestep]{Timestep}$ * L / a_\infty$ seconds.
+ 
+When a simulation is running, the nondimensional time step size is
+the second column written to stdout, so the value of this input is
+identical to that output under the conditions
+\inp[nmlTimestep::TimestepType]{Timestep\_Type}=0 and
+\inp[nmlTimestep::CFL]{CFL}=1.0.
+%
+%\CHANGECODE
+When using \inp[nmlTimestep::TimestepType]{Timestep\_Type}=0
+(constant global time step), the value used for
+\inptext{CFL} is $1.0$ unless CFL ramping is being used.
+%
+If CFL ramping is being used, the ramping parameters will be used
+to evaluate the value of \inptext{CFL} to be used for each time step,
+but \inptext{CFL} will revert to a value of $1.0$ once the
+ramping completes.
+
+\NOTE
+This nondimensional time step is written to standard output
+with the convergence information.
+%
+The \inptext{Timestep} is nondimensionalized by
+the reference length (1~m) and speed of sound, whereas
+the solution time that is written to standard output and
+\inp[nmlTimestep::FinalTime]{Final\_Time} are both nondimensionalized by
+\inp[nmlOutput::TimeScalingFactor]{Time\_Scaling\_Factor}
+via \eref{EQN:tstar}.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+CFL = 1.0
+\end{nmldescitem}
+\inp*[nmlTimestep::CFL]{}[CFL][]
+
+\begin{nmldescbody}
+Analogous to the CFL condition, this is used to scale the time step size to
+get a maximum stable time step. The maximum value this can be while also
+keeping a simulation stable is very dependent on the type of simulation,
+flow conditions, and input settings.  Experimentation is generally
+required to find a good value.  A lower value is more likely to keep a
+simulation stable, but will require more time steps to reach either
+convergence or a given simulation time. Typical values are
+$0.1\leq\inptext{CFL}\leq2$, but past experience has found simulations that
+were stable with values up to $10.0$ for certain Runge-Kutta schemes.
+
+%\NOTE
+If CFL ramping is actively being used, that computed value
+will be applied.
+Once CFL ramping has completed, the value of this input will be used.
+
+\devNotes{
+CHANGECODE:
+This value will automatically be set to $1.0$ if using
+\inp[nmlTimestep::TimestepType]{Timestep\_Type}=0
+(constant global time step), unless CFL ramping is active.
+}
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+CFL_Ramping_Beg = 0.1
+CFL_Ramping_End = 1.0
+\end{nmldescitem}
+\inp*[nmlTimestep::CFLRampingBeg]{}[CFL\_Ramping\_Beg][]
+\inp*[nmlTimestep::CFLRampingEnd]{}[CFL\_Ramping\_End][]
+
+\begin{nmldescbody}
+Beginning and ending CFL values to use with the linear CFL ramping that is
+active when
+$\inp[nmlTimestep::CFLRampingIterations]{CFL\_Ramping\_Iterations}\geq2$.
+
+See also \sref{SEC:Files:Interrupt:Adjust_CFL} for adjusting the CFL
+while the solver is running.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+CFL_Ramping_Iterations = 1
+\end{nmldescitem}
+\inp*[nmlTimestep::CFLRampingIterations]{}[CFL\_Ramping\_Iterations][]
+
+\begin{nmldescbody}
+The number of time steps used to linearly ramp the CFL value,
+starting at \inptext{CFL\_Ramping\_Beg} and
+ending   at \inptext{CFL\_Ramping\_End}.
+%
+$\inptext{CFL\_Ramping\_Iterations}\geq2$ activates CFL ramping.
+
+\NOTE
+A new restart file will be written just before the
+ramping schedule begins in case it is too aggressive and causes the
+simulation to fail.
+
+See also \sref{SEC:Files:Interrupt:Adjust_CFL} for adjusting the CFL
+while the solver is running.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+CFL_Ramping_Start_Iter = 0
+\end{nmldescitem}
+\inp*[nmlTimestep::CFLRampingStartIter]{}[CFL\_Ramping\_Start\_Iter][]
+
+\begin{nmldescbody}
+Specifies the time step iteration at which to begin the CFL ramping schedule
+specified by
+\inp[nmlTimestep::CFLRampingBeg]{CFL\_Ramping\_Beg},
+\inp[nmlTimestep::CFLRampingEnd]{CFL\_Ramping\_End}, and
+\inp[nmlTimestep::CFLRampingIterations]{CFL\_Ramping\_Iterations}.
+%
+This input is primarily used with the \inptext{ADJUST\_CFL} control file
+(\sref{SEC:Files:Interrupt:Adjust_CFL})
+that can be used to modify the CFL ramping schedule of a running simulation.
+
+\NOTE
+A new restart file will be written just before the
+ramping schedule begins in case it is too aggressive and causes the
+simulation to fail.
+
+
+See also \sref{SEC:Files:Interrupt:Adjust_CFL} for adjusting the CFL
+while the solver is running.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Convergence_Order_Abs_Res = -16.0
+\end{nmldescitem}
+\inp*[nmlTimestep::ConvergenceOrderAbsRes]{}[Convergence\_Order\_Abs\_Res][]
+
+\begin{nmldescbody}
+This is the convergence goal for the orders of magnitude of the absolute
+residual.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Convergence_Order_Max_Res = -16.0
+\end{nmldescitem}
+\inp*[nmlTimestep::ConvergenceOrderMaxRes]{}[Convergence\_Order\_Max\_Res][]
+
+\begin{nmldescbody}
+This is the convergence goal for the orders of magnitude reduction of the
+residual relative to the maximum value of the residual during the
+simulation.
+\end{nmldescbody}
+
+%==========================================================================
+

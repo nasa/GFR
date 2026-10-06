@@ -1,0 +1,28 @@
+\subsubsection{Supersonic Outflow Boundary Condition}
+\label{SEC:BC:Outflow:Supersonic}
+
+This is the reverse of the supersonic inflow boundary condition.
+%
+Since the outgoing flow is supersonic, no information from the boundary
+condition can propagate upstream into the computational domain.
+%
+Therefore, the right state is simply fixed to the interior\slash left state,
+\thatis
+%
+\begin{equation*}
+  \cvVecR = \cvVecL
+\end{equation*}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+If the outflow is adjacent to a no-slip wall, this boundary condition could
+result in stability problems within the subsonic region of the boundary layer.
+%
+If stability issues occur, it is recommended to switch to either a
+characteristic (\ref{SEC:BC:Farfield:Characteristic}) or
+general outflow (\ref{SEC:BC:Outflow:General}) boundary condition, since both of
+these boundary conditions test the outgoing Mach number to determine whether to
+use a subsonic or supersonic boundary condition.
+
+%###############################################################################
+

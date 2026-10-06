@@ -1,0 +1,185 @@
+\subsection{nml\_debug}
+\label{SEC:nml_debug}
+\inp*[nmlDebug]{}[nml\_debug][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used by developers for debugging.
+
+\begin{nmlblocklst}[
+,label={LST:nml_debug}
+,caption={Namelist nml\_debug.}
+]
+&nml_debug
+  Output_Limiter_Statistics          = F
+  Output_Filter_Diagonals            = F
+  Output_Plot3d_To_Tecplot           = F
+  Output_Bface_Array                 = F
+  Dump_Memory_Usage                  = F
+  Check_Flux_Point_Coordinates       = F
+  Force_Nd_Subroutines               = F
+  Newton_Convergence_Goal            = 1.0e-12
+  Chemistry_Sub_Iterations           = -1
+  Traceback_Unconverged_Newton_Temps = F
+  Ignore_Thermo_Newton_Warnings      = F
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Output_Limiter_Statistics = F
+\end{nmldescitem}
+\inp*[nmlDebug::OutputLimiterStatistics]{}[Output\_Limiter\_Statistics][]
+
+\begin{nmldescbody}
+This outputs the number of limited\slash projected cells each time step when
+\inp[nmlLimiter::LocalLimiterOption]{Local\_Limiter\_Option} is set to use
+projection.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Output_Filter_Diagonals = F
+\end{nmldescitem}
+\inp*[nmlDebug::OutputFilterDiagonals]{}[Output\_Filter\_Diagonals][]
+
+\begin{nmldescbody}
+Specifies whether to output text files containing the filter diagonals and
+filter matrices for all geometry types after they are generated in the
+preprocessor.
+%
+This is used to inspect values for possible errors in the filter
+definition.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Output_Plot3d_To_Tecplot = F
+\end{nmldescitem}
+\inp*[nmlDebug::OutputPlot3dToTecplot]{}[Output\_Plot3d\_To\_Tecplot][]
+
+\begin{nmldescbody}
+Specifies whether to output a Tecplot file of the input Plot3D grid file
+after reading it.
+%
+This can be used to inspect whether the grid file was read correctly.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Output_Bface_Array = F
+\end{nmldescitem}
+\inp*[nmlDebug::OutputBfaceArray]{}[Output\_Bface\_Array][]
+
+\begin{nmldescbody}
+Specifies whether to have each MPI process output the contents of its
+own local bface array to the text file ``bface.[MPI process \#].dat''.
+%
+The bface array contains the boundary conditions and connectivity
+information for each boundary face.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Dump_Memory_Usage = F
+\end{nmldescitem}
+\inp*[nmlDebug::DumpMemoryUsage]{}[Dump\_Memory\_Usage][]
+
+\begin{nmldescbody}
+Specifies whether to profile and output the memory usage of GFR.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Check_Flux_Point_Coordinates = F
+\end{nmldescitem}
+\inp*[nmlDebug::CheckFluxPointCoordinates]{}[Check\_Flux\_Point\_Coordinates][]
+
+\begin{nmldescbody}
+Flag used to output files to check that co-located face quantities
+are consistent in terms of interpolation between two cells sharing a face.
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Force_Nd_Subroutines = F
+\end{nmldescitem}
+\inp*[nmlDebug::ForceNdSubroutines]{}[Force\_Nd\_Subroutines][]
+
+\begin{nmldescbody}
+GFR normally uses optimized 1D, 2D, and 3D versions of various
+subroutines.
+%
+This input forces the use of the generalized ``nD'' versions of the
+various subroutines that loop over the number of equations instead
+of hardcoding in each equation.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Newton_Convergence_Goal = 1.0e-12
+\end{nmldescitem}
+\inp*[nmlDebug::NewtonConvergenceGoal]{}[Newton\_Convergence\_Goal][]
+
+\begin{nmldescbody}
+This specifies the convergence goal for all of the Newton iterations on
+temperature.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Chemistry_Sub_Iterations = -1
+\end{nmldescitem}
+\inp*[nmlDebug::ChemistrySubIterations]{}[Chemistry\_Sub\_Iterations][]
+
+\begin{nmldescbody}
+Number of chemistry sub-iterations to use for the KIVA scheme source terms.
+%
+\NOTE
+The number of sub-iterations is set to 10 if
+$\inptext{Chemistry\_Sub\_Iterations}<1$.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Traceback_Unconverged_Newton_Temps = F
+\end{nmldescitem}
+\inp*[nmlDebug::TracebackUnconvergedNewtonTemps]{}[Traceback\_Unconverged\_Newton\_Temps][]
+
+\begin{nmldescbody}
+If running a multi-component gas mixture, setting this input to true
+will write a traceback to stdout whenever the Newton solve for
+temperature fails to meet the convergence goal.
+
+\NOTE
+This only works if using the Intel Fortran compiler and
+the namelist input variable
+\inp[nmlDebug::IgnoreThermoNewtonWarnings]{Ignore\_Thermo\_Newton\_Warnings}
+is set to false.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Ignore_Thermo_Newton_Warnings = F
+\end{nmldescitem}
+\inp*[nmlDebug::IgnoreThermoNewtonWarnings]{}[Ignore\_Thermo\_Newton\_Warnings][]
+
+\begin{nmldescbody}
+If running a multi-component gas mixture, setting this to true will prevent
+any warnings from being written to stdout whenever the Newton solve for
+temperature fails to converge.
+\end{nmldescbody}
+
+%==========================================================================
+

@@ -1,0 +1,95 @@
+\subsection{Probes Output}%
+\label{SEC:Files:Probes_Output}
+\key*[key:probes]{}[probes]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+With time accurate simulations, it is impractical to store the entire unsteady
+solution history for every grid point.
+%
+This is why the GFR code primarily outputs instantaneous and/or time-averaged
+files at either fixed iteration or time intervals.
+%
+However, it is sometimes convenient to have the entire unsteady flow history at
+a limited subset of points for later analysis.
+%
+The GFR code provides the ability to output this unsteady history using point
+probes.
+%
+Probes can either be specified as an individual probe at a specific coordinate
+point using the input \inp[nmlOutput::PointProbes]{Point\_Probes}, as a rake of
+probes that are evenly spaced along a line between two coordinate points using
+the input \inp[nmlOutput::RakeProbes]{Rake\_Probes}, or the input
+\inp[nmlOutpu::CellProbes]{Cell\_Probes} can be used to create a set of probes
+consisting of every solution point within the grid cell containing the specified
+coordinate point.
+%
+For cell probes, individual point probes will be created for every solution
+point within each identified grid cell.
+%
+Note that for the point and rake probes, the solution point closest to each
+requested probe location will be used for the source of the probe data; this is
+done to reduce the performance overhead that otherwise would be incurred from
+having to interpolate the solution to the requested probe location if it was not
+located exactly at a solution point.
+%
+If a solution point is identified as the source of a probe by more than one
+point\slash rake\slash cell probe, the duplicate probes will be removed and only
+a single probe will be collected for that solution point.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Each point probe is written to a separate Tecplot ASCII formatted file within
+the directory \file{Probe\_files}.
+%
+Time-history files for probes specified as individual point probes will be named
+\file{point-probe.$i$.tec}, where $i$ corresponds to the index of
+\inp[nmlOutput::PointProbes]{Point\_Probes} from the input file.
+%
+Time-history files for probes within a rake of probes will be named
+\file{rake-probe.$i$-$j$.tec}, where $i$ corresponds to the index of
+\inp[nmlOutput::RakeProbes]{Rake\_Probes} from the input file, and $j$
+corresponds to the index of the individual probe within rake $i$.
+%
+Time-history files for probes from a set of cell probes will be named
+\file{cell-probe.$i$-$j$.tec}, where $i$ corresponds to the index of the grid
+cell within the global grid, and $j$ corresponds to the solution point index of
+the individual probe which will be between 1 and the total number of solution
+points within cell $i$.
+%
+Each file contains a simple header and comments to identify the requested probe
+location from the input, the actual probe location, and flow variables.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The data for all probes is sampled at an iteration interval that is specified by
+the input
+\inp[nmlOutput::ProbesCollectionInterval]{Probes\_Collection\_Interval} and
+saved to a buffer.
+%
+The input variable \inp[nmlOutput::ProbesWriteInterval]{Probes\_Write\_Interval}
+specifies how many data collections to perform until writing out the buffer to
+the individual probe time-history files.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The time-history probe files are appended each time the code is executed.
+%
+If the number or order of probes changes between two consecutive simulations,
+the user should remove the existing files before proceeding.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+If time-history data at an evenly spaced time interval is required, then a
+constant time step should be used.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlOutput::ProbesCollectionInterval]{Probes\_Collection\_Interval},
+\inp[nmlOutput::ProbesWriteInterval]{Probes\_Write\_Interval},
+\inp[nmlOutput::PointProbes]{Point\_Probes},
+\inp[nmlOutput::RakeProbes]{Rake\_Probes},
+\inp[nmlOutput::RakeProbes]{Cell\_Probes}
+}
+

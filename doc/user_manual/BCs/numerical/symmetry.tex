@@ -1,0 +1,23 @@
+\subsubsection{Symmetry Boundary Condition}
+\label{SEC:BC:Numerical:Symmetry}
+
+This boundary condition is generally used to reduce the size of the overall
+computational domain by taking advantage of flow symmetry for a given problem.
+%
+For example, instead of running a simulation of a full airplane, a symmetry
+boundary can be created along the centerline of the airplane geometry so the
+simulation is only performed on half of the airplane.
+%
+Although intended for different uses, this boundary condition is equivalent to
+the inviscid\slash slip wall boundary condition from \sref{SEC:BC:Wall:Slip}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\NOTE It should be warned that using symmetry boundary conditions to take
+advantage of flow symmetry is generally not recommended for quality LES.
+%
+The mean flow may be symmetric over long time-averages, but the instantaneous
+turbulent flow structures are \emph{not} symmetric.
+
+%###############################################################################
+

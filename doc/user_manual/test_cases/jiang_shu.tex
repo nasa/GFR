@@ -1,0 +1,50 @@
+\subsection{1D Jiang-Shu Density Pulse Advection}
+\label{SEC:Testcases:JiangShu}
+
+\begin{figure}[h!tb]
+  \begin{centering}
+    \begin{subfigure}{3.0in}
+      \insertimage[width=\textwidth]{test_cases/jiangshu_start}
+      \caption{Initial condition.}
+      \label{FIG:JiangShuStart}
+    \end{subfigure}%
+    \begin{subfigure}{3.0in}
+      \insertimage[width=\textwidth]{test_cases/jiangshu_dx_0.20}
+      \caption{\PO[3] result after advecting one pulse width.}
+      %%% One pulse width = $\Delta x=0.2$ m.
+      \label{FIG:JiangShuDx0.20}
+    \end{subfigure}
+    \caption{Jiang-Shu density pulse test case.}
+    \label{FIG:JiangShu}
+  \end{centering}
+\end{figure}
+
+This test case features the inviscid advection of a density pulse, and can be
+used to assess the numerical dissipation of the scheme.
+%
+\Fref{FIG:JiangShuStart} shows the starting density profile and the
+domain length.
+%
+Both the reference conditions and the pulse shapes are preset
+within the code.
+%
+Gauss, square, triangular, and elliptical pulse shapes with an amplitude of
+1.0~\unitDens{} are superimposed onto the reference flow conditions.
+%
+These pulse shapes differ slightly from those described in
+\sref{SEC:Testcases:DensityPulse}.
+%
+Periodic boundary conditions are applied.
+%
+\Fref{FIG:JiangShuDx0.20} shows a sample \PO[3] result using the resolution
+marker to identify troubled cells and applying a filter with
+$\inp[nmlLimiter::LocalFilterOrder]{Local\_Filter\_Order}=4$ to damp
+oscillations.
+
+\SeeAlso{
+\inp[nmlInitialization::Initialization]{Initialization}=27,
+\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF},
+\inp[nmlOutputVariables::ExactDensity]{Exact\_Density},
+\inp[nmlOutputVariables::ExactPressure]{Exact\_Pressure}
+}
+

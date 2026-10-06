@@ -1,0 +1,565 @@
+#!MC 1410
+$!VarSet |LFDSFN1| = '"Aliasing.tec"'
+$!VarSet |LFDSVL1| = '"x" "u"'
+$!SetStyleBase Factory
+$!GlobalPaper 
+  PaperSizeInfo
+    {
+    Letter
+      {
+      Width = 8.5
+      Height = 11
+      LeftHardClipOffset = 0.125
+      RightHardClipOffset = 0.125
+      TopHardClipOffset = 0.125
+      BottomHardClipOffset = 0.125
+      }
+    }
+$!Page 
+  Name = 'Untitled'
+  PaperAttributes
+    {
+    BackgroundColor = White
+    IsTransparent = Yes
+    OrientPortrait = No
+    ShowGrid = Yes
+    ShowRuler = No
+    ShowPaper = No
+    PaperSize = Letter
+    RulerSpacing = OneInch
+    PaperGridSpacing = HalfInch
+    RegionInWorkArea
+      {
+      X1 = 1
+      Y1 = 0.25
+      X2 = 5
+      Y2 = 2.25
+      }
+    }
+### Frame Number 1 ###
+$!ReadDataSet  '|LFDSFN1|'
+  InitialPlotType = XYLine
+  IncludeText = No
+  IncludeGeom = No
+  ResetStyle = No
+  AssignStrandIDs = Yes
+  VarLoadMode = ByName
+  VarNameList = '|LFDSVL1|'
+$!RemoveVar |LFDSVL1|
+$!RemoveVar |LFDSFN1|
+$!FrameLayout 
+  ShowBorder = No
+  ShowHeader = No
+  HeaderColor = Red
+  XYPos
+    {
+    X = 1
+    Y = 0.25
+    }
+  Width = 4
+  Height = 2
+$!ThreeDAxis 
+  AspectRatioLimit = 25
+  BoxAspectRatioLimit = 25
+$!PlotType  = XYLine
+$!FrameName  = 'Frame 001'
+$!GlobalTime 
+  SolutionTime = 0
+$!DeleteLineMaps 
+$!ActiveLineMaps  =  [1,3]
+$!GlobalLinePlot 
+  DataLabels
+    {
+    DistanceSkip = 5
+    }
+  Legend
+    {
+    Show = Yes
+    TextShape
+      {
+      Height = 4.5
+      }
+    Box
+      {
+      BoxType = None
+      Margin = 0
+      }
+    XYPos
+      {
+      X = 17
+      Y = 98
+      }
+    AnchorAlignment = TopLeft
+    }
+$!LineMap  [1]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 1
+    XAxisVar = 'x'
+    YAxisVar = 'u'
+    }
+  Lines
+    {
+    Color = Red
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    Show = No
+    Color = Red
+    FillMode = UseLineColor
+    FillColor = Red
+    Size = 1
+    LineThickness = 0.4
+    }
+  BarCharts
+    {
+    Color = Red
+    FillColor = Red
+    }
+  ErrorBars
+    {
+    Color = Red
+    }
+$!LineMap  [2]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 2
+    XAxisVar = 'x'
+    YAxisVar = 'u'
+    }
+  Lines
+    {
+    Color = Green
+    LinePattern = Dashed
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    PolyOrder = 4
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    Color = Green
+    FillMode = UseLineColor
+    FillColor = Green
+    Size = 1
+    LineThickness = 0.4
+    }
+  BarCharts
+    {
+    Color = Green
+    FillColor = Green
+    }
+  ErrorBars
+    {
+    Color = Green
+    }
+$!LineMap  [3]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 3
+    XAxisVar = 'x'
+    YAxisVar = 'u'
+    }
+  Lines
+    {
+    Color = Blue
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    Show = No
+    Color = Blue
+    FillMode = UseLineColor
+    FillColor = Blue
+    Size = 1
+    LineThickness = 0.4
+    }
+  BarCharts
+    {
+    Color = Blue
+    FillColor = Blue
+    }
+  ErrorBars
+    {
+    Color = Blue
+    }
+$!LineMap  [4]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 4
+    XAxisVar = 'x'
+    YAxisVar = 'u'
+    }
+  Lines
+    {
+    Color = Custom1
+    LinePattern = Dashed
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    PolyOrder = 4
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    Color = Custom1
+    FillMode = UseLineColor
+    FillColor = Custom1
+    Size = 1
+    LineThickness = 0.4
+    }
+  BarCharts
+    {
+    Color = Custom1
+    FillColor = Custom1
+    }
+  ErrorBars
+    {
+    Color = Custom1
+    }
+$!XYLineAxis 
+  DepXToYRatio = 1
+  ViewportPosition
+    {
+    Y1 = 15
+    Y2 = 92
+    }
+  ViewportTopSnapTarget = 92
+$!XYLineAxis 
+  XDetail 1
+    {
+    CoordScale = Linear
+    RangeMin = -1
+    RangeMax = 1.000199999999999978
+    GRSpacing = 0.5
+    TickLabel
+      {
+      TextShape
+        {
+        Height = 3.5
+        }
+      NumFormat
+        {
+        Formatting = FixedFloat
+        Precision = 1
+        TimeDateFormat = ''
+        }
+      }
+    Title
+      {
+      TitleMode = UseText
+      Text = '<greek>x</greek>'
+      TextShape
+        {
+        Height = 5
+        }
+      Offset = 8
+      }
+    }
+$!XYLineAxis 
+  YDetail 1
+    {
+    CoordScale = Linear
+    RangeMin = -0.69999999999999995559
+    RangeMax = 1.0001673510015010038
+    GRSpacing = 0.5
+    TickLabel
+      {
+      TextShape
+        {
+        Height = 3.5
+        }
+      NumFormat
+        {
+        Formatting = FixedFloat
+        Precision = 1
+        TimeDateFormat = ''
+        }
+      }
+    Title
+      {
+      ShowOnAxisLine = No
+      TitleMode = UseText
+      Text = 'f(x)'
+      TextShape
+        {
+        Height = 5
+        }
+      Offset = 8
+      }
+    }
+$!LinePlotLayers 
+  ShowSymbols = Yes
+### Frame Number 2 ###
+$!CreateNewFrame 
+$!FrameLayout 
+  ShowBorder = No
+  ShowHeader = No
+  IsTransparent = Yes
+  HeaderColor = Red
+  XYPos
+    {
+    X = 1
+    Y = 0.25
+    }
+  Width = 4
+  Height = 2
+$!ThreeDAxis 
+  AspectRatioLimit = 25
+  BoxAspectRatioLimit = 25
+$!PlotType  = XYLine
+$!FrameName  = 'Frame 002'
+$!GlobalTime 
+  SolutionTime = 0
+$!DeleteLineMaps 
+$!ActiveLineMaps  =  [2,4]
+$!GlobalLinePlot 
+  DataLabels
+    {
+    DistanceSkip = 5
+    }
+  Legend
+    {
+    Show = Yes
+    TextShape
+      {
+      Height = 4.5
+      }
+    Box
+      {
+      BoxType = None
+      Margin = 0
+      }
+    XYPos
+      {
+      X = 50
+      Y = 98
+      }
+    AnchorAlignment = TopLeft
+    }
+$!LineMap  [1]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 1
+    XAxisVar = 'x'
+    YAxisVar = 'u'
+    }
+  Lines
+    {
+    Color = Red
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    Show = No
+    Color = Red
+    FillMode = UseLineColor
+    FillColor = Red
+    Size = 1
+    LineThickness = 0.4
+    }
+  BarCharts
+    {
+    Color = Red
+    FillColor = Red
+    }
+  ErrorBars
+    {
+    Color = Red
+    }
+$!LineMap  [2]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 2
+    XAxisVar = 'x'
+    YAxisVar = 'u'
+    }
+  Lines
+    {
+    Color = Green
+    LinePattern = Dashed
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    PolyOrder = 4
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    Color = Green
+    FillMode = UseLineColor
+    FillColor = Green
+    Size = 1
+    LineThickness = 0.4
+    }
+  BarCharts
+    {
+    Color = Green
+    FillColor = Green
+    }
+  ErrorBars
+    {
+    Color = Green
+    }
+$!LineMap  [3]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 3
+    XAxisVar = 'x'
+    YAxisVar = 'u'
+    }
+  Lines
+    {
+    Color = Blue
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    Show = No
+    Color = Blue
+    FillMode = UseLineColor
+    FillColor = Blue
+    Size = 1
+    LineThickness = 0.4
+    }
+  BarCharts
+    {
+    Color = Blue
+    FillColor = Blue
+    }
+  ErrorBars
+    {
+    Color = Blue
+    }
+$!LineMap  [4]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 4
+    XAxisVar = 'x'
+    YAxisVar = 'u'
+    }
+  Lines
+    {
+    Color = Custom1
+    LinePattern = Dashed
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    PolyOrder = 4
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    Color = Custom1
+    FillMode = UseLineColor
+    FillColor = Custom1
+    Size = 1
+    LineThickness = 0.4
+    }
+  BarCharts
+    {
+    Color = Custom1
+    FillColor = Custom1
+    }
+  ErrorBars
+    {
+    Color = Custom1
+    }
+$!XYLineAxis 
+  DepXToYRatio = 1
+  ViewportPosition
+    {
+    Y1 = 15
+    Y2 = 92
+    }
+  ViewportTopSnapTarget = 92
+$!XYLineAxis 
+  XDetail 1
+    {
+    CoordScale = Linear
+    RangeMin = -1
+    RangeMax = 1.000199999999999978
+    GRSpacing = 0.5
+    TickLabel
+      {
+      TextShape
+        {
+        Height = 3.5
+        }
+      NumFormat
+        {
+        Formatting = FixedFloat
+        Precision = 1
+        TimeDateFormat = ''
+        }
+      }
+    Title
+      {
+      TitleMode = UseText
+      Text = '<greek>x</greek>'
+      TextShape
+        {
+        Height = 5
+        }
+      Offset = 8
+      }
+    }
+$!XYLineAxis 
+  YDetail 1
+    {
+    CoordScale = Linear
+    RangeMin = -0.69999999999999995559
+    RangeMax = 1.0001673510015010038
+    GRSpacing = 0.5
+    TickLabel
+      {
+      TextShape
+        {
+        Height = 3.5
+        }
+      NumFormat
+        {
+        Formatting = FixedFloat
+        Precision = 1
+        TimeDateFormat = ''
+        }
+      }
+    Title
+      {
+      ShowOnAxisLine = No
+      TitleMode = UseText
+      Text = 'f(x)'
+      TextShape
+        {
+        Height = 5
+        }
+      Offset = 8
+      }
+    }
+$!LinePlotLayers 
+  ShowSymbols = Yes
+$!FrameControl ActivateByNumber
+  Frame = 1
+$!SetStyleBase Config

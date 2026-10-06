@@ -1,0 +1,242 @@
+\subsection{Controlling the Time Step Size in GFR}
+%\subsection{\texorpdfstring%
+%            {\colorbox{yellow}{Controlling the Time Step Size in GFR}}%
+%                              {Controlling the Time Step Size in GFR}}
+\label{SEC:Time:Controlling}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\subsubsection{\texorpdfstring{\colorbox{yellow}{Ramping}}{Ramping}}
+\subsubsection{Ramping}
+\label{SEC:Time:Controlling:Ramping}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+After solution initialization, the flow may have very strong gradients
+as the boundary conditions are applied.
+%
+This may necessitate a small timestep to keep the solution stable
+during these initial transients.
+%
+However, as the flow progresses, a larger timestep may be permissible.
+
+GFR has a ramping capability that applies a multiplicative factor to
+either the requested constant CFL or constant timestep.
+%
+This factor linearly varies between specified beginning and ending
+values over a certain period of iterations.
+
+\SeeAlso{
+CFL\_BEG,
+CFL\_END,
+CFL\_CYCLES
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Factors that Indirectly Affect Maximum Stable Time Step Size}%
+\label{SEC:Time:Controlling:Indirectly}
+
+The following are some considerations to be mindful of with how they affect the
+maximum stable time step.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsubsection{Effect of Limiting\slash Filtering on Time Step Size}
+\label{SEC:Time:Controlling:Indirectly:Limiting}
+
+Limiting\slash filtering will generally increase the maximum stable time step
+size, since both methods essentially damp the higher order polynomial modes.
+%
+This decreases the solution accuracy, but permits the solution to advance
+further in time without those higher order modes amplifying into a numerical 
+instability.
+%
+Note, however, that a larger time step size will likely cause some additional
+time-step induced instabilities, which may cause more cells to be marked and
+limited\slash filtered to maintain stability.
+%
+Selecting the optimal combination of limiter/filter and time step settings
+can be a tedious process.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsubsection{Effect of Solution Order on Time Step Size}
+\label{SEC:Time:Controlling:Indirectly:P_vs_dt}
+
+For high-order flux reconstruction, discontinuous Galerkin, and spectral-element
+methods, it has been shown that the maximum stable time step scales with the
+solution polynomial order as $1/\p{}^2$\cite{Hesthaven_2010, Huynh_2014}.
+%
+Thus, for higher-order solutions, expect substantially smaller time step sizes.
+%
+Further details including a rigorous mathematical discussion can be found in
+Section 4.7 of \linecite{Hesthaven_2010}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsubsection{Effect of Solution Order on CFL}
+\label{SEC:Time:Controlling:Indirectly:P_vs_CFL}
+
+This is most likely a GFR-specific behavior that may be related to how the CFL
+is computed, but the solution order affects the maximum stable CFL inversely to
+how it affects the maximum stable time step size.
+%
+That is for higher-order solutions, larger CFL values may be possible.
+%
+As an example, take the spacecraft cabin ventilation fan shown in
+\fref{FIG:Files:PW:Spacefan}.
+%
+\Tref{TBL:Time:Spacefan} shows the maximum CFL used, and resulting physical time
+step size, for a single configuration of the fan run at \PO[1]--\PO[4], \thatis
+the same grid and flow conditions were used and the only thing different between
+the simulations was the solution order.
+%
+All of these simulations used the 11-stage\slash\nth{3}-order VOERK scheme
+(\thatis \inp[nmlTimestep::RungeKuttaScheme]{Runge\_Kutta\_Scheme}=113).
+%
+\begin{table}[tb]
+  \centering
+  \caption[Example maximum stable CFL relative to solution order.]%
+          {Maximum stable \inptext{CFL} and resulting physical time step size,
+           $\Delta t$, for simulations of the spacecraft cabin ventilation fan
+           relative to the solution order, $\PO$.}
+  \label{TBL:Time:Spacefan}
+  \begin{tabular}{ @{} @{\quad} c @{\qquad} c @{\qquad} c @{\quad} @{} }
+    \PO & \inptext{CFL} & \dt{} [s] \\
+    \midrule
+    1 & 1.5 & \num{9.2e-9} \\
+    2 & 3.5 & \num{6.0e-9} \\
+    3 & 5.5 & \num{4.3e-9} \\
+    4 & 8.0 & \num{3.1e-9}
+  \end{tabular}
+\end{table}
+%
+This example clearly shows how the maximum \inptext{CFL} that keeps GFR stable
+increases with \PO, but the corresponding time step size still decreases with
+increasing \PO{} due to the $1/\p{}^2$ scaling from
+\sref{SEC:Time:Controlling:Indirectly:P_vs_dt}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsubsection{Effect of Transients on Time Step Size}
+\label{SEC:Time:Controlling:Indirectly:Transients}
+
+When starting a new simulation or restarting a simulation with significant
+changes to the settings (\forexample changing the solution order or adjusting
+the pressure for a boundary condition), transients are created in the flow field
+that generally contain larger and sharper gradients than would normally exist in
+the well-established, stable flow field.
+%
+These disturbances may require the use of a smaller time step size to prevent
+them from growing into numerical instabilities.
+%
+Once the disturbances have subsided or convected out of the domain, it may
+be possible to increase the time step size.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Finding a Near-Optimal Stable CFL}%
+\label{SEC:Time:Controlling:OptimizingCFL}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+This section details one method for trying to find a maximum stable
+CFL\slash time step size for a given simulation.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+After creating the grid, the first step of running a simulation is creating the
+input file and running some initial tests to verify there are no issues with the
+grid or input file.
+%
+Perform tests with a smaller CFL value that is almost certain to be stable, say
+0.1-0.5, and have them run for 100 to 10,000 time steps.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Once it seems that there are no major issues, this is when to begin the second
+step of trying to run the simulation for a large number of time steps.
+%
+During this phase, initial transients will dominate the solution and this is the
+time to play with the filter\slash limiting settings in order to find a
+combination that keeps the simulation stable without damping out too much of the
+smallest resolved scales.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+After the initial transients in the simulation are mostly eliminated and the
+solution appears to be stable, the next step is to push the CFL in order to find
+the maximum stable time step.
+%
+If the simulation is running, the interrupt file \file{ADJUST\_CFL}
+(\sref{SEC:Files:Interrupt:Adjust_CFL}) can be used to modify the CFL input
+variables; otherwise, the CFL inputs can simply be adjusted in the input file
+for the next simulation.
+%
+Utilize the CFL ramping inputs to slowly increase the CFL with the actual goal
+of causing the simulation to diverge and crash.
+%
+If the previous simulation was using a CFL of 0.5, one could set up the next
+simulation with the inputs
+%
+\begin{InputExample}
+  \item[{\inptext{CFL\_Ramping\_Beg = 0.5}}]
+  \item[{\inptext{CFL\_Ramping\_End = 15.0}}]
+  \item[{\inptext{CFL\_Ramping\_Iterations = 14500}}]
+\end{InputExample}
+%
+The final CFL value of 15.0 is chosen because it is assumed that this would
+almost certainly be too large for the simulation to remain stable.
+%
+This new simulation is run and say it crashes once it reaches a CFL of 10.2.
+%
+One should generally reduce the final CFL number by 10--15\%, and use this
+value as the new CFL going forward.
+%
+If you want to push the CFL to the highest possible value, you can also search
+through the output file \file{residual.dat} in order to find the approximate
+iteration at which the simulation residual begins to diverge.
+%
+However, it is generally less of a headache to trim a few extra percent off
+just to make sure the simulation remains stable. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this example, the number of CFL ramping iterations is chosen to be 14,500 so
+that each integer increment of the CFL number takes 1,000 iterations.
+%
+This offers a moderate level of resolution in terms of what CFL value will
+maintain stability.
+%
+For example, if the CFL ramping is over 1,000 iterations, narrowing down the
+optimum CFL value would be less accurate.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+It is also important to remember that the maximum stable time step is something
+that can change over the course of a simulation since it is affected by many
+different aspects.
+%
+If a simulation appears to be stable at a given CFL value and then suddenly
+crashes, try restarting from a recent restart file (but not too recent in case
+the instability already exists in the restart file) with a smaller CFL (say 50\%
+smaller).
+%
+If the simulation crashes at nearly the same simulation time, you might want
+to try an even smaller time step with an even earlier restart file, but most
+likely the instability is due to something that will need to be treated with
+numerical methods like de-aliasing or stronger filtering\slash limiting.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+With enough practice and experience (and patience), various aspects of the steps
+provided in this section can get blended together to speed up this process even
+more.
+%
+Unfortunately, a good understanding and feel for how the time step size responds
+to the factors listed in \sref{SEC:Time:Controlling:Indirectly} is really needed
+to blend these steps effectively.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

@@ -1,0 +1,112 @@
+\section{Numerics}
+\label{SEC:Numerics}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Nearly all numerical methods with greater than first-order accuracy
+will exhibit some sort of numerical instability when used to solve
+nonlinear differential equations such as the compressible
+Navier-Stokes equations.
+%
+This is especially true for high-order methods
+(i.e., greater than second-order) which can generate errors
+when any of the modes arising from the nonlinear terms are
+not adequately represented by the numerical scheme.
+%
+Within a given element, this representation is defined by
+the stencil size for finite-difference methods or
+the set of basis functions (\thatis polynomial order or modes)
+for DG or FR methods.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In these cases, the energy from the unresolved modes are aliased
+onto the lower modes producing aliasing errors.
+%
+The effect these errors can have on a given simulation is
+highly unpredictable, and many researchers have shown aliasing errors
+can produce severe instabilities within a problem\cite{Kirby_2003, Kirby_2006,
+Kopriva_2006, Hesthaven_2010, Castonguay_2011, Gassner_2013, Karniadakis_2013,
+Williams_2013, Witherden_2014}.
+%\cite{21–23, 25–31}%% From AIAA-2022-1813
+%
+Preventing aliasing and other numerical instabilities is usually
+accomplished through the addition of some type of numerical dissipation.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+By default, all filtering\slash limiting methods that are enabled for a
+simulation are applied just after updating the solution at the end of each
+Runge-Kutta stage.
+%
+The sponge filter, global filter, and local limiter\slash filter also provide
+the following respective inputs to alter the frequency in which they are
+applied:
+\inp[nmlLimiter::SpongeFilterInterval]{Sponge\_Filter\_Interval},
+\inp[nmlLimiter::GlobalFilterInterval]{Global\_Filter\_Interval}, and
+\inp[nmlLimiter::LocalLimiterInterval]{Local\_Limiter\_Interval}.
+%
+However, the application frequency for the positivity-preserving limiter,
+entropy limiter, and Thermofix cannot be adjusted so they will always be applied
+at the end of each Runge-Kutta stage.
+%
+When it comes time to apply these methods to the newly updated solution, they
+are applied in the following order:
+%
+\begin{enumerate}[parsep=0pt,itemsep=1pt]
+\item
+  Sponge filter
+\item
+  Global filter (if $\inptext{Global\_Filter\_Alpha}\leq 1$)
+\item
+  Positivity-preserving limiter
+\item
+  Entropy limiter
+\item
+  Local limiter\slash filter
+\item
+  Global filter (if $\inptext{Global\_Filter\_Alpha}>1$)
+\item
+  Thermofix
+\end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\noindent
+In the following sections, we discuss several important topics related to
+numerical stability:
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%!While high-order numerical methods provide more accurate simulations,
+%!they also contain less inherent numerical dissipation.
+%!%
+%!This can make them more prone to numerical instability,
+%!especially in flows with steep gradients such as shocks.
+%!%
+%!Here the polynomial representation within an element is unable to
+%!capture such discontinuities, with the highest polynomial modes
+%!creating under- and over-shoots.
+%!%
+%!In the following sections, we discuss important topics related to
+%!numerical stability:
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{itemize}
+\item \nameref{SEC:Aliasing}
+\item \nameref{SEC:Filtering}
+\HIDE{\item \nameref{SEC:Limiting}}
+\item \nameref{SEC:Markers}
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{numerics/aliasing}
+
+\input{numerics/filtering}
+
+\input{numerics/limiting}
+
+\input{numerics/markers/markers}
+

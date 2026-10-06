@@ -1,0 +1,130 @@
+\subsection{nml\_testcase\_vortex}
+\label{SEC:nml_testcase_vortex}
+\inp*[nmlTestcaseVortex]{}[nml\_testcase\_vortex][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify inputs for the vortex test cases.
+%
+These cases include the different versions of
+  the isentropic Euler vortex problem
+    ($\inp[nmlInitialization::Initialization]{Initialization}=[\pm5,\pm55,\pm6]$),
+  the density profile advection case
+    ($\inptext{Initialization}=7$),
+  the entropy profile advection case
+    ($\inptext{Initialization}=8$),
+and
+  the Taylor-Green vortex problem
+    ($\inp{Initialization}=9$).
+
+\begin{nmlblocklst}[
+,label={LST:nml_testcase_vortex}
+,caption={Namelist nml\_testcase\_vortex.}
+]
+&nml_testcase_vortex
+  Vortex_Bigr          = 1.0   ! [m]
+  Vortex_Biggam        = 5.0   ! [unitless]
+  Grid_Lref            = 10.0  ! [m]
+  Grid_Random_Perturb  = F
+  Grid_Perturb_Percent = 30
+  Grid_Hex_To_Pyramids = F
+  Grid_Is_3d           = F
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Vortex_Bigr = 1.0  ! [m]
+\end{nmldescitem}
+\inp*[nmlTestcaseVortex::VortexBigr]{}[Vortex\_Bigr][]
+
+\begin{nmldescbody}
+Constant used to specify the size or characteristic length (in meters)
+of the isentropic Euler vortex.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Vortex_Biggam = 5.0  ! [unitless]
+\end{nmldescitem}
+\inp*[nmlTestcaseVortex::VortexBiggam]{}[Vortex\_Biggam][]
+
+\begin{nmldescbody}
+Constant used to specify the strength of the isentropic Euler vortex.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Grid_Lref = 10.0  ! [m]
+\end{nmldescitem}
+\inp*[nmlTestcaseVortex::GridLref]{}[Grid\_Lref][]
+
+\begin{nmldescbody}
+Reference length (in meters) for the grid domain,
+\thatis the grid is a square with bounds of
+$\left[ -\inptext{Grid\_Lref},
+        +\inptext{Grid\_Lref}
+ \right]$
+in both the $x$- and $y$-directions.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Grid_Random_Perturb = F
+\end{nmldescitem}
+\inp*[nmlTestcaseVortex::GridRandomPerturb]{}[Grid\_Random\_Perturb][]
+
+\begin{nmldescbody}
+Logical flag for applying a random perturbation to all the interior grid
+nodes for the isentropic Euler vortex and Taylor-Green vortex problems.
+\end{nmldescbody}
+
+%==========================================================================
+
+%##%\FINALFIX{\newpage}
+\begin{nmldescitem}
+Grid_Perturb_Percent = 30
+\end{nmldescitem}
+\inp*[nmlTestcaseVortex::GridPerturbPercent]{}[Grid\_Perturb\_Percent][]
+
+\begin{nmldescbody}
+\raggedright % prevent right margin overflow of input variable
+Percent of the uniform grid cell length to perturb the interior grid nodes if
+\inp[nmlTestcaseVortex::GridRandomPerturb]{Grid\_Random\_Perturb}
+is true.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Grid_Hex_To_Pyramids = F
+\end{nmldescitem}
+\inp*[nmlTestcaseVortex::GridHexToPyramids]{}[Grid\_Hex\_To\_Pyramids][]
+
+\begin{nmldescbody}
+When using the internal grid generator with one of the 3D vortex problems,
+the default is to use hex cells. Setting this to true will create a grid
+using only pyramid cells, by first creating the hex-only grid, and then
+subdividing each hex cell into 6 pyramids by adding a new node point in the
+center of the cell.
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Grid_Is_3d = F
+\end{nmldescitem}
+\inp*[nmlTestcaseVortex::GridIs3d]{}[Grid\_Is\_3d][]
+
+\begin{nmldescbody}
+When running one of the traditionally 2D vortex cases (\forexample
+isentropic vortex), setting this to true will run a 3D version of the case
+by extruding the domain and initial solution in $z$ to create a cube domain.
+\end{nmldescbody}
+
+%==========================================================================
+

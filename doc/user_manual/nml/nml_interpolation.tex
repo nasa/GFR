@@ -1,0 +1,55 @@
+\subsection{nml\_interpolation}
+\label{SEC:nml_interpolation}
+\inp*[nmlInterpolation]{}[nml\_interpolation][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is for use with the startup interpolation utility,
+which will interpolate a solution from 1) a set of Plot3d grid and solution
+files or 2) any restart file and respective grid file onto a new
+(and possibly unstructured) grid file.
+
+\begin{nmlblocklst}[
+,label={LST:nml_interpolation}
+,caption={Namelist nml\_interpolation.}
+]
+&nml_interpolation
+  Interpto_Grid_Scaling_Factor      =   1.0
+  Interpto_Grid_Format              = -99   ! -99 = Unknown
+  Interpto_Grid_File                =  ""
+  Interpto_Plot3d_Cutfile           =  ""
+  Interpto_Plot3d_BCSfile           =  ""
+  Interpto_Plot3d_Stride_I          =  -1
+  Interpto_Plot3d_Stride_J          =  -1
+  Interpto_Plot3d_Stride_K          =  -1
+  Interpto_Plot3d_Stride_All        =  -1
+  Interpto_Plot3d_Agglomerate_Order =  -1
+  Interpto_Solution_Order           =   3
+/
+\end{nmlblocklst}
+\inp*[nmlInterpolation::InterptoGridScalingFactor]{}[Interpto\_Grid\_Scaling\_Factor][]
+\inp*[nmlInterpolation::InterptoGridFormat]{}[Interpto\_Grid\_Format][]
+\inp*[nmlInterpolation::InterptoGridFile]{}[Interpto\_Grid\_File][]
+\inp*[nmlInterpolation::InterptoPlot3dCutfile]{}[Interpto\_Plot3d\_Cutfile][]
+\inp*[nmlInterpolation::InterptoPlot3dBCSfile]{}[Interpto\_Plot3d\_BCSfile][]
+\inp*[nmlInterpolation::InterptoPlot3dStrideAll]{}[Interpto\_Plot3d\_Stride\_All][]
+\inp*[nmlInterpolation::InterptoPlot3dStrideI]{}[Interpto\_Plot3d\_Stride\_I][]
+\inp*[nmlInterpolation::InterptoPlot3dStrideJ]{}[Interpto\_Plot3d\_Stride\_J][]
+\inp*[nmlInterpolation::InterptoPlot3dStrideK]{}[Interpto\_Plot3d\_Stride\_K][]
+\inp*[nmlInterpolation::InterptoPlot3dAgglomerateOrder]{}[Interpto\_Plot3d\_Agglomerate\_Order][]
+\inp*[nmlInterpolation::InterptoSolutionOrder]{}[Interpto\_Solution\_Order][]
+
+Each input has the same functionality as the corresponding input
+(without the \inptext{Interpto\_} prefix) from
+the \inptext{nml\_grid} namelist block of \sref{SEC:nml_grid} or
+the \inptext{nml\_numerics} namelist block of \sref{SEC:nml_numerics}.
+%
+However, those inputs refer to the grid that
+the old solution is being interpolated \emph{from}, whereas
+these inputs refer to the grid that is being interpolated \emph{to}.
+
+\NOTE
+The user must provide a valid \inptext{Interpto\_Grid\_Format},
+since the default value of -99 will cause the code to terminate.
+
+%==========================================================================
+

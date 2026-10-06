@@ -1,0 +1,87 @@
+\subsection{Synthetic Eddy Method (SEM)}%
+\label{SEC:SEM}%
+\key*[key:SEM]{}[Synthetic Eddy Method (SEM)]
+
+%###############################################################################
+
+\begingroup
+
+% This uses small caps to make subscript smaller
+% NOTE: Any uppercase letters sent into the argument of \smallSub will
+%       still be large since uppercase-small-capital letters are the same
+%       size as regular uppercase letters
+  \newcommand{\smallSub}[1]{\ensuremath{\textsc{#1}}}
+  \newcommand{\subBC}{\smallSub{bc}}
+  \newcommand{\subSEM}{\smallSub{sem}}
+% This uses two subscript levels to make subscript smaller
+  \newcommand{\smallSubSub}[1]{\ensuremath{{_{#1}}}}
+  \newcommand{\subsubBC}{\smallSubSub{\textrm{BC}}}
+  \newcommand{\subsubSEM}{\smallSubSub{\textrm{SEM}}}
+
+  \newcommand{\uSEM}{\ensuremath{U_\subSEM}}
+  \newcommand{\uBC}{\ensuremath{U_\smallSub{bl}}}
+  \newcommand{\lSEM}{\ensuremath{l_\subSEM}}
+  \newcommand{\hSEM}{\ensuremath{h_\subSEM}}
+
+% volume
+% \newcommand{\volume}{\ensuremath{V}}
+% \newcommand{\volume}{\ensuremath{\cal V}}
+  \newcommand{\volume}{\ensuremath{\mathscr{V}}}
+% \newcommand{\volume}{\ensuremath{\rotatebox[origin=c]{180}{\ensuremath{A}}}}
+
+  \newcommand{\vSEM}{\ensuremath{\volume_\subSEM}}           % SEM volume
+  \newcommand{\vEddy}{\ensuremath{\volume_{\mathrm{eddy}}}}  % Eddy volume
+
+  \newcommand{\lBC}{\ensuremath{\delta_\smallSub{bl}}}
+
+  \newcommand{\tentsymbol}{\ensuremath{\wedge}}
+  \newcommand{\tentfunc}{\ensuremath{f_\tentsymbol}}
+%===============================================================================
+  \NewDocumentCommand{\nx}{}{\ensuremath{\hat{n}_x}} % wall normal 'x' component
+  \NewDocumentCommand{\ny}{}{\ensuremath{\hat{n}_y}} % wall normal 'y' component
+  \NewDocumentCommand{\nz}{}{\ensuremath{\hat{n}_z}} % wall normal 'z' component
+  \NewDocumentCommand{\innorm}{}{\ensuremath{\hat{s}}} % Inflow plane normal
+%===============================================================================
+  \NewDocumentCommand{\wac}{m}{\ensuremath{\tilde{#1}}} % Accent for wall coord
+%===============================================================================
+  \NewDocumentCommand{\xwb}{}{\ensuremath{\hat{e}_{\wac{x}}}} % wall 'x' basis
+  \NewDocumentCommand{\ywb}{}{\ensuremath{\hat{e}_{\wac{y}}}} % wall 'y' basis
+  \NewDocumentCommand{\zwb}{}{\ensuremath{\hat{e}_{\wac{z}}}} % wall 'z' basis
+%===============================================================================
+  \NewDocumentCommand{\xsb}{}{\ensuremath{\hat{i}}} % Cartesian 'x' basis
+  \NewDocumentCommand{\ysb}{}{\ensuremath{\hat{j}}} % Cartesian 'y' basis
+  \NewDocumentCommand{\zsb}{}{\ensuremath{\hat{k}}} % Cartesian 'z' basis
+%===============================================================================
+  \NewDocumentCommand{\rvar}{}{\ensuremath{\mathcal{Q}}} % rot matrix variable
+  \NewDocumentCommand{\rmat}{}{\ensuremath{\bm{\rvar}}} % rotation matrix
+
+%###############################################################################
+
+% SEM subsection on theory
+\input{sem/theory}
+
+%###############################################################################
+
+%\newpage
+
+% SEM subsection on usage
+\input{sem/usage}
+
+%###############################################################################
+
+%\newpage
+
+% SEM subsection for frequently asked questions
+\input{sem/faq}
+
+%###############################################################################
+
+%\newpage
+
+% SEM subsection on implementation
+% NOTE: This is being abandoned for now and only partially completed
+%\input{sem/implementation}
+
+%\clearpage
+
+\endgroup

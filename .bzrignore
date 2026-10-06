@@ -24,3 +24,21 @@ residual.dat
 *_KEDR.dat
 Restart_files
 CGNS_files
+# Ignore intermediate files in user_manual directory
+doc/user_manual/*.pdf
+doc/user_manual/*.aux
+doc/user_manual/*.bbl
+doc/user_manual/*.blg
+doc/user_manual/*.brf
+doc/user_manual/*.idx
+doc/user_manual/*.ilg
+doc/user_manual/*.ind
+doc/user_manual/*.listing
+doc/user_manual/*.lo[fglt]
+doc/user_manual/*.out
+doc/user_manual/*.toc
+doc/user_manual/*.rubbercache
+doc/user_manual/.latexmkrc
+doc/user_manual/tikz/*.pdf
+doc/user_manual/tikz/*.aux
+TRASH

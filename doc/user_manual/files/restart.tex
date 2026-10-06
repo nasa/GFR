@@ -1,0 +1,47 @@
+\subsection{Restart Input\slash Output}
+\label{SEC:Files:Restart_Input_Output}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+At the beginning of a run job, the solution will be read from the
+restart file if requested by the user in the input file.
+%
+During a run job, a restart file can be output at a specified
+iteration interval \andor time frequency.
+%
+It is important to distinguish that
+this update is based upon the current {\em aggregate} iteration or time
+(including that from prior run jobs),
+and not the {\em elapsed} value since the start of the current
+run job or the last restart output.
+%
+Any intermediate output can be disabled by setting these inputs
+to 0.
+%
+However, a restart file will always be written at the end of a
+run job.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+If time averaging is activated, then an additional time-averaged restart file
+will be processed whenever the instantaneous restart file is read/written.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\IDEA{Add details about time-averaged restart files and respective link files.}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlInitialization::LoadRestartFile]{Load\_Restart\_File},
+\inp[nmlInitialization::RestartFile]{Restart\_File},
+\inp[nmlOutput::RestartFrequency]{Restart\_Frequency},
+\inp[nmlOutput::RestartInterval]{Restart\_Interval},
+\inp[nmlOutput::RestartOutputDisabled]{Restart\_Output\_Disabled},
+% Does time-averaging belong here?
+\inp[nmlTimeAve::ComputeTimeAveraging]{Compute\_Time\_Averaging},
+\inp[nmlTimeAve::InputTimeAveFile]{Input\_Time\_Ave\_File}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

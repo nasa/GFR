@@ -1,0 +1,9 @@
+VARIABLES="x","y","z"
+ZONE T="1D Line"
+DATAPACKING=POINT
+Nodes=2
+ELEMENTS=1
+ZONETYPE=FELINESEG
+  0.0     0.0     0.0     
+  1.0     0.0     0.0     
+1 2

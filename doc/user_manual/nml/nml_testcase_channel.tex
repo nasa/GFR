@@ -1,0 +1,237 @@
+\subsection{nml\_testcase\_channel}
+\label{SEC:nml_testcase_channel}
+\inp*[nmlTestcaseChannel]{}[nml\_testcase\_channel][]
+
+This \hyperref[SEC:User_Input]{namelist block} is used to specify inputs for the
+rectangular channel flow test case
+\\% Prevent next word from entering right margin
+($\inp[nmlInitialization::Initialization]{Initialization}=2$) or the
+annular-pipe channel flow test case ($\inptext{Initialization}=25$).
+%
+The inputs that start with \quoterm{Grid\_} are specific to running one of these
+cases using the internal grid generator.
+
+\begin{nmlblocklst}[
+,label={LST:nml_testcase_channel}
+,caption={Namelist nml\_testcase\_channel.}
+]
+&nml_testcase_channel
+  Grid_Annulus_Angle  =   5.0    ! [deg]
+  Grid_Ave_Xplus      = -30.0
+  Grid_Ave_Yplus      = -15.0
+  Grid_Ave_Zplus      = -15.0
+  Grid_Yplus_Wall     =   2.0
+  Grid_Yplus_Of_One   = 8.42e-6  ! [m]
+  Body_Force          =   0.0    ! [N]
+  Nondim_Output_Coord = F
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+%##%\FINALFIX{\newpage}
+\begin{nmldescitem}
+Grid_Annulus_Angle = 5.0  ! [deg]
+\end{nmldescitem}
+\inp*[nmlTestcaseChannel::GridAnnulusAngle]{}[Grid\_Annulus\_Angle][]
+
+\begin{nmldescbody}
+%
+This input is used when running the annular-pipe channel flow case and
+specifies the angle (in degrees) of the circumferential extent of the grid
+domain.
+%
+The input value will be limited to an angle between 0.1 and 90 degrees.
+%
+The radial distance between the inner and outer walls of the annular pipe
+will be set to the channel height used for the rectangular channel flow case.
+%
+The arc length of the annular pipe \emph{outer wall} will be set to the span used for
+the regular channel flow case.
+%
+From the arc length and circumferential angle, the outer radius of the annulus
+will be computed.
+%
+This means the amount of curvature for the annular pipe will vary depending on
+the input \inptext{Grid\_Annulus\_Angle}, with a maximum value of 90 resulting in a
+highly curved annular pipe and a minimum value of 0.1 have little-to-no
+curvature.
+%
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Grid_Ave_Xplus = -30.0
+\end{nmldescitem}
+\inp*[nmlTestcaseChannel::GridAveXplus]{}[Grid\_Ave\_Xplus][]
+
+\begin{nmldescbody}
+When running either of the channel flow problems using the internal grid generator,
+this input is used to determine the average grid spacing in the
+axial ($x$) direction as follows:
+\\
+\begin{tabular}{ @{\qquad } r @{ \quad } p{0.75\linewidth} @{} }
+  $<0$ & The abs(input value) specifies the average \yp[x] degree of freedom
+         spacing. This means the average \yp[x] cell spacing is given by
+         $\left|\inptext{Grid\_Ave\_Xplus}\right|\times(\p[+1]{S})$.\\
+  $>0$ & The input value specifies the average \yp[x] cell spacing.
+\end{tabular}
+%
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Grid_Ave_Yplus = -15.0
+\end{nmldescitem}
+\inp*[nmlTestcaseChannel::GridAveYplus]{}[Grid\_Ave\_Yplus][]
+
+\begin{nmldescbody}
+When running either of the channel flow problems using the internal grid generator,
+this input is used to determine the average grid spacing in the vertical
+($y$) direction specifically at the center-height of the channel.
+%
+Note, for the annular-pipe channel flow case, this is applied to the radial
+spacing.
+\\
+\begin{tabular}{ @{\qquad } r @{ \quad } p{0.75\linewidth} @{} }
+  $<0$ & The abs(input value) specifies the average \yp{} degree of freedom
+         spacing at the center of the channel. This means the average \yp{}
+         cell spacing at the center of the channel is given by
+         $\left|\inptext{Grid\_Ave\_Yplus}\right|\times(\p[+1]{S})$.\\
+  $>0$ & The input value specifies the average \yp{} cell spacing at the
+         center of the channel.
+\end{tabular}
+
+\noindent\NOTE
+This input will be used to determine the \yp{} spacing for the cells
+at the middle of the channel height, and the input
+\inp[nmlTestcaseChannel::GridYplusWall]{Grid\_Yplus\_Wall}
+will be used to determine the \yp{} spacing for the cells on channel walls.
+%
+A tanh spacing will then be used to get the \yp{} cell spacings for
+all the cells in between.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Grid_Ave_Zplus = -15.0
+\end{nmldescitem}
+\inp*[nmlTestcaseChannel::GridAveZplus]{}[Grid\_Ave\_Zplus][]
+
+\begin{nmldescbody}
+When running either of the channel flow problems using the internal grid generator,
+this input is used to determine the average grid spacing in the
+spanwise ($z$) direction.
+%
+Note, for the annular-pipe channel flow case, this is applied to the
+circumferential spacing.
+\\
+\begin{tabular}{ @{\qquad } r @{ \quad } p{0.80\linewidth} @{} }
+  $<0$ & The abs(input value) specifies the average \yp[z] degree of freedom
+         spacing. This means the average \yp[z] cell spacing is given by
+         $\left|\inptext{Grid\_Ave\_Zplus}\right|\times(\p[+1]{S})$.\\
+  $>0$ & The input value specifies the average \yp[z] cell spacing.
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Grid_Yplus_Wall = 2.0
+\end{nmldescitem}
+\inp*[nmlTestcaseChannel::GridYplusWall]{}[Grid\_Yplus\_Wall][]
+
+\begin{nmldescbody}
+When running either of the channel flow problems using the internal grid generator,
+this input is used to determine the height of the first cell off the wall.
+%
+Note, for the annular-pipe channel flow case, this is applied to the radial wall
+spacing.
+\\
+\begin{tabular}{ @{\qquad } r @{ \quad } p{0.75\linewidth} @{} }
+  $<0$ & The location of \yp{}=1 is located at the
+         $\mathtt{nint}(\left|\inptext{Grid\_Yplus\_Wall}\right|)$-th
+         \newline
+         degree of freedom off the wall.\\
+  $>0$ & This specifies the height (in \yp{}) of the first cell off the
+         wall.
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Grid_Yplus_Of_One = 8.42e-6  ! [m]
+\end{nmldescitem}
+\inp*[nmlTestcaseChannel::GridYplusOfOne]{}[Grid\_Yplus\_Of\_One][]
+
+\begin{nmldescbody}
+This input specifies the dimensional length (in meters) corresponding to
+\yp{}=1 to use with the internal grid generator for either of the channel flow
+problems.
+%
+Note, for the annular-pipe channel flow case, this is applied to the radial wall
+spacing.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Body_Force = 0.0  ! [N]
+\end{nmldescitem}
+\inp*[nmlTestcaseChannel::BodyForce]{}[Body\_Force][]
+
+\begin{nmldescbody}
+Body force (in Newtons) used to drive the channel flow problem.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Nondim_Output_Coord = F
+\end{nmldescitem}
+\inp*[nmlTestcaseChannel::NondimOutputCoord]{}[Nondim\_Output\_Coord][]
+
+\begin{nmldescbody}
+If running the channel flow problem and this input is set to true,
+then all the grid coordinates written to the CGNS solution files
+will be nondimensionalized by the channel half height.
+\end{nmldescbody}
+
+%==========================================================================
+
+%\begin{nmldescitem}
+%Rake_Save_Interval = 100
+%\end{nmldescitem}
+%\inp*[nmlTestcaseChannel::RakeSaveInterval]{}[Rake\_Save\_Interval][]
+%
+%\begin{nmldescbody}
+%\NOTE
+%(not working)
+%
+%This input allows the option to collect a time history of the flow
+%along a rake in order to extract energy spectrums from a channel flow.
+%%
+%It specifies the number of time steps between saving the
+%instantaneous flow profile along a rake to the time history data.
+%
+%\NOTE
+%This can only be used with the channel flow problem using an
+%internally generated grid.
+%
+%\vspace*{0.5em}%
+%\FIXME{
+%\begin{itemize}
+%\item
+%Where are the rake points located?
+%\item
+%Should this be removed for now and added again when it works?
+%\end{itemize}
+%}
+%\end{nmldescbody}
+
+%==========================================================================
+

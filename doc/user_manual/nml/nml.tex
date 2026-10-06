@@ -1,0 +1,102 @@
+\section{User Input}
+\label{SEC:User_Input}
+
+As described in \sref{SEC:Files:Namelist_Input},
+GFR uses a Fortran namelist file for specifying user inputs,
+and can output a default input file for you to modify.
+%
+The name of the input file to read should be added to the end of the MPI
+command line used to execute the code.
+%
+This input file contains a number of namelist input blocks,
+which are described in the sections that follow.
+%
+\begin{multicols}{3}
+\raggedcolumns % Permit last column to be short.
+\begin{itemize}
+  \item \nameref{SEC:nml_version}
+  \item \nameref{SEC:nml_grid}
+  \item \nameref{SEC:nml_reference}
+  \item \nameref{SEC:nml_physics}
+  \item \nameref{SEC:nml_initialization}
+  \item \nameref{SEC:nml_timestep}
+  \item \nameref{SEC:nml_bc}
+  \item \nameref{SEC:nml_numerics}
+  \item \nameref{SEC:nml_limiter}
+  \item \nameref{SEC:nml_time_ave}
+  \item \nameref{SEC:nml_output}
+  \item \nameref{SEC:nml_output_variables}
+  \item \nameref{SEC:nml_sem}
+  \item \nameref{SEC:nml_chemistry}
+  \item \nameref{SEC:nml_testcase_channel}
+  \item \nameref{SEC:nml_testcase_pulse}
+  \item \nameref{SEC:nml_testcase_sod}
+  \item \nameref{SEC:nml_testcase_tcf}
+  \item \nameref{SEC:nml_testcase_vortex}
+  \item \nameref{SEC:nml_interpolation}
+  \item \nameref{SEC:nml_utility}
+  \item \nameref{SEC:nml_debug}
+\end{itemize}
+\end{multicols}
+
+The order of the namelist blocks in the input file does not matter,
+nor does the order of the variables within a namelist block.
+%
+The user may include every namelist block and every input variable
+in the input file.
+%
+However, the only \emph{required} entries are those inputs that the user wants
+to have non-default values.
+%
+It is highliy recommended to include the \nameref{SEC:nml_version}
+namelist block so that future versions of the code can properly
+interpret and convert your input file.
+%
+%
+Note that a ``!'' character in a Fortran namelist file begins a comment that
+extends to the end of the line.
+%
+This can be useful for documenting your input file.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In each of the namelist input blocks described in the following sections,
+we first identify all the variables in the namelist block and then provide
+a detailed explanation of each input.
+%
+Comments in the listings are used to document the expected units of the input
+variables (a good practice), and the values shown represent the default
+settings.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\AddToHook{cmd/subsection/before}{\clearpage}
+\input{nml/nml_version}
+\input{nml/nml_grid}
+\input{nml/nml_reference}
+\input{nml/nml_physics}
+\input{nml/nml_initialization}
+\input{nml/nml_timestep}
+\input{nml/nml_bc}
+\input{nml/nml_numerics}
+\input{nml/nml_limiter}
+\input{nml/nml_time_ave}
+\input{nml/nml_output}
+\input{nml/nml_output_variables}
+\input{nml/nml_sem}
+\input{nml/nml_chemistry}
+\input{nml/nml_testcase_channel}
+\input{nml/nml_testcase_pulse}
+\input{nml/nml_testcase_sod}
+\input{nml/nml_testcase_tcf}
+\input{nml/nml_testcase_vortex}
+\input{nml/nml_interpolation}
+\input{nml/nml_utility}
+\input{nml/nml_debug}
+
+% These sections need to be reviewd and removed!
+%\input{nml/nml_mms}
+%\input{nml/nml_removed}
+
+\input{nml/changes}
+\RemoveFromHook{cmd/subsection/before}

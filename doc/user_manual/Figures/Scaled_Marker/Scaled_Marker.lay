@@ -1,0 +1,361 @@
+#!MC 1410
+$!VarSet |LFDSFN1| = '"Scaled_Marker.tec"'
+$!VarSet |LFDSVL1| = '"zeta" "zeta/(pi/2)" "S"'
+$!SetStyleBase Factory
+$!GlobalPaper 
+  PaperSizeInfo
+    {
+    Letter
+      {
+      Width = 8.5
+      Height = 11
+      LeftHardClipOffset = 0.125
+      RightHardClipOffset = 0.125
+      TopHardClipOffset = 0.125
+      BottomHardClipOffset = 0.125
+      }
+    }
+$!Page 
+  Name = 'Untitled'
+  PaperAttributes
+    {
+    BackgroundColor = White
+    IsTransparent = Yes
+    OrientPortrait = No
+    ShowGrid = Yes
+    ShowRuler = No
+    ShowPaper = No
+    PaperSize = Letter
+    RulerSpacing = OneInch
+    PaperGridSpacing = HalfInch
+    RegionInWorkArea
+      {
+      X1 = 1
+      Y1 = 0.25
+      X2 = 10
+      Y2 = 8.25
+      }
+    }
+### Frame Number 1 ###
+$!ReadDataSet  '|LFDSFN1|'
+  InitialPlotType = XYLine
+  IncludeText = No
+  IncludeGeom = No
+  AssignStrandIDs = Yes
+  VarLoadMode = ByName
+  VarNameList = '|LFDSVL1|'
+$!RemoveVar |LFDSVL1|
+$!RemoveVar |LFDSFN1|
+$!FrameLayout 
+  ShowBorder = No
+  ShowHeader = No
+  HeaderColor = Red
+  XYPos
+    {
+    X = 1
+    Y = 1
+    }
+  Width = 4
+  Height = 2
+$!ThreeDAxis 
+  AspectRatioLimit = 25
+  BoxAspectRatioLimit = 25
+$!PlotType  = XYLine
+$!FrameName  = 'Frame 001'
+$!GlobalTime 
+  SolutionTime = 0
+$!DeleteLineMaps 
+$!ActiveLineMaps  =  [1-2]
+$!GlobalLinePlot 
+  DataLabels
+    {
+    DistanceSkip = 5
+    }
+  Legend
+    {
+    XYPos
+      {
+      X = 95
+      }
+    }
+$!LineMap  [1]
+  Name = '&DV&'
+  Assign
+    {
+    Zone = 1
+    XAxisVar = 'zeta/(pi/2)'
+    YAxisVar = 'S'
+    }
+  Lines
+    {
+    Color = Red
+    }
+  Symbols
+    {
+    Color = Red
+    FillColor = Red
+    }
+  BarCharts
+    {
+    Color = Red
+    FillColor = Red
+    }
+  ErrorBars
+    {
+    Color = Red
+    }
+$!LineMap  [2]
+  Name = '&DV&'
+  Assign
+    {
+    Zone = 1
+    XAxisVar = 'zeta/(pi/2)'
+    YAxisVar = 'S'
+    XAxis = 2
+    }
+  Lines
+    {
+    Color = Red
+    }
+  Symbols
+    {
+    Color = Red
+    FillColor = Red
+    }
+  BarCharts
+    {
+    Color = Red
+    FillColor = Red
+    }
+  ErrorBars
+    {
+    Color = Red
+    }
+$!XYLineAxis 
+  DepXToYRatio = 1
+  ViewportPosition
+    {
+    Y1 = 21
+    Y2 = 93
+    }
+  ViewportTopSnapTarget = 93
+$!XYLineAxis 
+  XDetail 1
+    {
+    CoordScale = Linear
+    RangeMin = -3
+    RangeMax = 3.0005999999999999339
+    AutoGrid = No
+    GRSpacing = 1
+    Ticks
+      {
+      NumMinOrTicks = 0
+      }
+    TickLabel
+      {
+      ShowOnAxisLine = No
+      }
+    MinorGridlines
+      {
+      Show = Yes
+      }
+    Title
+      {
+      ShowOnAxisLine = No
+      }
+    }
+$!XYLineAxis 
+  XDetail 2
+    {
+    CoordScale = Linear
+    RangeMin = -3
+    RangeMax = 3
+    AutoGrid = No
+    GRSpacing = 1
+    Ticks
+      {
+      NumMinOrTicks = 0
+      }
+    TickLabel
+      {
+      ShowOnAxisLine = No
+      }
+    Title
+      {
+      ShowOnAxisLine = No
+      }
+    AxisLine
+      {
+      Offset = 10
+      }
+    }
+$!XYLineAxis 
+  YDetail 1
+    {
+    CoordScale = Linear
+    RangeMin = -0.010000000000000000208
+    RangeMax = 1.0100999999999999979
+    GRSpacing = 0.2
+    TickLabel
+      {
+      TextShape
+        {
+        Height = 3.5
+        }
+      NumFormat
+        {
+        Formatting = FixedFloat
+        Precision = 1
+        TimeDateFormat = ''
+        }
+      }
+    Title
+      {
+      TextShape
+        {
+        Height = 5
+        }
+      Offset = 8
+      }
+    }
+$!AttachText 
+  AnchorPos
+    {
+    X = 37.9975
+    Y = 19
+    }
+  TextShape
+    {
+    IsBold = No
+    SizeUnits = Frame
+    Height = 4.5
+    }
+  Anchor = HeadCenter
+  Text = '-<greek>p</greek>/2'
+$!AttachText 
+  AnchorPos
+    {
+    X = 62.995
+    Y = 19
+    }
+  TextShape
+    {
+    IsBold = No
+    SizeUnits = Frame
+    Height = 4.5
+    }
+  Anchor = HeadCenter
+  Text = '<greek>p</greek>/2'
+$!AttachText 
+  AnchorPos
+    {
+    X = 50.49629999999999
+    Y = 19
+    }
+  TextShape
+    {
+    IsBold = No
+    SizeUnits = Frame
+    Height = 4.5
+    }
+  Anchor = HeadCenter
+  Text = '0'
+$!AttachText 
+  AnchorPos
+    {
+    X = 91.5
+    Y = 23.5
+    }
+  TextShape
+    {
+    SizeUnits = Frame
+    Height = 5
+    }
+  Anchor = HeadCenter
+  Text = '<greek>z</greek>'
+$!AttachText 
+  AnchorPos
+    {
+    X = 37.9975
+    Y = 9
+    }
+  TextShape
+    {
+    IsBold = No
+    SizeUnits = Frame
+    Height = 4.5
+    }
+  Anchor = HeadCenter
+  Text = '<greek>Y</greek><sub>0</sub>-,<greek>DY</greek>'
+$!AttachText 
+  AnchorPos
+    {
+    X = 50.49629999999999
+    Y = 9
+    }
+  TextShape
+    {
+    IsBold = No
+    SizeUnits = Frame
+    Height = 4.5
+    }
+  Anchor = HeadCenter
+  Text = '<greek>Y</greek><sub>0</sub>'
+$!AttachText 
+  AnchorPos
+    {
+    X = 62.995
+    Y = 9
+    }
+  TextShape
+    {
+    IsBold = No
+    SizeUnits = Frame
+    Height = 4.5
+    }
+  Anchor = HeadCenter
+  Text = '<greek>Y</greek><sub>0</sub>+,<greek>DY</greek>'
+$!AttachText 
+  AnchorPos
+    {
+    X = 91.5
+    Y = 13.5
+    }
+  TextShape
+    {
+    SizeUnits = Frame
+    Height = 5
+    }
+  Anchor = HeadCenter
+  Text = 'M'
+$!AttachText 
+  AnchorPos
+    {
+    X = 25.49875012498751
+    Y = 23.14567199294187
+    }
+  TextShape
+    {
+    IsBold = No
+    SizeUnits = Frame
+    Height = 5
+    }
+  Anchor = Center
+  Text = 'Region to retain'
+$!AttachText 
+  AnchorPos
+    {
+    X = 75.4937506249375
+    Y = 94.43265673432659
+    }
+  TextShape
+    {
+    IsBold = No
+    SizeUnits = Frame
+    Height = 5
+    }
+  Anchor = Center
+  Text = 'Region to filter'
+$!FrameControl ActivateByNumber
+  Frame = 1
+$!SetStyleBase Config

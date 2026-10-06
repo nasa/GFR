@@ -1,0 +1,79 @@
+\subsection{Namelist Input}
+\label{SEC:Files:Namelist_Input}
+
+GFR uses a Fortran namelist file for specifying user inputs.
+%
+GFR is executed on the command line with the following syntax:
+%
+\begin{InputExample}
+  \item[{\inptext{[MPI commands] gfr [optional args]}}]
+\end{InputExample}
+%
+where \inptext{[MPI~commands]} specifies the MPI executable and MPI arguments if
+running in parallel, \inptext{gfr} is the GFR executable, and 
+\inptext{[optional~args]} are the optional arguments that will be processed by
+GFR.
+%
+The logic for detecting and verifying the GFR input file is as follows:
+%
+\begin{enumerate}
+  \item
+    If the number of optional arguments is 1, it tests to see if the argument
+    represents an existing file containing GFR namelists.
+    %
+  \item
+    If the number of optional arguments is greater than 1, it searches through
+    the arguments to find one equal to \quoterm{\inptext{-f}}.
+    %
+    If the input flag \quoterm{\inptext{-f}} is found as one of the arguments,
+    it tests to see if the very next argument following the flag represents an
+    existing file containing GFR namelists.
+    %
+  \item
+    If neither of the above finds an input file, GFR will check the current run
+    directory for the file \file{gfr.in} and use that file if it exists.
+\end{enumerate}
+%
+If any of these steps finds what appears to be a valid GFR input file, it will
+proceed with reading that input file to run a simulation.
+%
+If no input file is provided, the code will output the file
+\file{gfr.in.default} which contains all of the available input
+variables and their current default values.
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The contents of the user input file are described in
+\sref{SEC:User_Input}.
+%
+The user may include every input variable in the input file.
+%
+However, the only \emph{required} entries are those inputs that
+the user wants to have non-default values.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Input variables may be added, removed, or renamed between versions.
+%
+However, the code will attempt to convert an older input file to the
+current format.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\devNotes{
+The \inptext{nml\_version} namelist block is not required.
+%
+The \inp[nmlVersion::NamelistVersion]{Namelist\_Version} variable
+defaults to the current value.
+%
+If the namelist file contains the \texttt{input} block,
+the version is set to 1.
+%
+Otherwise, if the namelist file contains the \texttt{nml\_version} block,
+it will attempt to read the value of
+\inp[nmlVersion::NamelistVersion]{Namelist\_Version}
+from that block.
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

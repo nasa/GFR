@@ -1,0 +1,71 @@
+\subsection{Aliasing Error}
+\label{SEC:Aliasing}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\key*{Aliasing error}[aliasing error] occurs when the polynomial basis
+functions are insufficient to represent the nonlinear terms.
+%
+Consider the simplified example shown in \fref{FIG:Aliasing},
+in which the exact solution $u$ is given by a fourth order polynomial
+and the exact flux $u^2$ is given by an eighth order polynomial.
+%
+In this case, a fourth order polynomial for the numerical solution
+can be used to exactly represent the physical solution.
+%
+Evaluating the flux at the solution points will also result in a
+fourth order polynomial that matches the exact flux at those points.
+%
+However, at any other location, the fourth order polynomial flux
+is unable to accurately approximate the eighth order exact flux.
+%
+The area between the exact flux and polynomial flux curves represents
+the aliasing error.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{figure}[htb]
+  \begin{centering}
+    \insertimage[width=4.0in]{Aliasing/Aliasing}
+    \caption{Example of aliasing error.}
+    \label{FIG:Aliasing}
+  \end{centering}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\Linecite{Spiegel_2015b} %AIAA-2015-2744
+explored one means of reducing aliasing error
+using an early version of GFR.
+%
+Instead of directly computing the flux using the same polynomial
+order and Gauss points as the solution, the flux is evaluated
+using a higher quadrature order
+(\thatis a higher order polynomial and its corresponding Gauss points).
+%
+This technique of over-integration by over-sampling at the quarature points
+requires that the solution polynomial for the conserved variables
+be evaluated (\thatis interpolated) at the additional set of quadrature points
+in order to use those values in computing the flux.
+%
+Then that higher order quadrature polynomial is projected
+(in a least squares sense) onto a flux polynomial of the same order
+as the solution.
+%
+This reduces the {\em overall error} between the exact flux and
+polynomial flux curves, but in doing so the {\em specific error}
+between the exact flux and polynomial flux curves evaluated at the
+solution Gauss points will now be non-zero.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The main disadvantage to reducing aliasing error in this manner is
+the additional cost involved in supersampling at the additional
+\key{quadrature points}[points!quadrature] and then projecting that
+polynomial down to the solution order.
+%
+For that reason, subsequent development of GFR (\thatis the viscous terms)
+has not incorporated the quadrature evaluation.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

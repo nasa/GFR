@@ -1,0 +1,114 @@
+\subsection{nml\_testcase\_pulse}
+\label{SEC:nml_testcase_pulse}
+\inp*[nmlTestcasePulse]{}[nml\_testcase\_pulse][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify inputs for the density pulse test case.
+
+\begin{nmlblocklst}[
+,label={LST:nml_testcase_pulse}
+,caption={Namelist nml\_testcase\_pulse.}
+]
+&nml_testcase_pulse
+  Form     = 0
+  Form_Dim = 1
+  Length   = 1.0            ! [m]
+  Center   = [0.5,0.0,0.0]  ! [m] (x,y,z)
+  Width    = 0.2            ! [m]
+  Gap      = 0.2            ! [m]
+  Repeat   = 0
+/
+\end{nmlblocklst}
+\newlength{\negPulseVspace}
+\setlength{\negPulseVspace}{-3pt}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Form = 0
+\end{nmldescitem}
+\inp*[nmlTestcasePulse::Form]{}[Form][]
+
+\begin{nmldescbody}
+Specifies the form of the density pulse test shape.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  0 & Combo (Gauss,Square,Triangle,Ellipse) \\
+  1 & Gauss \\ 
+  2 & Square \\
+  3 & Triangle \\
+  4 & Ellipse
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Form_Dim = 1
+\end{nmldescitem}
+\inp*[nmlTestcasePulse::FormDim]{}[Form\_Dim][]
+
+\begin{nmldescbody}
+Dimension of the density test shape:
+  1=1d,
+  2=2d.
+\end{nmldescbody}
+
+%==========================================================================
+
+%##%\FINALFIX{\newpage}
+\begin{nmldescitem}
+Length = 1.0  ! [m]
+\end{nmldescitem}
+\inp*[nmlTestcasePulse::Length]{}[Length][]
+
+\begin{nmldescbody}
+1D domain length (in meters) for density pulse test internal grid.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Center = [0.5,0.0,0.0]  ! [m] (x,y,z)
+\end{nmldescitem}
+\inp*[nmlTestcasePulse::Center]{}[Center][]
+
+\begin{nmldescbody}
+$[x,y,z]$ (in meters) at center of first density pulse.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Width = 0.2  ! [m]
+\end{nmldescitem}
+\inp*[nmlTestcasePulse::Width]{}[Width][]
+
+\begin{nmldescbody}
+Width (in meters) of density pulse.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Gap = 0.2  ! [m]
+\end{nmldescitem}
+\inp*[nmlTestcasePulse::Gap]{}[Gap][]
+
+\begin{nmldescbody}
+Gap (in meters) between density pulses.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Repeat = 0
+\end{nmldescitem}
+\inp*[nmlTestcasePulse::Repeat]{}[Repeat][]
+
+\begin{nmldescbody}
+Number of repeat density pulses.
+\end{nmldescbody}
+
+%==========================================================================
+

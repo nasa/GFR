@@ -1,0 +1,259 @@
+\subsection{Filtering}
+\label{SEC:Filtering}
+\key*{}[filtering]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In spectral-element methods, the solution within an individual element
+can be transformed into a hierarchical set of modal coefficients which
+are representative of the energy contained in each mode.
+%
+A well-resolved numerical solution will have minimal energy contained
+within the higher modes, and the modal coefficients should have an
+exponential decay rate from lowest to highest modes.
+%\cite{21, 22, 32, 33}%% From AIAA-2022-1813
+%
+For this reason, an exponential filter is used as a source of
+numerical dissipation for stabilizing the simulations.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Note for future reference:
+%%
+%% For the diagonal filter matrix sigma(m) in GFR,
+%% see: Spiegel AIAA-2022-1813 Eq.5,
+%% but that index goes from m=0:N_M "for the N_M polynomial modes (p.2)".
+%% The polynomial order is degree P (p.2) and 
+%% the number of solution points is N_P=P+1.
+%% His previous paper numbers the modal coefs 0:P and the nodal coefs 1:P=1.
+%% Since a polynomial of degree P has terms x^0 + x^1 + ... x^P
+%% it will have just as many modes 0:P with 0 being the constant mode.
+%% In this context, it seems N_M=P even though it is not explicitly defined.
+%% However, in practice the arrays in GFR begin at index 1.
+%% 
+%% Hesthaven & Warburton (2010) \cite{Hesthaven_2010}
+%% p.20:
+%%   N=polynomial order; N_P=polynomial points; so N_p=N+1.
+%%   The modal coefs are 1:N_P and the nodal coefs are 1:N_P too.
+%% p.130:
+%%   Defines sigma(eta) with eta=(n-1)/N; n=1...N_p;
+%%   Their Matlab code on that page also provides a
+%%     1-based diagonal filter matrix.
+%%
+%% Sheshadri (2016) PhD \cite{sheshadri16}
+%% p. 11:  The nodal coefs are n=0:P.
+%% p. 99:  The modal coefs are n=0:P too.
+%% p.107:
+%%   Defines sigma(eta) with eta=n/P; n=0...P;
+%%
+%% We use Hesthaven's notation here, because it is consistent with the
+%% 1:P+1 modal form of the polynomial used in our introduction.
+
+This diagonal exponential filter matrix is given by\cite{Hesthaven_2010}
+\begin{align}
+    \label{EQN:ExpFilterMatrix}
+    \sigma (n)
+ =& \begin{cases}
+       1
+    &  0 \leq \eta \leq \eta_c
+    \\
+       \exp \left[ -\alpha \left( \frac{\eta-\eta_c}{1-\eta_c} \right)^s
+            \right]
+    &  \eta_c \leq \eta \leq 1
+    \end{cases}
+  &
+    \begin{aligned}
+       \eta   = & \;\text{modal fraction}, (n-1) / \PO
+    \\ \eta_c = & \;\text{modal fraction cutoff}
+    \\ \alpha = & \;\text{filter strength}
+    \\ s      = & \;\text{filter order}
+    \end{aligned}
+\end{align}
+%
+where $n=1,\ldots,\PO+1$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%Three user-specified parameters control the aggressiveness of the filter,
+%and their effects are illustrated in \fref{FIG:Filter}.
+%%
+%%
+%(1) The parameter $\eta_c$ specifies the modal fraction cutoff above which
+%filtering will be applied.
+%%
+%Everything below that modal fraction cutoff will be entirely preserved.
+%%
+%Most importantly, the lowest mode
+%(which defines the average value in the cell)
+%remains unchanged in order to ensure conservation of
+%mass, momentum, and energy.
+%%
+%%
+%(2) The parameter $\alpha$ specifies the strength of the filter.
+%As $\alpha$ increases, the filter value at the highest mode(s)
+%becomes smaller, which means that more damping is applied.
+%%
+%%
+%(3) Lastly, the parameter $s$ specifies the filter order
+%which controls the exponential decay rate
+%(\thatis how parabolic the filter function is on a log plot).
+%As $s$ increases, filtering has substantially less of an effect on
+%the lower modes.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Three user-specified parameters, $[\eta_c, \alpha, s]$, control the
+aggressiveness of the filter, and their effects are illustrated in
+\fref{FIG:Filter}.\\[12pt]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{figure}[htb]
+  \begin{centering}
+    \begin{subfigure}{2.0in}
+      \insertimage[width=\textwidth]{Filter/Filter_etac}
+      \caption{Effect of $\eta_c$}
+      \label{FIG:Filter_etac}
+    \end{subfigure}%
+    \begin{subfigure}{2.0in}
+      \insertimage[width=\textwidth]{Filter/Filter_alpha}
+      \caption{Effect of $\alpha$}
+      \label{FIG:Filter_alpha}
+    \end{subfigure}%
+    \begin{subfigure}{2.0in}
+      \insertimage[width=\textwidth]{Filter/Filter_s}
+      \caption{Effect of $s$}
+      \label{FIG:Filter_s}
+    \end{subfigure}%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \caption{Exponential filter function, $\sigma$.}
+    \label{FIG:Filter}
+  \end{centering}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{tabular}{%
+      @{\hspace{2.0em}} l%
+      @{\hspace{1.0ex}} c%
+      @{\quad} >{\raggedright\arraybackslash}p{0.8\linewidth}%
+      @{}}
+  %
+  $\eta_c$ & $\coloneq$ &
+  This parameter specifies the modal fraction cutoff above which filtering will
+  be applied.
+  %
+  Everything below that modal fraction cutoff will be entirely preserved.
+  %
+  Most importantly, the lowest mode (which defines the average value in the
+  cell) remains unchanged in order to ensure conservation of mass, momentum, and
+  energy.
+  %
+  Valid input values for this parameter are real values on the interval
+  $[0.0,1.0]$, although a value of $1.0$ is the same as using no filter at all
+  because it will preserve all modes of the solution.
+  %
+  A value of $0.0$ will apply some amount of filtering to all modes except the
+  lowest\slash constant mode.\\
+  %
+  & & \\
+  %   
+  $\alpha$ & $\coloneq$ & 
+  This parameter specifies the strength of the filter, \thatis the highest mode
+  will be multiplied by the value $\exp\left(-\alpha\right)$.
+  %
+  As $\alpha$ increases, the filter value at the highest mode(s) becomes
+  smaller, which means that more damping is applied.
+  %
+  Valid input values for this parameter are real values between $0.0$ and
+  roughly $36.0$, where a value of $36.0$ is nearly equivalent to multiplying
+  the highest mode by 64-bit machine epsilon, \thatis
+  $\ln\left(2^{-52}\right)\approx-36.0$.\\
+  %
+  & & \\
+  %
+  $s$ & $\coloneq$ & 
+  This parameter specifies the filter order which controls the exponential decay
+  rate (\thatis how parabolic the filter function is on a log plot).
+  %
+  As $s$ increases, filtering has substantially less of an effect on the lower
+  modes.
+  %
+  Valid input values for this parameter are positive integers greater than or
+  equal to 2; however, anything greater than 32 will essentially result in a
+  filter that multiplies the highest mode by $\exp\left(-\alpha\right)$ applies
+  negligible filtering to any lower modes that are larger than the cutoff mode.
+  %
+  In practice, commonly used values are $[2,4,8,12,16,32]$.
+  %
+\end{tabular}
+\\[12pt]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+GFR uses a three-pass filtering approach.
+%
+First, a \key*{\emph{sponge filter}}[filtering!sponge filter] can be applied
+to the downstream region starting from a user-specified x-location.
+This filter region is often used to damp pressure fluctuations so they do not
+reflect from the outflow boundary and contaminate the upstream solution.
+%
+Second, a {\key*{\emph{local filter}}[filtering!local filter] can be applied
+to those cells identified by the
+\key[key:marker]{troubled cell marker}[marker] in \sref{SEC:Markers}.
+%
+Usually these cells require some significant level of filtering
+due to a shock or some local instability.
+%
+Third, a weak \key*{\emph{global filter}}[filtering!global filter] can be
+applied to all cells in the domain to remove any high-frequency noise in the
+solution; NOTE, use of the global filter should be avoided if possible since it
+filters \emph{everything} including cells that do not need filtering.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+It is recommended to check for troubled cells and perform 
+filtering operations after each Runge-Kutta subiteration.
+%
+This is the highest filtering frequency possible, with other researchers
+opting to filter only after the final Runge-Kutta stage or after a
+certain number of time steps.
+%
+Filtering at such a high frequency allows for the use of a larger
+time step, but it can reduce the accuracy of the solution.
+%
+This decrease in accuracy is usually outweighed by the increased
+time step size, which is often the most limiting computational factor
+in time-to-solution performance.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{}
+\noindent%
+\begin{tabular}{@{\qquad} lll @{}}
+\begin{varwidth}[t]{0.3\textwidth}
+\inp[nmlLimiter::GlobalFilterInterval]{Global\_Filter\_Interval}, \\
+\inp[nmlLimiter::GlobalFilterOption]{Global\_Filter\_Option}, \\
+\inp[nmlLimiter::GlobalFilterOrder]{Global\_Filter\_Order}, \\
+\inp[nmlLimiter::GlobalFilterAlpha]{Global\_Filter\_Alpha}, \\
+\inp[nmlLimiter::GlobalFilterEtac]{Global\_Filter\_Etac}, \\
+%
+\end{varwidth}
+&
+\begin{varwidth}[t]{0.3\textwidth}
+\inp[nmlLimiter::LocalLimiterInterval]{Local\_Limiter\_Interval}, \\
+\inp[nmlLimiter::LocalFilterOrder]{Local\_Filter\_Order}, \\
+\inp[nmlLimiter::LocalFilterAlpha]{Local\_Filter\_Alpha}, \\
+\inp[nmlLimiter::LocalFilterEtac]{Local\_Filter\_Etac}, \\
+%
+\end{varwidth}
+&
+\begin{varwidth}[t]{0.3\textwidth}
+\inp[nmlLimiter::SpongeFilterInterval]{Sponge\_Filter\_Interval}, \\
+\inp[nmlLimiter::SpongeFilterOption]{Sponge\_Filter\_Option}, \\
+\inp[nmlLimiter::SpongeFilterOrder]{Sponge\_Filter\_Order}, \\
+\inp[nmlLimiter::SpongeFilterAlpha]{Sponge\_Filter\_Alpha}, \\
+\inp[nmlLimiter::SpongeFilterEtac]{Sponge\_Filter\_Etac}, \\
+\inp[nmlLimiter::SpongeFilterXStart]{Sponge\_Filter\_X\_Start}\end{varwidth}
+\end{tabular}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

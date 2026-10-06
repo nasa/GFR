@@ -1,0 +1,10 @@
+VARIABLES="x","y","z"
+ZONE T="2D Tri"
+DATAPACKING=POINT
+Nodes=3
+ELEMENTS=1
+ZONETYPE=FETRIANGLE
+  0.0     0.0     0.0     
+  1.0     0.0     0.0     
+  0.0     1.0     0.0     
+1 2 3

@@ -1,0 +1,373 @@
+\subsection{nml\_grid}
+\label{SEC:nml_grid}
+\inp*[nmlGrid]{}[nml\_grid][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify parameters related to the grid input file.
+
+\begin{nmlblocklst}[
+,label={LST:nml_grid}
+,caption={Namelist nml\_grid.}
+]
+&nml_grid
+  Grid_Scaling_Factor      =   1.0
+  Grid_Format              =  -1
+  Grid_File                =  ""
+  Plot3d_Cutfile           =  ""
+  Plot3d_BCSfile           =  ""
+  Plot3d_Stride_I          =  -1
+  Plot3d_Stride_J          =  -1
+  Plot3d_Stride_K          =  -1
+  Plot3d_Stride_All        =  -1
+  Plot3d_Agglomerate_Order =  -1
+  Correct_CGNS_Grid_Points =   F
+  Internal_Grid_DoF        =   0
+  Internal_Grid_Order      =  -1
+  Metis_Option             =   3
+  Geom_Wts(1)%Tria         =   1
+  Geom_Wts(1)%Quad         =   1
+  Geom_Wts(1)%Tetr         =   1
+  Geom_Wts(1)%Pyra         =   1
+  Geom_Wts(1)%Pris         =   1
+  Geom_Wts(1)%Hexa         =   1
+/
+\end{nmlblocklst}
+%%Geom_Wts(1)%Edge         =   1
+%%Geom_Wts(1)%Face_Tria    =   1
+%%Geom_Wts(1)%Face_Quad    =   1
+
+%==========================================================================
+
+\begin{nmldescitem}
+Grid_Scaling_Factor = 1.0
+\end{nmldescitem}
+\inp*[nmlGrid::GridScalingFactor]{}[Grid\_Scaling\_Factor][]
+
+\begin{nmldescbody}
+Multiplication factor ($> 0.0$) to scale the input grid file coordinates to
+the desired length units in meters.
+%
+For example, use a value of 0.0254 to convert a grid containing coordinates
+in inches to meters.
+%
+See the discussion of
+  \key[key:GridUnits]{grid units}[grid units]
+and
+  \key[key:GridScaledUnits]{grid scaled units}[grid scaled units]
+in \sref{SEC:Grid_Scaling}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Grid_Format = -1
+\end{nmldescitem}
+\inp*[nmlGrid::GridFormat]{}[Grid\_Format][]
+
+\begin{nmldescbody}
+Specifies the format of the input grid file.
+
+\begin{tabular}{ @{} r @{ = } p{0.85\linewidth} @{} }
+  -1 & Internally generated grid
+       (only supported with certain 
+       \inp[nmlInitialization::Initialization]{Initialization} options) \\
+   1 & Gambit Neutral (very limited support, high-order curved elements not
+       supported) \\
+   2 & Gmsh (limited support) \\
+   3 & Plot3D \\
+   4 & CGNS (recommended)
+\end{tabular}
+
+\end{nmldescbody}
+
+%==========================================================================
+
+%##%\FINALFIX{\newpage}
+\begin{nmldescitem}
+Grid_File = ""
+\end{nmldescitem}
+\inp*[nmlGrid::GridFile]{}[Grid\_File][]
+
+\begin{nmldescbody}
+File path to the input grid file relative to the current directory.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Plot3d_Cutfile = ""
+\end{nmldescitem}
+\inp*[nmlGrid::Plot3dCutfile]{}[Plot3d\_Cutfile][]
+
+\begin{nmldescbody}
+File path to the input file that specifies the cut conditions for a
+multiblock Plot3D grid file.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Plot3d_BCSfile = ""
+\end{nmldescitem}
+\inp*[nmlGrid::Plot3dBCSfile]{}[Plot3d\_BCSfile][]
+
+\begin{nmldescbody}
+File path to the input file that specifies the boundary conditions for a
+Plot3D grid file.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Plot3d_Stride_All = -1
+Plot3d_Stride_I   = -1 
+Plot3d_Stride_J   = -1
+Plot3d_Stride_K   = -1
+\end{nmldescitem}
+\inp*[nmlGrid::Plot3dStrideAll]{}[Plot3d\_Stride\_All][]%
+\inp*[nmlGrid::Plot3dStrideI]{}[Plot3d\_Stride\_I][]%
+\inp*[nmlGrid::Plot3dStrideJ]{}[Plot3d\_Stride\_J][]%
+\inp*[nmlGrid::Plot3dStrideK]{}[Plot3d\_Stride\_K][]%
+ 
+\begin{nmldescbody}
+If $> 0$, applies a coarsening stride to the specified direction
+of all Plot3D blocks.
+ 
+\inptext{Plot3d\_Stride\_All} is applied first to all directions.
+%
+Then the individual i, j, k options can be used to override the
+stride setting in that specific direction.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Plot3d_Agglomerate_Order = -1
+\end{nmldescitem}
+\inp*[nmlGrid::Plot3dAgglomerateOrder]{}[Plot3d\_Agglomerate\_Order][]
+
+\begin{nmldescbody}
+If $> 0$, agglomerates linear Plot3D cells into high-order grid cells of
+this polynomial order.
+%
+For this to be successfull, the number of {\em cells} in each direction
+for every block must be divisible by this value.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Correct_CGNS_Grid_Points = F
+\end{nmldescitem}
+\inp*[nmlGrid::CorrectCGNSGridPoints]{}[Correct\_CGNS\_Grid\_Points][]
+
+\begin{nmldescbody}
+Experimental code that tries to correct the high-order points given in a
+CGNS grid file created by Pointwise. The high-order points should be equally
+spaced, but some software such as Pointwise does not require this.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Internal_Grid_DoF = 0
+\end{nmldescitem}
+\inp*[nmlGrid::InternalGridDoF]{}[Internal\_Grid\_DoF][]
+\key*{}[degree-of-freedom (DoF)!internally generated grid]
+\key*{}[internally generated grid!degree-of-freedom (DoF)]
+
+\begin{nmldescbody}
+This specifies the grid resolution to use for an
+\key[key:InternallyGeneratedGrid]{internally generated grid}[=].
+\\
+\begin{tabular}{ @{\quad} r @{ \quad } p{0.85\linewidth} @{} }
+  $<0$ & User specified number of cells. \\
+  $=0$ & 512 degrees of freedom. \\
+  $>0$ & User specified degrees of freedom.
+\end{tabular}\\
+%
+If the number of degrees of freedom are specified, then the number of cells
+needed to achieve the specified degrees of freedom in each direction will be
+computed from the solution order as:
+\begin{equation*}
+    \left[ \text{\# of cells} \right]
+  = \mathrm{nint}
+    ( \inptext{Internal\_Grid\_DoF}
+%   ( \text{\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF}}
+    / ( \text{\inp[nmlNumerics::SolutionOrder]{Solution\_Order}} + 1 )
+    ).
+\end{equation*}
+
+\NOTE
+An internally generated grid will only be created for specific
+\inp[nmlInitialization::Initialization]{Initialization} conditions,
+as indicated on \pref{\pageref{nmlInitialization::Initialization}}.
+%
+For the following cases, one should instead use the grid inputs in the
+associated namelist block.
+
+\begin{tabular}{S ll}
+  {\inp[nmlInitialization::Initialization]{Initialization}}
+& Description
+& Namelist Block \\
+  \hline
+   2 &  Channel flow
+     &  \inp[nmlTestcaseChannel]{nml\_testcase\_channel} \\
+  21 &  Taylor-Couette flow
+     &  \inp[nmlTestcaseTCF]{nml\_testcase\_tcf} \\
+  22 &  Freestream Taylor-Couette flow
+     &  \inp[nmlTestcaseTCF]{nml\_testcase\_tcf}
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Internal_Grid_Order = -1
+\end{nmldescitem}
+\inp*[nmlGrid::InternalGridOrder]{}[Internal\_Grid\_Order][]
+
+\begin{nmldescbody}
+Polynomial order used by the internal grid generator to create a
+high-order grid.
+%
+This only applies to internally generated grids with curved geometries
+(\thatis Taylor-Couette flow, channel, and annular pipe channel test cases).
+%
+All other internally generated grids have linear geometries.
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Metis_Option = 3
+\end{nmldescitem}
+\inp*[nmlGrid::MetisOption]{}[Metis\_Option][]
+
+\begin{nmldescbody}
+Specifies the \key{METIS}[=] algorithm to use for
+partitioning the global grid. If the specified option fails, it will
+loop through all of the other options to try to find a successful partitioning.
+
+%% Note: longtable permits page breaks.
+%\begin{tabular}{ @{} r @{ = } p{0.85\linewidth} @{} }
+\begin{longtable}{ @{} r @{ = } p{0.85\linewidth} @{} }
+  1 & Create non-weighted partitions based on a multilevel recursive bisection
+      while minimizing the edge cut.
+      \\
+  2 & Create non-weighted partitions based on a multilevel $k$-way algorithm
+      while minimizing the edge cut.
+      \\
+  3 & Create non-weighted partitions based on a multilevel $k$-way algorithm
+      while minimizing the total communication volume.
+      \\
+  4 & Create weighted partitions based on a multilevel $k$-way algorithm
+      while minimizing the total communication volume.
+      This is equivalent to option 3 but also
+      includes cell weights (based on geometry type).
+      \\
+  5 & Create weighted partitions based on a multilevel $k$-way algorithm
+      while minimizing the edge cut.
+      This is equivalent to option 2 but also
+      includes cell weights (based on geometry type).
+      \\
+  6 & Create weighted partitions based on a multilevel recursive bisection
+      while minimizing the edge cut.
+      This is equivalent to option 1 but also
+      includes cell weights (based on geometry type).
+\end{longtable}
+%\end{tabular}
+
+Note that the last three options include geometry-dependent
+computational cost into load balancing the partitions.
+%
+Weighting for each geometry type and order is specified through the input
+\inp[nmlGrid::GeomWts]{Geom\_Wts}[=][].
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Geom_Wts(1)%Tria = 1
+Geom_Wts(1)%Quad = 1
+Geom_Wts(1)%Tetr = 1
+Geom_Wts(1)%Pyra = 1
+Geom_Wts(1)%Pris = 1
+Geom_Wts(1)%Hexa = 1
+\end{nmldescitem}
+%%If including these, then align = signs above.
+%Geom_Wts(1)%Edge      = 1
+%Geom_Wts(1)%Face_Tria = 1
+%Geom_Wts(1)%Face_Quad = 1
+\inp*[nmlGrid::GeomWts]{}[Geom\_Wts][]
+%\inp*[nmlGrid::GeomWts/Edge]{}[Geom\_Wts(:)\%Edge][]
+\inp*[nmlGrid::GeomWts/Tria]{}[Geom\_Wts(:)\%Tria][]
+\inp*[nmlGrid::GeomWts/Quad]{}[Geom\_Wts(:)\%Quad][]
+\inp*[nmlGrid::GeomWts/Tetr]{}[Geom\_Wts(:)\%Tetr][]
+\inp*[nmlGrid::GeomWts/Pyra]{}[Geom\_Wts(:)\%Pyra][]
+\inp*[nmlGrid::GeomWts/Pris]{}[Geom\_Wts(:)\%Pris][]
+\inp*[nmlGrid::GeomWts/Hexa]{}[Geom\_Wts(:)\%Hexa][]
+%\inp*[nmlGrid::GeomWts/FaceTria]{}[Geom\_Wts(:)\%Face\_Tria][]
+%\inp*[nmlGrid::GeomWts/FaceQuad]{}[Geom\_Wts(:)\%Face\_Quad][]
+
+\begin{nmldescbody}
+These are the geometry weights used by the \key{METIS}[=]
+partitioning algorithm to split the mesh between processors.
+%
+Valid values are integers in the range [0:100], with larger values
+indicating those geometries must perform more computational work
+relative to geometries with lower values.
+%
+Note that the \inpstyle{Tria} and \inpstyle{Quad} inputs are for
+element volumes for 2D simulations, and thus are not used for 3D simulations.
+%
+%Note that the \inpstyle{Tria} and \inpstyle{Quad} inputs are for
+%element volumes in two dimensions, whereas the \inpstyle{Face\_Tria}
+%and \inpstyle{Face\_Quad} inputs are for element surfaces in
+%three dimensions.
+%%
+%Currently, the \inpstyle{Face\_Tria} and \inpstyle{Face\_Quad} weights are not
+%used.
+%
+See the \inp[nmlGrid::MetisOption]{Metis\_Option} input
+for additional details.
+
+Preliminary testing of the geometry weights indicates that improvements
+in performance may be highly dependent upon the number and distribution
+of each cell type throughout the domain and how many partitions are
+requested.
+%
+We therefore offer no specific weighting recommendations.
+ 
+\IDEA{
+  Add table of weights for either Rome or Milan nodes since AMD nodes are used
+  at both NAS and a lot of DoD machines, just to serve as a rough starting
+  point. Some things to probably point out:
+  \begin{itemize}
+    \item
+      Weights are only necessary for unstructured grids.
+    \item
+      Not using weights can severely degrade performance for large grids using
+      large numbers of MPI processes (10k+).
+    \item
+      Unless the user has compiled a custom METIS library using 64-bit
+      integers, the [maximum weight value]*[number of grid cells] needs to be
+      smaller than $2^{31}$ or the partitioning will fail. Use one of the
+      example Rome\slash Milan weights from the table to illustrate this point
+      with an example of too many cells for these weight values, and how to
+      scale the weights to get them within the 32-bit integer limit.
+    \item
+      Possibly provide an example of how unpredictable the weights can be to
+      make the user aware of this issue.
+    \item
+      Include some remarks about using weights with the different partitioning
+      methods and how unpredictable the results can be. Maybe include an example
+      of this with the example of how unpredictable the weights can be.
+  \end{itemize}
+}
+\end{nmldescbody}
+
+%==========================================================================
+

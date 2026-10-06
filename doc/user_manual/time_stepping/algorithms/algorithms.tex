@@ -1,0 +1,27 @@
+\subsection{Time Stepping Algorithms}
+\label{SEC:Time:Algorithms}
+
+As established in \sref{SEC:Time:Methods}, GFR exclusively employs explicit
+Runge-Kutta (ERK) time-stepping methods for advancing simulations in time.
+%
+In this section, we focus on the algorithmic details of the ERK methods and
+other aspects of time stepping in GFR.
+%
+There are essentially four different time stepping options available in GFR:
+constant global time step, global CFL-based time step, local CFL-based time
+step, and adaptive global time step.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{time_stepping/algorithms/cfl_based}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{time_stepping/algorithms/constant_dt}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{time_stepping/algorithms/adaptive}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

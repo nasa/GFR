@@ -1,0 +1,96 @@
+%##%\FINALFIX{\newpage}
+\subsection{nml\_physics}
+\label{SEC:nml_physics}
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify the physical modeling options
+for the simulation.
+
+\begin{nmlblocklst}[
+,label={LST:nml_physics}
+,caption={Namelist nml\_physics.}
+]
+&nml_physics
+  Governing_Equations               = 2
+  Moving_Ref_Frame%Rotation(1:3)    = [0.0,0.0,0.0]  ! [RPM]
+  Moving_Ref_Frame%Translation(1:3) = [0.0,0.0,0.0]  ! [m/s]
+  Moving_Ref_Frame%Spinup%Iter      = 0
+  Moving_Ref_Frame%Spinup%Tstar     = 0.0
+/
+\end{nmlblocklst}
+\inp*[nmlPhysics]{}[nml\_physics]
+
+
+%==========================================================================
+
+\begin{nmldescitem}
+Governing_Equations = 2
+\end{nmldescitem}
+\inp*[nmlPhysics::GoverningEquations]{}[Governing\_Equations][]
+
+\begin{nmldescbody}
+Specifies the governing equations to use.
+
+\begin{tabular}{ @{} r @{ = } p{0.85\linewidth} @{} }
+  1 & Euler equations \\
+  2 & Navier-Stokes equations
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Moving_Ref_Frame%Rotation(1:3) = [0.0,0.0,0.0]  ! [RPM]
+\end{nmldescitem}
+\inp*[nmlPhysics::MovingRefFrame/Rotation]{}[Moving\_Ref\_Frame\%Rotation][]
+
+\begin{nmldescbody}
+This specifies the rotation rate (in RPMs) of the moving reference frame
+about each of the three Cartesian axes.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Moving_Ref_Frame%Translation(1:3) = [0.0,0.0,0.0]  ! [m/s]
+\end{nmldescitem}
+\inp*[nmlPhysics::MovingRefFrame/Translation]{}[Moving\_Ref\_Frame\%Translation][]
+
+\begin{nmldescbody}
+This specifies the translation speed (in m\slash s) of the moving reference
+frame in each of the three Cartesian directions.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Moving_Ref_Frame%Spinup%Iter = 0
+\end{nmldescitem}
+\inp*[nmlPhysics::MovingRefFrame/Spinup/Iter]{}[Moving\_Ref\_Frame\%Spinup\%Iter][]
+
+\begin{nmldescbody}
+Number of time steps to spin up the rotation of the moving reference frame
+from 0 to max RPMs.
+%
+The spin-up period used will be the slower between this and
+\inp[nmlPhysics::MovingRefFrame/Spinup/Tstar]{Moving\_Ref\_Frame\%Spinup\%Tstar}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Moving_Ref_Frame%Spinup%Tstar = 0.0
+\end{nmldescitem}
+\inp*[nmlPhysics::MovingRefFrame/Spinup/Tstar]{}[Moving\_Ref\_Frame\%Spinup\%Tstar][]
+
+\begin{nmldescbody}
+If $>0$, this value specifies the non-dimensional time
+(\key[key:tstar]{\tstar}[t *@\tstar]) interval, \eref{EQN:tstar},
+to spin up the rotation of the moving reference frame from 0 to max RPMs.
+%
+The spin-up period used will be the slower between this and
+\inp[nmlPhysics::MovingRefFrame/Spinup/Iter]{Moving\_Ref\_Frame\%Spinup\%Iter}.
+\end{nmldescbody}
+
+%==========================================================================
+

@@ -1,0 +1,204 @@
+#!MC 1410
+$!VarSet |LFDSFN1| = '"sem_usem_lsem.tec"'
+$!VarSet |LFDSVL1| = '"U<sub>SEM</sub> / U<sub>BL</sub>" "l<sub>SEM</sub> / <greek>d</greek><sub>BL</sub>"'
+$!SetStyleBase Factory
+$!GlobalPaper 
+  PaperSizeInfo
+    {
+    Letter
+      {
+      Width = 8.5
+      Height = 11
+      LeftHardClipOffset = 0.125
+      RightHardClipOffset = 0.125
+      TopHardClipOffset = 0.125
+      BottomHardClipOffset = 0.125
+      }
+    }
+$!Page 
+  Name = 'Untitled'
+  PaperAttributes
+    {
+    BackgroundColor = White
+    IsTransparent = Yes
+    OrientPortrait = No
+    ShowGrid = Yes
+    ShowRuler = No
+    ShowPaper = No
+    PaperSize = Letter
+    RulerSpacing = OneInch
+    PaperGridSpacing = HalfInch
+    RegionInWorkArea
+      {
+      X1 = 1
+      Y1 = 0.25
+      X2 = 10
+      Y2 = 8.25
+      }
+    }
+### Frame Number 1 ###
+$!ReadDataSet  '|LFDSFN1|'
+  InitialPlotType = XYLine
+  IncludeText = No
+  IncludeGeom = No
+  ResetStyle = No
+  AssignStrandIDs = Yes
+  VarLoadMode = ByName
+  VarNameList = '|LFDSVL1|'
+$!RemoveVar |LFDSVL1|
+$!RemoveVar |LFDSFN1|
+$!FrameLayout 
+  ShowBorder = No
+  ShowHeader = No
+  HeaderColor = Red
+  XYPos
+    {
+    X = 1
+    Y = 1
+    }
+  Width = 4
+  Height = 2
+$!ThreeDAxis 
+  AspectRatioLimit = 25
+  BoxAspectRatioLimit = 25
+$!PlotType  = XYLine
+$!FrameName  = 'Frame 001'
+$!GlobalTime 
+  SolutionTime = 0
+$!DeleteLineMaps 
+$!ActiveLineMaps  =  [1]
+$!GlobalLinePlot 
+  DataLabels
+    {
+    DistanceSkip = 5
+    }
+  Legend
+    {
+    XYPos
+      {
+      X = 95
+      }
+    }
+$!LineMap  [1]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 1
+    XAxisVar = 'l<sub>SEM</sub> / <greek>d</greek><sub>BL</sub>'
+    YAxisVar = 'U<sub>SEM</sub> / U<sub>BL</sub>'
+    }
+  Lines
+    {
+    Color = Black
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Black
+    FillMode = UseLineColor
+    FillColor = Red
+    Size = 1
+    }
+  BarCharts
+    {
+    Color = Red
+    FillColor = Red
+    }
+  ErrorBars
+    {
+    Color = Red
+    }
+$!XYLineAxis 
+  DepXToYRatio = 1
+  ViewportPosition
+    {
+    Y1 = 15
+    Y2 = 95
+    }
+  ViewportTopSnapTarget = 95
+$!XYLineAxis 
+  XDetail 1
+    {
+    CoordScale = Linear
+    RangeMin = 0.10000000000000000555
+    RangeMax = 0.2999999999999999889
+    GRSpacing = 0.02
+    TickLabel
+      {
+      Skip = 2
+      TextShape
+        {
+        Height = 4
+        }
+      NumFormat
+        {
+        Formatting = FixedFloat
+        Precision = 2
+        TimeDateFormat = ''
+        }
+      }
+    Title
+      {
+      TextShape
+        {
+        Height = 6
+        }
+      Offset = 8
+      }
+    }
+$!XYLineAxis 
+  YDetail 1
+    {
+    CoordScale = Linear
+    RangeMin = 0
+    RangeMax = 1
+    GRSpacing = 0.2
+    TickLabel
+      {
+      TextShape
+        {
+        Height = 4
+        }
+      NumFormat
+        {
+        Formatting = FixedFloat
+        Precision = 1
+        TimeDateFormat = ''
+        }
+      }
+    Title
+      {
+      TextShape
+        {
+        Height = 6
+        }
+      Offset = 8
+      }
+    }
+$!LinePlotLayers 
+  ShowLines = No
+  ShowSymbols = Yes
+$!AttachGeom 
+  AnchorPos
+    {
+    X = 0.2
+    Y = 0.2500000000000001
+    }
+  Color = Custom2
+  IsFilled = Yes
+  FillColor = Custom2
+  DrawOrder = BeforeData
+  RawData
+1
+5
+0 0 
+0.0667000000000 0.25 
+0.0667000000000 0.75 
+0 0.25 
+0 0 
+$!FrameControl ActivateByNumber
+  Frame = 1
+$!SetStyleBase Config

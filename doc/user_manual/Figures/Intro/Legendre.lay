@@ -1,0 +1,1505 @@
+#!MC 1410
+$!VarSet |LFDSFN1| = '"Legendre.tec"'
+$!VarSet |LFDSVL1| = '"x" "y"'
+$!SetStyleBase Factory
+$!GlobalPaper 
+  PaperSizeInfo
+    {
+    Letter
+      {
+      Width = 8.5
+      Height = 11
+      LeftHardClipOffset = 0.125
+      RightHardClipOffset = 0.125
+      TopHardClipOffset = 0.125
+      BottomHardClipOffset = 0.125
+      }
+    }
+$!Page 
+  Name = 'Untitled'
+  PaperAttributes
+    {
+    BackgroundColor = White
+    IsTransparent = Yes
+    OrientPortrait = No
+    ShowGrid = Yes
+    ShowRuler = No
+    ShowPaper = No
+    PaperSize = Letter
+    RulerSpacing = OneInch
+    PaperGridSpacing = HalfInch
+    RegionInWorkArea
+      {
+      X1 = 1
+      Y1 = 1
+      X2 = 4.75
+      Y2 = 3
+      }
+    }
+### Frame Number 1 ###
+$!ReadDataSet  '|LFDSFN1|'
+  InitialPlotType = XYLine
+  IncludeText = No
+  IncludeGeom = No
+  ResetStyle = No
+  AssignStrandIDs = Yes
+  VarLoadMode = ByName
+  VarNameList = '|LFDSVL1|'
+$!RemoveVar |LFDSVL1|
+$!RemoveVar |LFDSFN1|
+$!FrameLayout 
+  ShowBorder = No
+  ShowHeader = No
+  HeaderColor = Red
+  XYPos
+    {
+    X = 1
+    Y = 1
+    }
+  Width = 3
+  Height = 2
+$!ThreeDAxis 
+  AspectRatioLimit = 25
+  BoxAspectRatioLimit = 25
+$!PlotType  = XYLine
+$!FrameName  = 'Frame 001'
+$!GlobalTime 
+  SolutionTime = 0
+$!DeleteLineMaps 
+$!ActiveLineMaps  =  [1-9]
+$!GlobalLinePlot 
+  DataLabels
+    {
+    DistanceSkip = 5
+    }
+  Legend
+    {
+    Show = Yes
+    ShowText = No
+    TextShape
+      {
+      Height = 4
+      }
+    Box
+      {
+      BoxType = None
+      }
+    RowSpacing = 1.45
+    XYPos
+      {
+      X = 12
+      Y = 92
+      }
+    AnchorAlignment = TopLeft
+    }
+$!LineMap  [1]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 1
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Red
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    Show = No
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Red
+    FillMode = UseLineColor
+    FillColor = Red
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Red
+    FillColor = Red
+    }
+  ErrorBars
+    {
+    Color = Red
+    }
+$!LineMap  [2]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 2
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Green
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    Show = No
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Green
+    FillMode = UseLineColor
+    FillColor = Green
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Green
+    FillColor = Green
+    }
+  ErrorBars
+    {
+    Color = Green
+    }
+$!LineMap  [3]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 3
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Blue
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    PolyOrder = 2
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    Show = No
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Blue
+    FillMode = UseLineColor
+    FillColor = Blue
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Blue
+    FillColor = Blue
+    }
+  ErrorBars
+    {
+    Color = Blue
+    }
+$!LineMap  [4]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 4
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Custom3
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    Show = No
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Custom3
+    FillMode = UseLineColor
+    FillColor = Custom1
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Custom1
+    FillColor = Custom1
+    }
+  ErrorBars
+    {
+    Color = Custom1
+    }
+$!LineMap  [5]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 5
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Custom7
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    PolyOrder = 4
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    Show = No
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Custom7
+    FillMode = UseLineColor
+    FillColor = Custom3
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Custom3
+    FillColor = Custom3
+    }
+  ErrorBars
+    {
+    Color = Custom3
+    }
+$!LineMap  [6]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 6
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Show = No
+    Color = Green
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Green
+    FillMode = UseLineColor
+    FillColor = Purple
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Purple
+    FillColor = Purple
+    }
+  ErrorBars
+    {
+    Color = Purple
+    }
+$!LineMap  [7]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 7
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Show = No
+    Color = Blue
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Blue
+    FillMode = UseLineColor
+    FillColor = Red
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Red
+    FillColor = Red
+    }
+  ErrorBars
+    {
+    Color = Red
+    }
+$!LineMap  [8]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 8
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Show = No
+    Color = Custom3
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Custom3
+    FillMode = UseLineColor
+    FillColor = Green
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Green
+    FillColor = Green
+    }
+  ErrorBars
+    {
+    Color = Green
+    }
+$!LineMap  [9]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 9
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Show = No
+    Color = Custom7
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Custom7
+    FillMode = UseLineColor
+    FillColor = Blue
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Blue
+    FillColor = Blue
+    }
+  ErrorBars
+    {
+    Color = Blue
+    }
+$!LineMap  [10]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 1
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Red
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Red
+    FillMode = UseLineColor
+    FillColor = Red
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Red
+    FillColor = Red
+    }
+  ErrorBars
+    {
+    Color = Red
+    }
+$!LineMap  [11]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 2
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Green
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Green
+    FillMode = UseLineColor
+    FillColor = Green
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Green
+    FillColor = Green
+    }
+  ErrorBars
+    {
+    Color = Green
+    }
+$!LineMap  [12]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 3
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Blue
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    PolyOrder = 2
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Blue
+    FillMode = UseLineColor
+    FillColor = Blue
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Blue
+    FillColor = Blue
+    }
+  ErrorBars
+    {
+    Color = Blue
+    }
+$!LineMap  [13]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 4
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Custom3
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Custom3
+    FillMode = UseLineColor
+    FillColor = Custom1
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Custom1
+    FillColor = Custom1
+    }
+  ErrorBars
+    {
+    Color = Custom1
+    }
+$!LineMap  [14]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 5
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Custom7
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    PolyOrder = 4
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Custom7
+    FillMode = UseLineColor
+    FillColor = Custom3
+    Size = 1.5
+    }
+  BarCharts
+    {
+    Color = Custom3
+    FillColor = Custom3
+    }
+  ErrorBars
+    {
+    Color = Custom3
+    }
+$!XYLineAxis 
+  DepXToYRatio = 1
+  GridArea
+    {
+    DrawBorder = Yes
+    }
+  ViewportPosition
+    {
+    X1 = 10
+    Y1 = 16
+    X2 = 93
+    Y2 = 93
+    }
+  ViewportTopSnapTarget = 93
+$!XYLineAxis 
+  XDetail 1
+    {
+    CoordScale = Linear
+    RangeMin = -1
+    RangeMax = 1
+    GRSpacing = 0.5
+    Ticks
+      {
+      ShowOnGridBorderMax = Yes
+      }
+    TickLabel
+      {
+      TextShape
+        {
+        Height = 4
+        }
+      Offset = 2
+      }
+    Title
+      {
+      ShowOnAxisLine = No
+      TextShape
+        {
+        Height = 4.6
+        }
+      Offset = 8
+      }
+    }
+$!XYLineAxis 
+  YDetail 1
+    {
+    CoordScale = Linear
+    RangeMin = -1.1999999999999999556
+    RangeMax = 1.1999999999999999556
+    GRSpacing = 0.5
+    Ticks
+      {
+      ShowOnGridBorderMax = Yes
+      }
+    TickLabel
+      {
+      TextShape
+        {
+        Height = 4
+        }
+      NumFormat
+        {
+        Formatting = FixedFloat
+        Precision = 1
+        TimeDateFormat = ''
+        }
+      }
+    Title
+      {
+      ShowOnAxisLine = No
+      }
+    }
+$!LinePlotLayers 
+  ShowSymbols = Yes
+$!AttachText 
+  AnchorPos
+    {
+    X = 51.5
+    Y = 5
+    }
+  TextShape
+    {
+    SizeUnits = Frame
+    Height = 5
+    }
+  Anchor = Center
+  TextType = LaTeX
+  Text = '$r$'
+$!AttachText 
+  AnchorPos
+    {
+    X = 62
+    Y = 85.49999999999997
+    }
+  TextShape
+    {
+    SizeUnits = Frame
+    Height = 4.6
+    }
+  Anchor = HeadLeft
+  TextType = LaTeX
+  Text = R"($P_0$
+)"
+$!AttachText 
+  AnchorPos
+    {
+    X = 69
+    Y = 76
+    }
+  TextShape
+    {
+    SizeUnits = Frame
+    Height = 4.6
+    }
+  Anchor = HeadLeft
+  TextType = LaTeX
+  Text = R"($P_1$
+)"
+$!AttachText 
+  AnchorPos
+    {
+    X = 77
+    Y = 66
+    }
+  TextShape
+    {
+    SizeUnits = Frame
+    Height = 4.6
+    }
+  Anchor = HeadLeft
+  TextType = LaTeX
+  Text = R"($P_2$
+)"
+$!AttachText 
+  AnchorPos
+    {
+    X = 81
+    Y = 61
+    }
+  TextShape
+    {
+    SizeUnits = Frame
+    Height = 4.6
+    }
+  Anchor = HeadLeft
+  TextType = LaTeX
+  Text = R"($P_3$
+)"
+$!AttachText 
+  AnchorPos
+    {
+    X = 87
+    Y = 51
+    }
+  TextShape
+    {
+    SizeUnits = Frame
+    Height = 4.6
+    }
+  Anchor = HeadLeft
+  TextType = LaTeX
+  Text = R"($P_4$
+)"
+### Frame Number 2 ###
+$!CreateNewFrame 
+$!FrameLayout 
+  ShowBorder = No
+  ShowHeader = No
+  HeaderColor = Red
+  XYPos
+    {
+    X = 4
+    Y = 1
+    }
+  Width = 0.75
+  Height = 2
+$!ThreeDAxis 
+  AspectRatioLimit = 25
+  BoxAspectRatioLimit = 25
+$!PlotType  = XYLine
+$!FrameName  = 'Frame 002'
+$!GlobalTime 
+  SolutionTime = 0
+$!DeleteLineMaps 
+$!ActiveLineMaps  =  []
+$!GlobalLinePlot 
+  DataLabels
+    {
+    DistanceSkip = 5
+    }
+  Legend
+    {
+    Show = Yes
+    ShowText = No
+    TextShape
+      {
+      Height = 4
+      }
+    Box
+      {
+      BoxType = None
+      Margin = 0
+      }
+    RowSpacing = 1.45
+    XYPos
+      {
+      X = 0
+      Y = 88
+      }
+    AnchorAlignment = TopLeft
+    }
+$!LineMap  [1]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 1
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Red
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    Show = No
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Red
+    FillMode = UseLineColor
+    FillColor = Red
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Red
+    FillColor = Red
+    }
+  ErrorBars
+    {
+    Color = Red
+    }
+$!LineMap  [2]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 2
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Green
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    Show = No
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Green
+    FillMode = UseLineColor
+    FillColor = Green
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Green
+    FillColor = Green
+    }
+  ErrorBars
+    {
+    Color = Green
+    }
+$!LineMap  [3]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 3
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Blue
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    PolyOrder = 2
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    Show = No
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Blue
+    FillMode = UseLineColor
+    FillColor = Blue
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Blue
+    FillColor = Blue
+    }
+  ErrorBars
+    {
+    Color = Blue
+    }
+$!LineMap  [4]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 4
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Custom3
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    Show = No
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Custom3
+    FillMode = UseLineColor
+    FillColor = Custom1
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Custom1
+    FillColor = Custom1
+    }
+  ErrorBars
+    {
+    Color = Custom1
+    }
+$!LineMap  [5]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 5
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Color = Custom7
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    PolyOrder = 4
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    Show = No
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Custom7
+    FillMode = UseLineColor
+    FillColor = Custom3
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Custom3
+    FillColor = Custom3
+    }
+  ErrorBars
+    {
+    Color = Custom3
+    }
+$!LineMap  [6]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 6
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Show = No
+    Color = Green
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Green
+    FillMode = UseLineColor
+    FillColor = Purple
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Purple
+    FillColor = Purple
+    }
+  ErrorBars
+    {
+    Color = Purple
+    }
+$!LineMap  [7]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 7
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Show = No
+    Color = Blue
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Blue
+    FillMode = UseLineColor
+    FillColor = Red
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Red
+    FillColor = Red
+    }
+  ErrorBars
+    {
+    Color = Red
+    }
+$!LineMap  [8]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 8
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Show = No
+    Color = Custom3
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Custom3
+    FillMode = UseLineColor
+    FillColor = Green
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Green
+    FillColor = Green
+    }
+  ErrorBars
+    {
+    Color = Green
+    }
+$!LineMap  [9]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 9
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Never
+    }
+  Lines
+    {
+    Show = No
+    Color = Custom7
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Custom7
+    FillMode = UseLineColor
+    FillColor = Blue
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Blue
+    FillColor = Blue
+    }
+  ErrorBars
+    {
+    Color = Blue
+    }
+$!LineMap  [10]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 1
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Always
+    }
+  Lines
+    {
+    Color = Red
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Red
+    FillMode = UseLineColor
+    FillColor = Red
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Red
+    FillColor = Red
+    }
+  ErrorBars
+    {
+    Color = Red
+    }
+$!LineMap  [11]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 2
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Always
+    }
+  Lines
+    {
+    Color = Green
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Green
+    FillMode = UseLineColor
+    FillColor = Green
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Green
+    FillColor = Green
+    }
+  ErrorBars
+    {
+    Color = Green
+    }
+$!LineMap  [12]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 3
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Always
+    }
+  Lines
+    {
+    Color = Blue
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    PolyOrder = 2
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Blue
+    FillMode = UseLineColor
+    FillColor = Blue
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Blue
+    FillColor = Blue
+    }
+  ErrorBars
+    {
+    Color = Blue
+    }
+$!LineMap  [13]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 4
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Always
+    }
+  Lines
+    {
+    Color = Custom3
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Custom3
+    FillMode = UseLineColor
+    FillColor = Custom1
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Custom1
+    FillColor = Custom1
+    }
+  ErrorBars
+    {
+    Color = Custom1
+    }
+$!LineMap  [14]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 5
+    XAxisVar = 'x'
+    YAxisVar = 'y'
+    ShowInLegend = Always
+    }
+  Lines
+    {
+    Color = Custom7
+    LineThickness = 0.4
+    }
+  Curves
+    {
+    CurveType = PolynomialFit
+    PolyOrder = 4
+    WeightVar = 'x'
+    UseWeightVar = No
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Custom7
+    FillMode = UseLineColor
+    FillColor = Custom3
+    Size = 5
+    }
+  BarCharts
+    {
+    Color = Custom3
+    FillColor = Custom3
+    }
+  ErrorBars
+    {
+    Color = Custom3
+    }
+$!XYLineAxis 
+  DepXToYRatio = 1
+  ViewportPosition
+    {
+    X1 = 10
+    Y1 = 16
+    X2 = 93
+    Y2 = 93
+    }
+  ViewportTopSnapTarget = 93
+$!XYLineAxis 
+  XDetail 1
+    {
+    ShowAxis = No
+    CoordScale = Linear
+    RangeMin = -1
+    RangeMax = 1
+    GRSpacing = 0.5
+    Ticks
+      {
+      ShowOnGridBorderMax = Yes
+      }
+    TickLabel
+      {
+      TextShape
+        {
+        Height = 4
+        }
+      Offset = 2
+      }
+    Title
+      {
+      ShowOnAxisLine = No
+      TextShape
+        {
+        Height = 4.6
+        }
+      Offset = 8
+      }
+    }
+$!XYLineAxis 
+  YDetail 1
+    {
+    ShowAxis = No
+    CoordScale = Linear
+    RangeMin = -1
+    RangeMax = 1
+    GRSpacing = 0.2
+    Ticks
+      {
+      ShowOnGridBorderMax = Yes
+      }
+    TickLabel
+      {
+      TextShape
+        {
+        Height = 4
+        }
+      NumFormat
+        {
+        Formatting = FixedFloat
+        Precision = 1
+        TimeDateFormat = ''
+        }
+      }
+    Title
+      {
+      ShowOnAxisLine = No
+      }
+    }
+$!LinePlotLayers 
+  ShowSymbols = Yes
+$!AttachText 
+  AnchorPos
+    {
+    X = 54.50000000000001
+    Y = 85.49999999999997
+    }
+  TextShape
+    {
+    SizeUnits = Frame
+    Height = 4.6
+    }
+  Anchor = HeadLeft
+  TextType = LaTeX
+  Text = R"($P_0$
+)"
+$!AttachText 
+  AnchorPos
+    {
+    X = 54.50000000000001
+    Y = 79.5
+    }
+  TextShape
+    {
+    SizeUnits = Frame
+    Height = 4.6
+    }
+  Anchor = HeadLeft
+  TextType = LaTeX
+  Text = R"($P_1$
+)"
+$!AttachText 
+  AnchorPos
+    {
+    X = 54.50000000000001
+    Y = 74
+    }
+  TextShape
+    {
+    SizeUnits = Frame
+    Height = 4.6
+    }
+  Anchor = HeadLeft
+  TextType = LaTeX
+  Text = R"($P_2$
+)"
+$!AttachText 
+  AnchorPos
+    {
+    X = 54.50000000000001
+    Y = 68
+    }
+  TextShape
+    {
+    SizeUnits = Frame
+    Height = 4.6
+    }
+  Anchor = HeadLeft
+  TextType = LaTeX
+  Text = R"($P_3$
+)"
+$!AttachText 
+  AnchorPos
+    {
+    X = 54.50000000000001
+    Y = 62
+    }
+  TextShape
+    {
+    SizeUnits = Frame
+    Height = 4.6
+    }
+  Anchor = HeadLeft
+  TextType = LaTeX
+  Text = R"($P_4$
+)"
+$!FrameControl ActivateByNumber
+  Frame = 2
+$!SetStyleBase Config

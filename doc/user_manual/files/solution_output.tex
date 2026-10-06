@@ -1,0 +1,98 @@
+\subsection{Solution Output}
+\label{SEC:Files:Solution_Output}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+At the start of every run job, CGNS grid and solution files are output.
+%
+%During a run job, a new CGNS solution file can be output at a specified
+%iteration interval \andor time frequency.
+% 
+During a run job, if the current iteration is a multiple of
+\inp[nmlOutput::OutputInterval]{Output\_Interval}
+\andor the current simulation time is a multiple of
+\inp[nmlOutput::OutputFrequency]{Output\_Frequency},
+an updated CGNS solution file is output.
+%
+This update is based upon the current {\em aggregate} iteration or time
+(including that from prior run jobs),
+and not the {\em elapsed} value since the start of the current
+run job or the last CGNS output.
+%
+The iteration number will be part of the CGNS solution file name.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+If the code terminates prematurely due to a detected NaN value,
+a CGNS solution file is written for the previous time step.
+%
+The file name will include ``NaN'' to designate the solution was
+unstable.
+%
+This file can be extremely helpful to help diagnose where the solution might
+have diverged.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+At the end of every run job, an updated CGNS solution file is output
+for that iteration.
+%
+A special CGNS file called \file{solution.time.cgns} is also output.
+%
+This file contains CGNS links to each of the instantaneous CGNS
+solution files generated during the run, and can be used with flow
+visualization software to easily read and examine all the time strand
+solutions.
+%
+Beware that if writing to an existing directory, \file{solution.time.cgns}
+will be overwritten with links to only those solution files generated
+during the current run. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Every CGNS solution file contains an internal CGNS link to the
+corresponding grid file.
+%
+For most plotting software, the user will not need to explicitly
+load the corresponding grid file.
+%
+However, the grid file cannot be renamed without breaking the internal CGNS
+link, and \emph{the grid file must be located within the same directory as the
+solution file}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\NOTE
+When running in parallel, the internal format of the output CGNS grid and
+solution files may depend on the number of processors used.
+%
+If writing to an existing directory, then \file{solution.grid.cgns}
+will overwriten.
+%
+This can cause problems if the number of processors has changed between
+successive run jobs, because each previous solution file has an internal
+link to \file{solution.grid.cgns} and the internal format of that file
+may no longer be compatible with the old solution file.
+%
+Therefore, it is recommended that each successive run job use a different
+output directory.
+%
+This way, the {\tt solution.grid.cgns} and {\tt solution.time.cgns} files
+for each run will be preserved.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\IDEA{Add information about CGNS output being slow for large numbers of MPI
+processes, so it is suggested to disable CGNS output altogether and to use the
+GFR restart-to-CGNS utility to convert restart files to CGNS solution files.}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlOutput::OutputDir]{Output\_Dir},
+\inp[nmlOutput::OutputInterval]{Output\_Interval},
+\inp[nmlOutput::OutputFrequency]{Output\_Frequency}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

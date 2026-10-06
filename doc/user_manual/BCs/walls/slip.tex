@@ -1,0 +1,67 @@
+\subsubsection{Inviscid\slash Slip Wall}\label{SEC:BC:Wall:Slip}
+
+The inviscid wall boundary condition, sometimes referred to as a slip wall, is
+used to model a frictionless solid-wall surface by enforcing the flow velocity
+and primitive variable gradients to be tangent to the boundary surface.
+%
+The details provided here also apply to the symmetry boundary condition
+(\ref{SEC:BC:Numerical:Symmetry}) because its formulation happens to be
+identical to a slip wall boundary condition.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For this boundary condition, there is no momentum or heat flux through the
+boundary so the thermodynamic properties at the wall are copied from the
+interior:
+%
+\begin{alignat*}{1}
+  \rho_\subR & = \rho_\subL \\
+  T_\subR & = T_\subL
+\end{alignat*}
+%
+To enforce tangency of the velocity at the wall, the wall velocity,
+$\vec{u}_\subR$, is computed by taking the interior velocity vector,
+$\vec{u}_\subL$, and subtracting out the normal components of the velocity
+vector, $(\vec{u}_\subL\cdot\normal)\normal$, resulting in the tangential
+velocity at the surface:
+%
+\begin{equation}
+  \vec{u}_\subR = \vec{u}_\subL - \left(\vec{u}_\subL\cdot\normal\right)\normal
+  \label{EQ:BC:TangentialVelocity}
+\end{equation}
+%
+For those interested, \eref{EQ:BC:TangentialVelocity} can be
+\quoterm{simplified} into a triple vector product as:
+%
+\begin{equation*}
+  \vec{u}_\subR = \normal\times\left(\vec{u}_\subL\times\normal\right)
+\end{equation*}
+ 
+%The cross product $\vec{u}\cross\normal$ first creates a vector that is
+%perpendicular to the plane created by the velocity and normal vectors.
+%%
+%Taking the cross product of the normal with the result of the first cross
+%product then produces a vector that is perpendicular to the normal and lies in
+%the plane created by the velocity and normal vectors, which is just the vector
+%tangent to the surface in the direction of the original velocity vector.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For this boundary condition, the wall-normal component of the primitive variable
+gradients should be zero at the wall.
+%
+To accomplish this, we repurpose \eref{EQ:BC:TangentialVelocity} to compute
+tangential gradient vectors for each primitive variable at the surface given the
+interior gradient vector using
+%
+\begin{equation*}
+  \vec{\varphi}_\subR = \vec{\varphi}_\subL
+                   - \left(\vec{\varphi}_\subL\cdot\normal\right)\normal
+\end{equation*}
+%
+where $\vec{\varphi}$ is a stand-in for the gradient of one of the primitive
+variables, \thatis \[\vec{\varphi} = \nabla\rho, \nabla u, \nabla v, \nabla w,
+\text{ or } \nabla T\]
+
+%###############################################################################
+

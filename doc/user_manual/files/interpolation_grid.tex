@@ -1,0 +1,115 @@
+\subsubsection{Interpolation Grid}
+\label{SEC:Files:Interpolation_Grid}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+It is sometimes desirable to interpolate the solution from one
+grid file onto another grid file.
+%
+For example, after making modifications to an existing grid or
+when performing a formal grid sensitivity study.
+%
+Initializing the starting solution in this way can alleviate some
+of the startup transients that typically occur and can reduce the
+overall simulation cost.
+%
+To perform this task, read the existing grid and solution
+(or restart) files as one normally would.  
+%
+In addition, set the various inputs in the
+\inptext{nml\_interpolation} namelist block (\sref{SEC:nml_interpolation})
+to read the recipient grid and establish the proper number
+of solution points on that grid.
+%
+These inputs are analogous to and support the full range of
+grid formats used during normal grid import.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Developer note on how parallel interpolation works.
+
+% Parallel Interpolation
+% \begin{itemize}
+% \setlength\topsep{0.0em}
+% \setlength\itemsep{0.0em}
+% \setlength\parsep{0.0em}
+% \item
+% Read the recipient grid.  Allocate the recipient solution.
+% \item
+% Move the recipient grid and solution from the normal (\verb|*|)
+% data structures to the corresponding grid2 (\verb|g2_*|) locations,
+% so that the normal data structures can be re-used for the donor
+% information.
+% \item
+% Read the donor grid.  Read donor solution/restart.
+% \end{itemize}
+% %
+% %The donor grid and solution will be read just as with a normal run.
+% %Once the recipient grid is imported, 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+After the interpolation is complete, the global filter will be applied to the
+entire solution if it is enabled in the input file.
+%
+This can help \quoterm{soften} the result of the interpolation by removing
+unwanted oscillations that might have been added to the solution.
+%
+The final step of the interpolation utility is to write restart and output
+files, after which the program will stop without performing
+any iterations.
+%
+The user should examine the output files using flow visualization
+software to look for obvious defects which may have been introduced
+into the new solution file.
+%
+If the interpolated solution is satisfactory, then modify the namelist input file to read
+the new grid and restart files, and not perform interpolation again.
+%
+%% Note:  With version 2+ the standard and interpto\_ inputs are in
+%%        different namelist blocks!
+%This can easily be accomplished by removing the \inptext{interpto\_}
+%prefix of the inputs used during interpolation.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The interpolation utility is one of the few parts of the GFR code that has
+OpenMP parallelization.
+%
+Enabling OpenMP in the \texttt{system\_variables.mk} file can really help improve
+the performance of the interpolation algorithm, especially for larger
+simulations.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\HIDE{
+\vspace{1.0em}%
+\begin{itemize}
+\setlength\topsep{0.0em}
+\setlength\itemsep{0.0em}
+\setlength\parsep{0.0em}
+\item \raggedright
+Is there a recommendation for number of cores to use for parallel
+interpolation? (Just a few, same as normal solver run, etc.)
+\end{itemize}
+} %end HIDE
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlInterpolation]{nml\_interpolation} (\sref{SEC:nml_interpolation})
+%\inptext{interpto\_gridfile},
+%\inptext{interpto\_grid\_format},
+%\inptext{interpto\_grid\_scaling\_factor}
+%\inptext{interpto\_plot3d\_i\_stride},
+%\inptext{interpto\_plot3d\_j\_stride},
+%\inptext{interpto\_plot3d\_k\_stride},
+%\inptext{interpto\_plot3d\_all\_strides},
+%\inptext{interpto\_plot3d\_agglomerate\_order},
+%\inptext{interpto\_plot3d\_cutfile},
+%\inptext{interpto\_plot3d\_bcsfile},
+%\inptext{interpto\_solution\_order}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

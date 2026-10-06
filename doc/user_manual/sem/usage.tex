@@ -1,0 +1,1039 @@
+\subsubsection{SEM Usage}\label{SEC:SEM:usage}
+
+Having described some of the basic theory and nomenclature of the
+synthetic eddy method, we will now discuss how it works within the
+GFR code.
+
+%###############################################################################
+
+\subsubsubsection{Splitting off Subsonic BC for Boundary Faces
+Not in SEM Profile}[SEC:SEM:usage:subsonic]
+
+In general, an SEM boundary condition is normally specified for the entire
+inflow boundary, but the height of the boundary layer defined in the SEM profile
+is usually only a small fraction of the overall inflow.
+%
+Since the computational cost of the SEM scales with the number of boundary
+points involved in the SEM, any boundary points that are outside the height of
+the SEM profile, \hSEM, are split off into a new and completely separate
+subsonic inflow boundary condition that uses the standard method for a subsonic
+inflow.
+%
+In order to accomplish this, during the pre-processor, the wall distances for
+all boundary points on the SEM boundary are computed and then sorted to separate
+those boundary points with wall distance exceeding $\hSEM$ into the new subsonic
+inflow boundary condition.
+%
+The flow conditions for this new subsonic inflow boundary are a direct copy of
+the flow conditions specified in
+\BCinpBC[nmlBC::BCInput][i]{}
+for the respective SEM boundary condition.
+%
+This ensures that 1) the minimum number of boundary points are contained within
+the SEM boundary condition, and 2) the subsonic inflow outside the SEM is not
+overprescribed allowing for characteristic information to both enter and leave
+the computational domain through the boundary.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+There are two details to keep in mind regarding this behavior of splitting off
+boundary points not within the SEM profile height into a new separate boundary
+condition.
+%
+\begin{itemize}
+  %
+  \item \textit{Consistency between SEM and subsonic inflow boundary
+    conditions.}
+
+    It is best to make sure that the flow conditions specified in
+    \BCinpBC[nmlBC::BCInput][i]{}
+    for an SEM boundary condition are consistent with the flow
+    conditions at the boundary layer edge of the SEM profile file.
+    %
+    Stability issues can occur if there is a mismatch between the SEM profile
+    and the corresponding subsonic inflow boundary condition.
+    %
+    Since the subsonic inflow boundary conditions generally prescribe a fixed
+    total temperature or total pressure, it is recommended to check that these
+    two quantities are consistent between the specified boundary condition
+    inputs and their respective values at the outer edge of the SEM profile.
+    %
+    Other possible quantities to check are Mach number and velocity magnitude.
+  %
+  \item \textit{SEM profile height and efficiency.}
+
+    The profile data in the SEM profile file is not required to only contain the
+    boundary layer part of the flow.
+    %
+    The profile is allowed to contain as much of the main freestream flow as
+    desired.
+    %
+    There can be some inefficiencies from including part of the freestream flow
+    in the SEM profile.
+    %
+    The height of the SEM box is based on the height of the SEM profile, \hSEM;
+    and the number of synthetic eddies is based on the volume of the SEM box,
+    \key[key:SEMVolume]{\vSEM}[Synthetic Eddy Method (SEM)!volume].
+   %\vSEM\key[key:SEMVolume]{\vSEM}[Synthetic Eddy Method (SEM)!volume].
+    %
+    Therefore, including parts of the freestream flow will increase the
+    number of synthetic eddies in the SEM box.
+    %
+    In the freestream, the turbulent stresses are generally near-zero.
+    %
+    When the SEM algorithm computes a random fluctuation for a boundary point in
+    the freestream section, the correlation converting this to a physical
+    fluctuation will result in a non-fluctuating velocity profile since the
+    turbulence is zero.
+    %
+    All of this is to say that the freestream parts of the SEM profile will
+    waste computational resources trying to compute velocity fluctuations where
+    there are no fluctuations.
+
+    It is generally best to only specify the boundary layer profile up to, but
+    not beyond, the boundary layer edge, \thatis $\hSEM = \lBC$.
+    %
+    By specifying the minimum profile height, more boundary points will get
+    separated to the new subsonic inflow boundary condition.
+    %
+    The traditional subsonic inflow BC is more efficient than the SEM BC.
+    %
+    Even with the highly efficient manner in which the SEM BC has been
+    implemented, the traditional subsonic inflow BC is still more efficient; the
+    difference between a full subsonic inflow BC and a full SEM inflow BC is
+    approximately around 10-15\% additional computational cost.
+  %
+\end{itemize}
+
+%###############################################################################
+
+\subsubsubsection{Restarting Simulations with SEM}[SEC:SEM:usage:restart]
+
+When using one or more SEM boundary conditions, the state of each SEM is
+written to the restart file, where it is appended to the end after all the
+standard restart information is written.
+%
+The SEM information written to the restart file includes:
+%
+\begin{itemize}
+  %
+  \item The random seed information to allow continuing the random number
+    generator sequence from exactly where it left off the previous time step.
+  %
+  \item The number of SEM boxes and the number of eddies in each box.
+  %
+  \item For each individual eddy: its location, its random intensities in each
+    direction, and its length scale in each direction.
+  %
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\noindent
+There are three situations that can occur involving simulation restarts and SEM
+boundary conditions:
+%
+\begin{itemize}
+  %
+  \item \textit{Restarting a simulation that previously used an SEM boundary
+    condition and continuing use of the SEM.}
+     
+    This is probably the most common of the three situations.
+    %
+    The SEM information will be read from the restart file and a few sanity
+    checks will be made to make sure the restart SEM is consistent with what is
+    given in the input file.
+    %
+    For example, the location of each eddy will be checked against the SEM boxes
+    created from the information in the input file, and execution will be
+    stopped with an error message if any eddy is located outside the SEM boxes.
+
+    This is also the only scenario in which the input variable
+    \inp[nmlSEM::UseRandomSeedFromRestart]{Use\_Random\_Seed\_From\_Restart}
+    has any effect on a simulation.
+    %
+    This variable controls whether or not the random seed information in the
+    restart file is used when initializing the SEM algorithm at the start of
+    the new\slash restarted simulation.
+    %
+    If set to \tru, the random seed from the restart will be used to reset the
+    random number generator to exactly where it left off when the restart file
+    was written, and the SEM will behave as if the simulation never stopped.
+    %
+    The default value of \fls{} will ignore the random seed in the restart file,
+    and it will instead use the current date and time to create a new
+    \quoterm{random} seed for the random number generator.
+    %
+    This might have a very small effect on the \quoterm{randomness} of the
+    locations and intensities generated for new eddies needed to replace eddies
+    that have propagating completely through their SEM box.
+    %
+    However, the total number of time steps needed for a simulation will almost
+    certainly prevent this from having any kind of measurable effect on the
+    simulation results.
+
+    NOTE: Very rarely (but it does happen), the SEM can randomly cause a
+    simulation to abort execution due to an NaN or other floating point
+    exception.
+    %
+    Usually, the only way to get past one of these occasions without modifying
+    the solution through limiting \andor filtering is to reset the random
+    number generator down a different path by setting
+    \\ % Prevent next word from entering right margin.
+    \inp[nmlSEM::UseRandomSeedFromRestart]{Use\_Random\_Seed\_From\_Restart}%
+    \texttt{=}\fls{}.
+  %
+  \item \textit{Restarting a simulation that previously used an SEM boundary
+    condition and replacing it with a non-SEM boundary condition.}
+     
+    This scenario is particularly useful when replacing the SEM with a periodic
+    boundary condition.
+    %
+    An example of this would be something like a turbulent channel flow case.
+    %
+    Starting a streamwise periodic turbulent channel flow from a uniform
+    solution would take an enormous amount of simulation (and computational)
+    time to develop into a fully turbulent flow without any sort of tripping
+    mechanism (which you would not want for a streamwise periodic flow).
+    %
+    One way to speed this up is to use an SEM inflow with a subsonic outflow
+    boundary condition and run the simulation for just over one
+    flow-through-time to populate the channel with turbulent structures.
+    %
+    Then the simulation could be restarted replacing the SEM inflow and
+    subsonic-outflow boundary conditions with a streamwise periodic
+    boundary condition.
+    %
+    In this scenario, the SEM information is read from the restart file but it
+    will be completely ignored since there are no SEM boundary conditions
+    specified in the input file.\\
+  %
+  \item \textit{Adding an SEM boundary condition when restarting a simulation
+    that did not use one.}
+     
+    This scenario might occur when running a simulation without an SEM to get a
+    stable flowfield as a pseudo-initialization and then add an SEM afterwards,
+    or perhaps to add an SEM to the inflow to see how that might
+    affect the overall solution.
+    %
+    In this scenario, the SEM is basically set up in the exact same way as if
+    you were starting a new simulation, with the difference being you maintain
+    whatever time history information exists in the restart file.
+  %
+\end{itemize}
+
+%###############################################################################
+
+\subsubsubsection{SEM Profile File}[SEC:SEM:usage:profile]
+
+The following three sections describe: the required format of the SEM profile
+file (\ref{SEC:SEM:usage:profile:format}); the valid variables, and their
+respective identifier strings, that can be included in the SEM profile file
+(\ref{SEC:SEM:usage:profile:variables}); and how the SEM profile data is
+mapped onto the boundary face points using interpolation and a rotation
+transformation (\ref{SEC:SEM:usage:profile:mapping}).
+
+%###############################################################################
+
+\FourSubsection{SEM Profile File Format}[SEC:SEM:usage:profile:format]
+
+% Command to format data values (DVs) of SEM profile file.
+%   \DV{i}{j} with i=1:n, j=1:Np. i=variable number, j=data point.
+\newcommand{\DV}[2]{V$_{#1}(#2)$}
+
+\begin{table}[h!]
+  \texttt{
+    \begin{tabular}{lllll}
+      \toprule
+      "V$_1$"     & "V$_2$"     & "V$_3$"     & \ldots{} & "V$_n$"     \\
+      Np          &             &             &          &             \\
+      \DV{1}{1}   & \DV{2}{1}   & \DV{3}{1}   & \ldots{} & \DV{n}{1}   \\
+      \DV{1}{2}   & \DV{2}{2}   & \DV{3}{2}   & \ldots{} & \DV{n}{2}   \\
+      \ldots{}    &             &             &          &             \\
+      \DV{1}{\texttt{Np}} &
+      \DV{2}{\texttt{Np}} &
+      \DV{3}{\texttt{Np}} &
+      \ldots{}            &
+      \DV{n}{\texttt{Np}} \\
+      \bottomrule
+    \end{tabular}
+  }
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In the above file format:% \\
+%
+\begin{itemize}
+  \item
+  Columns are separated by space(s).
+  Multiple spaces are treated as one.
+  Leading and trailing spaces on each line are ignored.
+%
+  \item
+  $n$ is the number of variables present in the file.
+  It is also the number of columns in the file.
+%
+  \item
+  \texttt{Np} is an integer giving the number of profile data locations,
+  \thatis the number of rows of data.
+%
+  \item
+  \texttt{"V$_i$"} is a character string specifying the variable
+  name for the $i$\supth{} column of data.
+  Quotes are suggested but not required.
+  Valid names are described in \sref{SEC:SEM:usage:profile:variables}.
+%
+  \item
+  \texttt{\DV{i}{j}} is a floating point value for the $j$\supth{}
+  profile point of the $i$\supth{} variable, where
+  $j=1,\ldots,\mathtt{Np}$ and $i=1,\ldots,n$.
+  Data values are specified in SI units.
+  %
+  The wall distance variable, $d$, should be in
+  \key[key:GridScaledUnits]{grid scaled units}[grid scaled units]
+  (\thatis meters).
+  The profile will be imposed on the mesh points
+  (after the \inp[nmlGrid::GridScalingFactor]{Grid\_Scaling\_Factor}
+  has been applied to the mesh).
+%
+% \item
+% \texttt{\DV{i}{j}} data values are specified in SI units.
+%
+  \item
+  The data rows should be sorted in the order of increasing
+  distance from the wall.
+%
+\end{itemize}
+
+%###############################################################################
+
+\FourSubsection{SEM Profile Variable Names}[SEC:SEM:usage:profile:variables]
+ 
+\vspace{0.5em}
+%\rule{0.75in}{0.25em} tabcolsep=\the\tabcolsep\\
+%
+\begingroup % Contain the scope of \growsep.
+\newlength{\growsep} % extra space for group row separation
+\setlength{\growsep}{0.50em}
+% Default \tabcolsep = 6pt, so 1 column gap = 12pt, and 2=24pt=0.33in.
+% Manually adjust col3 width to match \rule{\textwidth}{0.1in}.
+%\begin{tabular}{p{0.75in} p{2.0in} p{3.25in}}% 6.5-0.75-2.0-0.33=3.42
+%\begin{tabular}{c p{2.0in} p{3.25in}}% 6.5-0.75-2.0-0.33=3.42
+\begin{tabular}{c @{\qquad} l @{\qquad} p{3.25in}}% 6.5-0.75-2.0-0.33=3.42
+  Variable    & Input Name & Description \\
+  \hline
+  $d$         & \texttt{Y R}
+              & wall distance \\
+  $\rho$      & \texttt{RHO DENSITY}
+              & density \\
+  $u$         & \texttt{U VX}
+              & axial velocity, aligned with the mean flow of the profile \\
+  $v$         & \texttt{V VY}
+              & vertical velocity, perpendicular to the wall \\
+  $w$         & \texttt{W VZ}
+              & span velocity, parallel to the wall and perpendicular to the
+                mean flow \\
+  $T$         & \texttt{T TEMPERATURE}
+              & temperature \\[\growsep]
+  $\tau_{xx}$ & \texttt{TAUXX TAU11 RXX R11 UU}
+              & $\ReyAve{\ReyFlx{u}\ReyFlx{u}}$ normal stress
+                \\[\growsep]
+  $\tau_{yy}$ & \texttt{TAUYY TAU22 RYY R22 VV}
+              & $\ReyAve{\ReyFlx{v}\ReyFlx{v}}$ normal stress
+                \\[\growsep]
+  $\tau_{zz}$ & \texttt{TAUZZ TAU33 RZZ R33 WW}
+              & $\ReyAve{\ReyFlx{w}\ReyFlx{w}}$ normal stress
+                \\[\growsep]
+  $\tau_{xy}$ & \texttt{TAUXY TAU12 RXY R12 UV}
+              & $\ReyAve{\ReyFlx{u}\ReyFlx{v}}$ shear stress ($=\tau_{yx}$) \\
+              & \texttt{TAUYX TAU21 RYX R21 VU}
+              & \\[\growsep]
+  $\tau_{xz}$ & \texttt{TAUXZ TAU13 RXZ R13 UW}
+              & $\ReyAve{\ReyFlx{u}\ReyFlx{w}}$ shear stress ($=\tau_{zx}$) \\
+              & \texttt{TAUZX TAU31 RZX R21 WU}
+              & \\[\growsep]
+  $\tau_{yz}$ & \texttt{TAUYZ TAU23 RYZ R23 VW}
+              & $\ReyAve{\ReyFlx{v}\ReyFlx{w}}$ shear stress ($=\tau_{zy}$) \\
+              & \texttt{TAUZY TAU32 RZY R32 WV}
+              & \\
+  \hline
+\end{tabular}
+\endgroup
+%\\ \rule{\textwidth}{0.10em}%  For visually sizing the table width.
+%\\[1.0em]
+%\FIXME{
+%\begin{itemize}
+%\item
+%Is $u$ actually in the direction of the (inward-pointing) inflow plane
+%surface normal?
+%\item
+%For a backwards channel flow moving right-to-left, which direction does
+%$u$ point?
+%Is $u$ positive?
+%Is \BCinptext[i]{SEM\%Convective\_Velocity} positive?
+%\item
+%Is $v$ in the wall-normal direction or in the direction of the
+%wall-normal projected onto the inflow plane?
+%(eg, if the inflow plane is in the convergent section of a nozzle,
+%is $v$ radial? Otherwise, how is it normal to $u$?) 
+%\end{itemize}
+%}
+
+\vspace{1.0em}%
+\noindent
+A few things to note about these variables:
+\begin{itemize}
+  \item These strings are case insensitive when read in by the SEM code.
+  \item The wall distance variable, $d$, is the only required quantity in the
+    SEM profile file. All other variables are optional.
+    \begin{itemize}
+      \item If any of the mean flow variables ($\rho, u, v, w, T$) are not
+        provided, the value of that variable in the profile will be set to a
+        constant based on the conditions specified for the respective BC in
+        \BCinpBC[nmlBC::BCInput][i]{}.
+        It should be noted that it is probably best that the
+        axial velocity, $u$, also be specified since the intended use is for a
+        boundary layer.
+      \item If any of the six stress terms are not provided, the value of that
+        variable will be set to zero for the entire profile.
+    \end{itemize}
+  \item The wall distance variable, $d$, should be in
+    \key[key:GridScaledUnits]{grid scaled units}[grid scaled units]
+    (\thatis meters).
+    The profile will be imposed on the mesh points 
+    (after the \inp[nmlGrid::GridScalingFactor]{Grid\_Scaling\_Factor}
+    has been applied to the mesh).
+  \item The stress variables in the profile file are treated as
+    $\tau_{ij} = \ReyAve{\ReyFlx{u}_{i}\ReyFlx{u}_{j}}$
+    in units of \unit{\m\squared\per\s\squared},
+    without the density or minus sign often used in the definition of
+    turbulent stress.
+    %
+    These would more correctly be referred to as single-point velocity
+    correlation terms.
+  \item Using the string \quoterm{\texttt{R}} for wall distance tells the code
+    to use a cylindrical box instead of a rectangular box. This has the same
+    effect as adding
+    \BCinpBC[nmlBC::BCInput/SEM/IsCylindrical][i]{SEM\%Is\_Cylindrical}%
+    \texttt{=}\tru{}
+    to the input file, where $i$ is the index for the SEM BC of interest.
+    This solely affects how the eddies are randomly generated to achieve a
+    truly random distribution in the radial, $r$, direction.
+    %
+    For a cylindrical SEM box, randomly generating
+    $r\ (r_{\textrm{min}}\le r \le r_{\textrm{max}})$ and
+    $\theta\ (\theta_{\textrm{min}}\le \theta \le \theta_{\textrm{max}})$
+    coordinate values to place a new eddy will result in
+    more eddies near the symmetry axis and
+    less eddies further away.
+    %
+    In order to generate a truly uniform random distribution,
+    we need to use the equation
+      $r=\sqrt{\mathtt{Random}()\left[ r^2_{\textrm{max}}
+                                     - r^2_{\textrm{min}}
+                                \right] + r^2_{\textrm{min}}}$
+    where $\mathtt{Random}()$ is a function that generates a random number
+    on the unit interval.
+    %
+    This applies an area weighting to the radial distribution and
+    results in a uniform distribution of eddies in the volume.
+
+\end{itemize}
+
+%###############################################################################
+
+\FourSubsection{Mapping the SEM Profile onto Boundary Points}%
+[SEC:SEM:usage:profile:mapping]
+
+From the description of the SEM algorithm in sections
+\ref{SEC:SEM:theory:DefineProfile} and \ref{SEC:SEM:theory:ComputeBC}, each
+boundary face point included in the SEM inflow must have a mean flow state
+\(\overline{\cvVec}\) and Reynolds stress tensor $R_{ij}$ prescribed from the
+SEM profile data.
+%
+From \sref{SEC:SEM:usage:profile:variables}, the profile data is defined as a 1D
+function of wall distance within a `wall-aligned coordinate system'.
+%
+In order to get the prescribed conditions at a boundary point from this 1D data,
+two operations need to be performed on the data: interpolation and rotation.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Interpolation is needed because the boundary points are almost certainly not
+located at the exact wall distances given in the SEM profile, so the first step
+of interpolation is to compute the wall distance (\thatis distance from a given
+point to the boundary point closest to it with a wall boundary condition) for
+all SEM boundary points.
+%
+Once the wall distance for each SEM boundary point is known,
+then the boundary layer properties can be obtained using a simple linear
+interpolation of the provided SEM profile file.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Because the profile data is given in a `wall-aligned coordinate system', a
+rotation also needs to be applied to the velocity vector and stress tensor
+parts of the
+interpolated profile data such that it is aligned relative to how the wall
+normal of the nearest wall point is orientated within the Cartesian coordinate
+system.
+%
+The remainder of this section consists of a list of three bullet points
+providing details on how the wall normal vector is used to create the
+transformation matrix needed for rotating the SEM profile data defined in a
+`wall-aligned coordinate system' to the standard Cartesian coordinate system of
+the computational domain.
+%
+This information is included here mostly for reference \andor code development
+purposes.
+%
+Therefore, the general user only interested in how to specify and use an
+SEM boundary condition in a simulation can skip the remainder of this section.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{itemize}[parsep=2.5\parsep]
+
+%-------------------------------------------------------------------------------
+
+  \item \textit{Coordinate Transforms Using a Wall-Aligned Normal Vector}
+
+    In the description that follows, we are interested in mapping the SEM
+    profile data onto the boundary points on the SEM inflow plane.
+    %
+    The SEM data is provided as a 1D profile relative to wall distance and
+    extending in the direction of the wall-normal vector.
+    %
+    Therefore, our goal is to create a transformation matrix, \rmat, that
+    transforms the SEM vector\slash tensor data from the `wall-aligned
+    coordinate system' to the standard Cartesian coordinate system of the grid.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    Let \((\xsb,\ysb,\zsb)\) be the standard unit basis vectors for the
+    Cartesian coordinate system in \(\mathbb{R}^3\), and let
+    \((\xwb,\ywb,\zwb)\) be the unit basis vectors for the wall-aligned
+    coordinate system also in \(\mathbb{R}^3\).
+    %
+    With \(\wac{v}=v_{\wac{x}}\xwb+v_{\wac{y}}\ywb+v_{\wac{z}}\zwb\) being an
+    arbitrary vector defined by the wall-aligned basis vectors, our goal is to
+    find \rmat{} such that \[\vec{v}=\rmat\cdot\wac{v}\] where
+    \(\vec{v}=v_x\xsb+v_y\ysb+v_z\zsb\) is the same vector but defined by the
+    standard Cartesian basis vectors.\\
+    %
+    NOTE:
+    Our definition of \rmat{} may be the inverse of what is found in other
+    sources, \thatis they might define it such that
+    $\wac{v}=\bm{\breve{\rvar}}\cdot\vec{v}$.
+    %
+    Since one of the properties of transformation matrices is
+    $\rmat^{\mathsf{T}}=\rmat^{-1}$,
+    this just means our \rmat{} is equivalent to their
+    $\bm{\breve{\rvar}}^{\mathsf{T}}$.
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    Before we continue to define \rmat, we first need to define two surface
+    normals for the relevant grid boundaries.
+    %
+    Let \[\normal=\nx\xsb+\ny\ysb+\nz\zsb\] be the unit vector that is normal to
+    the wall surface and points out of the wall and into the computational
+    domain.
+    %
+    Similarly, let \[\innorm=\hat{s}_x\xsb+\hat{s}_y\ysb+\hat{s}_z\zsb\] be a
+    unit vector that represents some sort of \quoterm{collective unit-normal}
+    for the SEM inflow plane that points into the computational domain.
+    %
+    A unit vector based on the direction of the inflow velocity vector could
+    also be used here.
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    The general method for formulating a transformation matrix is
+    %
+    \begin{equation*}
+      \rmat = 
+      \begin{bmatrix}
+        \cos(\xwb,\xsb) & \cos(\ywb,\xsb) & \cos(\zwb,\xsb)\\
+        \cos(\xwb,\ysb) & \cos(\ywb,\ysb) & \cos(\zwb,\ysb)\\
+        \cos(\xwb,\zsb) & \cos(\ywb,\zsb) & \cos(\zwb,\zsb)
+      \end{bmatrix}
+    \end{equation*}
+    %
+    where for any two vectors \(\vec{u}\) and \(\vec{v}\)
+    %
+    \begin{equation*}
+      \cos\left(\vec{u},\vec{v}\right)=
+          \frac{\vec{u}\cdot\vec{v}}{\|\vec{u}\| \|\vec{v}\|}
+    \end{equation*}
+    %
+    One way to think of \rmat{} is that each column is a basis vector of the
+    wall-aligned coordinate system expressed as a unit vector in the standard
+    Cartesian coordinate system.
+    %
+    We can then express this slightly differently as
+    %
+    \begin{equation*}
+      \rmat = 
+      \begin{bmatrix}
+        a_x & b_x & c_x \\
+        a_y & b_y & c_y \\
+        a_z & b_z & c_z
+      \end{bmatrix}
+    \end{equation*}
+    %
+    where we define the following three unit vectors as
+    %
+    \begin{alignat*}{5}
+      \hat{a} & = \xwb & = a_x\xsb & + a_y\ysb & + a_z\zsb \\
+      \hat{b} & = \ywb & = b_x\xsb & + b_y\ysb & + b_z\zsb \\
+      \hat{c} & = \zwb & = c_x\xsb & + c_y\ysb & + c_z\zsb
+    \end{alignat*}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    We can now start filling this transformation matrix.
+    %
+    The wall-aligned coordinate system should be just that, so we define the
+    \ywb{} basis vector to be aligned with the wall normal which is simply
+    \(\hat{b}=\ywb=\normal\) or \((b_x,b_y,b_z)=(\nx,\ny,\nz)\).
+    %
+    We know \(\hat{c}\) is perpendicular to \(\hat{b}\), so we just need to take
+    the cross-product of some arbitrary vector with \(\hat{b}\) to satisfy this
+    requirement.
+    %
+    Using \innorm{} as this arbitrary vector, we can define \(\hat{c}\) as
+    %
+    \begin{equation*}
+      \begin{split}
+        \hat{c} & = \frac{\innorm\times\hat{b}}{\|\innorm\times\hat{b}\|} \\
+                & = \frac{\innorm\times\normal}{\|\innorm\times\normal\|}
+      \end{split}
+    \end{equation*}
+    %
+    Finally, knowing that the vector \(\hat{a}\) must be perpendicular to both
+    \(\hat{b}\) and \(\hat{c}\), we can define \(\hat{a}\) as
+    %
+    \begin{equation*}
+      \begin{split}
+        \hat{a} & = \frac{\hat{b}\times\hat{c}}{\|\hat{b}\times\hat{c}\|} \\
+                & = \frac{\normal\times(\innorm\times\normal)}%
+                         {\|\normal\times(\innorm\times\normal)\|}
+      \end{split}
+    \end{equation*}
+    %
+    This can also be written in a slightly different way using the vector triple
+    product identity
+    %
+    \begin{equation*}
+      \hat{a} = \frac{\innorm - \left(\normal\cdot\innorm\right)\normal}
+                     {\|\innorm - \left(\normal\cdot\innorm\right)\normal\|}
+    \end{equation*}
+    %
+    Now that the three vectors \([\hat{a},\hat{b},\hat{c}]\) are defined, we can
+    directly compute the matrix components of \rmat, which are now entirely in
+    terms of the two known vectors \normal{} and \innorm.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    As an example, we will assume the inflow plane is constant \(x\) resulting
+    in \(\innorm=(1,0,0)\).
+    %
+    After some simplifying, the resulting transformation matrix is
+    %
+    \begin{equation*}
+      \rmat =
+      \begin{bmatrix}
+        c                 & \nx & 0 \\[1.0ex]
+        \frac{-\nx\ny}{c} & \ny & \frac{-\nz}{c} \\[1.0ex]
+        \frac{-\nx\nz}{c} & \nz & \frac{ \ny}{c}
+      \end{bmatrix}
+    \end{equation*}
+    %
+    where \(c = \sqrt{ \ny^2 + \nz^2 }\).
+    
+%-------------------------------------------------------------------------------
+
+\item \textit{Coordinate Transformation of a Vector}
+
+    As stated previously, our goal is to use this transformation matrix to map
+    the velocity vector and Reynolds stress tensor in the SEM profile file onto
+    the SEM inflow boundary points.
+    %
+    For example, say we have a velocity vector \((\wac{u},\wac{v},\wac{w})\)
+    from the SEM profile defined in the wall-aligned coordinate system.
+    %
+    In the case of a constant $x$ inflow plane,
+    transforming this vector to the standard Cartesian coordinate system is
+    simply
+    %
+    \begin{equation*}
+      \begin{bmatrix}
+        u \\ v \\ w
+      \end{bmatrix} =
+      \begin{bmatrix}
+        c                 & \nx & 0 \\[1.0ex]
+        \frac{-\nx\ny}{c} & \ny & \frac{-\nz}{c} \\[1.0ex]
+        \frac{-\nx\nz}{c} & \nz & \frac{ \ny}{c}
+      \end{bmatrix}
+      \begin{bmatrix}
+        \wac{u} \\ \wac{v} \\ \wac{w}
+      \end{bmatrix}
+    \end{equation*}
+    %
+    Expanding this out gives
+    %
+    \begin{align*}
+      u & =        \wac{u}        c +\wac{v}\nx \\[1.0ex]
+      v & = \frac{-\wac{u}\nx\ny}{c}+\wac{v}\ny-\frac{\wac{w}\nz}{c} \\[1.0ex]
+      w & = \frac{-\wac{u}\nx\nz}{c}+\wac{v}\nz+\frac{\wac{w}\ny}{c}
+    \end{align*}
+
+%-------------------------------------------------------------------------------
+
+\item \textit{Coordinate Transformation of a Tensor}
+
+    Transforming a tensor in wall-aligned coordinates, \(\wac{\bm{\sigma}}\), to
+    reference coordinates, \(\bm{\sigma}\), is accomplished through
+    %
+    \begin{equation*}
+      \bm{\sigma} = \rmat \cdot \wac{\bm{\sigma}} \cdot \rmat^{\mathsf{T}}
+    \end{equation*}
+    %
+    If the tensor \(\wac{\bm{\sigma}}\) is symmetric, as in the case of the
+    Reynolds stress tensor, we are only concerned about the terms
+    \([\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{xz},
+    \sigma_{yz}]\).
+    %
+    For a constant $x$ inflow plane,
+    expanding out the above equation and solving for these terms results in a
+    set of six linear equations that can be rewritten in matrix form as
+    %
+    \begin{equation*}
+      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+      \begin{bmatrix}
+        \sigma_{xx}\\ \sigma_{yy}\\ \sigma_{zz}\\
+        \sigma_{xy}\\ \sigma_{xz}\\ \sigma_{yz}
+      \end{bmatrix} =
+      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+      \begin{bmatrix}
+        %
+        % First row for \sigma_{xx} --------------------------------------------
+        c^2 & \nx^2 & 0 & 2c\nx & 0 & 0 \\[1.0ex]
+        % Second row for \sigma_{yy} -------------------------------------------
+        \frac{\nx^2\ny^2}{c^2} &
+        \ny^2 &
+        \frac{\nz^2}{c^2} &
+        \frac{-2\nx\ny^2}{c} &
+        \frac{2\nx\ny\nz}{c^2} &
+        \frac{-2\ny\nz}{c} \\[1.0ex]
+        % Third row for \sigma_{zz} --------------------------------------------
+        \frac{\nx^2\nz^2}{c^2} &
+        \nz^2 &
+        \frac{\ny^2}{c^2} &
+        \frac{-2\nx\nz^2}{c} &
+        \frac{-2\nx\ny\nz}{c^2} &
+        \frac{2\ny\nz}{c} \\[1.0ex]
+        % Fourth row for \sigma_{xy} -------------------------------------------
+        -\nx\ny &
+        \nx\ny &
+        0 &
+        c\ny-\frac{\nx^2\ny}{c} &
+        -\nz &
+        \frac{-\nx\nz}{c} \\[1.0ex]
+        % Fifth row for \sigma_{xz} --------------------------------------------
+        -\nx\nz &
+        \nx\nz &
+        0 &
+        c\nz-\frac{\nx^2\nz}{c} &
+        \ny &
+        \frac{\nx\ny}{c} \\[1.0ex]
+        % Sixth row for \sigma_{yz} --------------------------------------------
+        \frac{\nx^2\ny\nz}{c^2} &
+        \ny\nz &
+        \frac{-\ny\nz}{c^2} &
+        \frac{-2\nx\ny\nz}{c} &
+        \frac{\nx\left(\nz^2-\ny^2\right)} {c^2} &
+        \frac{\ny^2-\nz^2}{c}
+        %
+      \end{bmatrix}
+      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+      \begin{bmatrix}
+        \wac{\sigma}_{xx}\\ \wac{\sigma}_{yy}\\ \wac{\sigma}_{zz}\\
+        \wac{\sigma}_{xy}\\ \wac{\sigma}_{xz}\\ \wac{\sigma}_{yz}
+      \end{bmatrix}
+      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \end{equation*}
+
+%-------------------------------------------------------------------------------
+
+\end{itemize}
+
+%###############################################################################
+
+\subsubsubsection{Inputs Controlling Global SEM Behavior}%
+[SEC:SEM:usage:otherinputs]
+
+\begin{nmldescitem}
+&nml_sem
+  Use_Profile_For_Initialization = F
+  Use_Random_Seed_From_Restart   = F
+  Use_Spherical_Eddy_Volume      = F
+  Include_Thermo_Fluctuations    = F
+  Box_Num_Eddies_Multiplier      = 1.0
+/
+\end{nmldescitem}
+
+Inputs that are universally applied to all SEM boundary conditions are
+specified in the \inp[nmlSEM]{nml\_sem} input namelist block.
+Each one controls a different part of the SEM algorithm.
+%
+\begin{InputList}
+%
+  \item[{\inp[nmlSEM::UseProfileForInitialization]{Use\_Profile\_For\_Initialization}}]
+    This is a logical variable that, if set to \tru, will use the SEM
+    profile to initialize the entire flow domain based on the $y$ coordinate
+    value and the profile height variable.
+    %
+    This is very experimental and only really works for very simple geometries
+    like a flat plate.
+%
+  \item[{\inp[nmlSEM::UseRandomSeedFromRestart]{Use\_Random\_Seed\_From\_Restart}}]
+    As discussed in \sref{SEC:SEM:usage:restart}, when using an SEM boundary
+    condition, the SEM data will also be written to the restart files including
+    the seed used for the random number generator.\\[5pt]
+    %
+    This is a logical variable that, if \tru, will read the seed for
+    the random number generator from the restart file and use it to reset the
+    random number generator to exactly where it left off when the restart file
+    was written, as if the simulation never stopped.\\[5pt]
+    %
+    The default value is \fls{} which will not use the restart
+    information, and will instead use the current date and time to create a new
+    \quoterm{random} seed for the random number generator.
+    %
+    This might have the tiniest effect on the \quoterm{randomness} of the
+    strength and locations of the synthetic eddies in the SEM BC.
+    %
+    However, the total number of time steps needed for a simulation will almost
+    certainly prevent this from having any kind of measurable effect on the
+    simulation results.\\[5pt]
+    %
+    Very rarely (but it does happen), the SEM can randomly cause a simulation to
+    die due to an NaN or other floating point exception.
+    %
+    Setting this to false is the only way to get past one of these occasions
+    without modifying the solution through limiting \andor filtering.
+%
+%##%\FINALFIX{\newpage}%
+  \item[{\inp[nmlSEM::UseSphericalEddyVolume]{Use\_Spherical\_Eddy\_Volume}}]
+    This is a logical variable that determines if the volume of each synthetic
+    eddy is treated as a box (\fls)[default] or as a sphere
+    (\tru).
+    %
+    This input affects the number of eddies that will be used for
+    an individual SEM boundary condition, since
+    %
+    \begin{equation*}
+       [\textrm{\# of eddies}] =
+       [\inptext{Box\_Num\_Eddies\_Multiplier}] \times
+       \frac{[\textrm{Volume of SEM box}]}{[\textrm{Volume of synthetic eddy}]}
+    \end{equation*}
+%
+  \item[{\inp[nmlSEM::IncludeThermoFluctuations]{Include\_Thermo\_Fluctuations}}]
+    This is a logical variable that determines if fluctuations are added to the
+    density and temperature profiles when computing the SEM boundary states.
+    %
+    This is has the value \fls{} by default meaning the density and
+    temperature profiles are interpolated from the SEM profile with no
+    fluctuations.
+    %
+    If this is set to \tru, fluctuations are added to the density and
+    temperature profiles based on \linecite{Touber_2008}. Details on this are given
+    in \sref{SEC:SEM:theory:ComputeBC}.
+%
+  \item[{\inp[nmlSEM::BoxNumEddiesMultiplier]{Box\_Num\_Eddies\_Multiplier}}]
+    This is a floating point variable that is used as a multiplier when
+    computing the total number of synthetic eddies
+    used for the SEM boundary conditions, \thatis
+    %
+    \begin{equation*}
+      [\textrm{\# of eddies}] = 
+      [\inptext{Box\_Num\_Eddies\_Multiplier}] \times
+      \frac{[\textrm{Volume of SEM box}]}{[\textrm{Volume of synthetic eddy}]}
+    \end{equation*}
+    %
+    It should be noted that the number of eddies for an individual SEM BC are
+    limited to be between a minimum of 5,000 and maximum of 500,000.
+    %
+    These limits prevent (1) too few eddies for being present to adequately
+    model the flow, and (2) too many eddies that add little to the modeling
+    but increase computational cost.
+%
+\end{InputList}
+
+%###############################################################################
+
+\subsubsubsection{Inputs Controlling Individual SEM Boundaries}[SEC:SEM:usage:semderivedtype]
+
+\begin{nmldescitem}
+&nml_bc
+  ! Inputs for boundary group (1):
+  BC_Input(1)%SEM%Profile_File        = ""
+  BC_Input(1)%SEM%Is_Cylindrical      = F
+  BC_Input(1)%SEM%Length_Scale        = 0.0  ! [m]
+  BC_Input(1)%SEM%Convective_Velocity = 0.0  ! [m/s]
+  BC_Input(1)%SEM%Profile_Height      = 0.0  ! [m]
+  BC_Input(1)%SEM%Sub_In_BC_Grp       = 0
+  BC_Input(1)%SEM%Sub_In_BC_Idx       = 0
+/
+\end{nmldescitem}
+
+Inputs that are only applied to a specific SEM boundary are
+specified in the \inp[nmlBC]{nml\_bc} input namelist block.
+%
+\begin{InputList}
+%
+  \item[{\BCinpBC[nmlBC::BCInput/SEM/ProfileFile]{SEM\%Profile\_File}}]
+    This variable is a character string (max length of 150 characters) that
+    specifies the path to the file containing the SEM profile used for the SEM
+    boundary condition.
+%
+  \item[{\BCinpBC[nmlBC::BCInput/SEM/IsCylindrical]{SEM\%Is\_Cylindrical}}]
+    This is a logical variable that is used to declare whether the SEM box is
+    either rectangular or cylindrical. The default value of \fls{} indicates the
+    SEM box is rectangular, whereas a value of \tru{} tells the code to use a
+    cylindrical box for this SEM BC. See the last bullet in the list at the end
+    of \sref{SEC:SEM:usage:profile:variables} for some additional technical
+    details.
+%
+  \item[{\BCinpBC[nmlBC::BCInput/SEM/LengthScale]{SEM\%Length\_Scale}}]
+    This is a floating point variable that gives the length scale (in meters) of
+    the \quoterm{zone of influence} of each synthetic eddy. See
+    \sref{SEC:SEM:usage:recommendations} for recommended values.
+%
+  \item[{\BCinpBC[nmlBC::BCInput/SEM/ConvectiveVelocity]%&
+                 {SEM\%Convective\_Velocity}}]
+    This is a floating point variable that gives the velocity (in m\slash{}s) at
+    which the synthetic eddies are convected through the SEM box. See
+    \sref{SEC:SEM:usage:recommendations} for recommended values.
+%
+\end{InputList}
+
+The following three variables are also part of the \BCinptext{SEM}
+structure, but they are only used internally within the code:
+%
+\begin{InputExample}
+  \item[{\BCinpBC[nmlBC::BCInput/SEM/ProfileHeight]{SEM\%Profile\_Height}}]
+  \item[{\BCinpBC[nmlBC::BCInput/SEM/SubInBCGrp]{SEM\%Sub\_In\_BC\_Grp}}]
+  \item[{\BCinpBC[nmlBC::BCInput/SEM/SubInBCIdx]{SEM\%Sub\_In\_BC\_Idx}}]
+\end{InputExample}
+%
+Defining any of these three variables in the input file will be ignored.
+%
+Their values will be determined after processing the SEM inputs, profile file,
+and respective boundary faces.
+%
+This information will be written to the stdout display as part of the
+startup process.
+%
+It can be used to verify that the profile data was
+properly interpreted.
+
+%###############################################################################
+
+\subsubsubsection{Convective Velocity \slash{} Length Scale Recommendations}%
+[SEC:SEM:usage:recommendations]
+%
+Previous testing seems to suggest a slower convective velocity should be used
+when using a smaller length scale, and a higher convective velocity should be
+used when using a larger length scale.
+%
+Let \uSEM{} be the value of
+\BCinpBC[nmlBC::BCInput/SEM/ConvectiveVelocity]{SEM\%Convective\_Velocity}.
+and let \lSEM{} be the value of
+\BCinpBC[nmlBC::BCInput/SEM/LengthScale]{SEM\%Length\_Scale}.
+%
+%Additionally, let \uBC{} be the axial velocity at the top of the SEM profile
+%(\thatis the edge velocity of the boundary layer in the SEM profile), and let
+%\lBC{} be boundary layer height in the SEM profile.
+%
+Additionally, let \uBC{} be the axial velocity at the edge of the
+boundary layer in the SEM profile file, and let
+\lBC{} be boundary layer height in the SEM profile.
+%
+The following combinations all produce decent results in previous
+tests of a channel flow:
+%
+\begin{itemize}[left=2.0em,align=left,style=nextline,noitemsep]
+  \item[$\uSEM = \uBC/4\;$; $\quad\lSEM = \lBC/5$]
+  \item[$\uSEM = \uBC/2\;$; $\quad\lSEM = \lBC/5$]
+  \item[$\uSEM = \uBC/2\;$; $\quad\lSEM = \lBC/4$]
+  \item[$\uSEM = \uBC/2\;$; $\quad\lSEM = \lBC/3.75$]
+  \item[$\uSEM = \uBC/1\;$; $\quad\lSEM = \lBC/3.75$]
+\end{itemize}
+%
+and are shown in \fref{FIG:SEM_Recommendations}.
+%
+From these results, recommended values for these two inputs are:
+\\[8pt]
+%\begin{tabular}{ @{\hspace{\descLabelLength}} rcccl @{} } 
+\begin{tabular}{ @{\hspace{2.0em}} rcccl @{} } 
+  $\uBC/4$ & $\!\!\!\le$ & $\!\!\!\uSEM$ & $\!\!\!\le$ & $\!\!\!\uBC$ \\
+  $\lBC/5$ & $\!\!\!\le$ & $\!\!\!\lSEM$ & $\!\!\!\le$ & $\!\!\!\lBC/3.5$
+\end{tabular}
+
+\begin{figure}[h]
+  \begin{centering}
+    \insertimage[width=4.0in]{sem/sem_usem_lsem}
+    \caption{Recommended SEM length scale and convective velocity.}
+    \label{FIG:SEM_Recommendations}
+  \end{centering}
+\end{figure}
+
+%###############################################################################
+
+\subsubsubsection{Example SEM Boundary Condition}[SEC:SEM:usage:example]
+ 
+\begin{nmldescitem}
+&nml_bc
+  ! Inputs for boundary group (1):
+  BC_Input(1)%Set_BC_Value            = 5         ! 5 = SEM Inflow BC
+  BC_Input(1)%Pressure                = 100000.0  ! [Pa]
+  BC_Input(1)%Temperature             = 300.0     ! [K]
+  BC_Input(1)%Mach                    = 0.2
+  BC_Input(1)%SEM%Profile_File        = "[Path to profile file]"
+  BC_Input(1)%SEM%Is_Cylindrical      = F
+  BC_Input(1)%SEM%Length_Scale        = 0.0001    ! [m]
+  BC_Input(1)%SEM%Convective_Velocity = 32.728    ! [m/s]
+/
+\end{nmldescitem}
+
+In this example, if temperature is not specified in the SEM profile file, the
+temperature for the entire SEM profile will be set to 300.0 K.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Additionally, all face points with a wall distance larger than the \hSEM{}
+determined from the profile file will be split off to a new subsonic inflow
+boundary condition as discussed in \sref{SEC:SEM:usage:subsonic}.
+%
+The flow conditions for this new BC will be taken from (in this example) the
+\inptext{Pressure}, \inptext{Temperature}, and \inptext{Mach} components of
+\BCinpBC[nmlBC::BCInput][1]{}.
+
+The \inptext{Convective\_Velocity} is chosen to provide
+$U_{SEM}/U_{BL}$=0.5.
+
+%\FIXME{\\
+%Is this a working example?\\
+%Was missing:
+%  \inptext{Is\_Cylindrical},
+%  \inptext{Length\_Scale}, and
+%  \inptext{Convective\_Velocity}.
+%}
+
+
+%###############################################################################
+

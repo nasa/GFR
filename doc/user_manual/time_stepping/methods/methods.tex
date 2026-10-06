@@ -1,0 +1,74 @@
+\subsection{Time Stepping Methods}
+\label{SEC:Time:Methods}
+
+GFR exclusively employs explicit Runge-Kutta (ERK) time-stepping methods for
+advancing simulations in time.
+%
+There are currently 28 different ERK methods available in GFR; 6 of these
+methods are recommended due to significantly greater performance compared to the
+other available methods.
+%
+These 28 methods can be separated into two different types of ERK methods:
+traditional ERK methods that use the Courant-Friedrichs-Lewy (CFL) number to
+determine the optimal time step size that maintains stability, and embedded-pair
+ERK (EPERK) methods that use a Proportional-Integral-Derivative (PID) controller
+to automate the selection of an optimal time step size.
+%
+Further details on the ERK methods in GFR can be found in
+\linecite{Spiegel_2025}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Each of the 28 ERK methods available in GFR are listed within one of the
+following three sections where the method is categorized as
+\quoterm{Recommended}, \quoterm{Other}, and \quoterm{\emph{NOT} Recommended}.
+%
+The CFL-based and EPERK methods are listed separately within each category for
+easier identification.
+%
+Each method listed includes:
+the \inp[nmlTimestep::RungeKuttaScheme]{Runge\_Kutta\_Scheme} input value
+to activate it;
+the number of Runge-Kutta stages, order, and description of the scheme; and
+the speedup relative to the 3-stage/\nth{3}-order SSP ERK method (SSP3) which
+is used as a baseline for performance.
+%
+%\begin{itemize}
+%% \item[$\diamond$]
+%  \item[]
+%       [Input Value] : $i$-stage/$j$-order Description$^{\text{Ref}}$
+%         (Speedup relative to SSP3)
+%\end{itemize}
+%%
+%where
+%[Input Value] refers to the value of 
+%\inp[nmlTimestep::RungeKuttaScheme]{Runge\_Kutta\_Scheme}, and
+%SSP3 refers to the 3-stage/\nth{3}-order SSP ERK method which is used as a
+%baseline for performance.
+%
+It should be noted that the speedup referenced here is in terms of
+time-to-solution, or the physical\slash real-world time taken to complete just
+the solver part of a simulation.
+%
+Additionally, care was taken to ensure that simulations used to evaluate speedup
+were identical aside from the ERK method used to advance the simulations in
+time, \forexample all simulations were run on the same system with the same
+parallel settings with the only difference in the input file being the specified
+ERK method.
+%
+Speedup data is not available for every method.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{time_stepping/methods/recommended}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{time_stepping/methods/other}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{time_stepping/methods/bad}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

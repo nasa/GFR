@@ -1,0 +1,404 @@
+% LaTeX2e package gfr version 1.0
+%
+% This package provides formatting and commands for the GFR user manual.
+%
+% Modification History
+% YY-MM-DD   Ver   Description
+% ------------------------------------------------------------------------------
+% 25-03-11   1.0   Initial style file created. It currently just customizes
+%                  the formatting for the section titles.
+% 25-03-13   1.0.x  Started adding commands for keeping variable notation
+%                   consistent throughout the GFR user manual.
+
+
+%###############################################################################
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{gfr}[2025/03/11 GFR Style Package]
+
+% Provides the option 'draft' which simply changes the number of levels for the
+% table of contents to 5 from 3 (which is the default for non-draft)
+\newif\if@gfr@draft
+\@gfr@draftfalse
+\DeclareOption{draft}{\@gfr@drafttrue}
+% Provides options
+%     'allowcolor' which enables non-hyperref color in the document
+%        'nocolor' which disables non-hyperref color in the document (default)
+% Enabling 'allowcolor' enables colorizing certain things like inputs, comments,
+% filenames, etc. This should probably only be used to create a digital-only
+% pdf, and disabled for print versions and manuscript submissions.
+\newif\if@gfr@allowcolor
+\@gfr@allowcolorfalse
+\DeclareOption{nocolor}{\@gfr@allowcolorfalse}
+\DeclareOption{allowcolor}{\@gfr@allowcolortrue}
+% Provides options
+%      'sepsec' which          starts each section on a new page (default)
+%    'nosepsec' which does not  start each section on a new page
+\newif\if@gfr@sepsec
+\@gfr@sepsectrue       % Default   sepsec to true
+\DeclareOption{sepsec}{\@gfr@sepsectrue}
+\DeclareOption{nosepsec}{\@gfr@sepsecfalse}
+
+\ProcessOptions
+
+\RequirePackage[dvipsnames]{xcolor} % Needed for DeclarePairedDelimiter
+\colorlet{OldBurntOrange}{BurntOrange}
+\definecolor{BurntOrange}{RGB}{191,87,0}
+
+% siunitx package:
+% Provides \unit command to for consistent unit type-setting
+%     Examples: \unit{N.s/m^s} or \unit{\N\s\per\m\squared}
+%               \unit{m^2/(s^2.K)} or \unit{\m\squared\per\s\squared\per\K}
+% Provides \num command to typeset scientific numbers
+%     Examples: \num{1.5e-5}
+\RequirePackage{siunitx}
+\sisetup{per-mode = symbol,%
+         display-per-mode = fraction,%
+         inline-per-mode = symbol,%
+         % the '\!'s in the next line remove 3mu from both sides of the
+         % \times symbol for numbers written in scientific notation
+         exponent-product = \!\times\!}
+
+ \NewDocumentCommand{\scinum}{mmO{}}{\ensuremath{#1#3\times#3 10^{#2}}}
+%\NewDocumentCommand{\scinum}{mmO{}}{\num[exponent-product = #3\times#3]{#1e#2}}
+
+% Set up commands based on if 'allowcolor' option was given
+% NOTE: For now, it just creates the \myColorBox and \myTextColor commands.
+% If allowcolor is given:
+%     \myColorBox*[boxcolor]{text}
+%          * If [boxcolor] is provided
+%                    the box will be filled with that color,
+%            If [boxcolor] is not provided
+%                    the box will be filled red
+%          * If the star-version is used
+%                    the text color will be the opposite of the box color
+%            if the non-star-version is used
+%                    the text color will be black
+%     \myTextColor[textcolor]{text}
+%            If [textcolor] is provided
+%                  the text will be that color
+%            If [textcolor] is not provided
+%                  the text will be red
+% otherwise:
+%     \myColorBox[boxcolor]{text}
+%           the box will always be filled lightgray with black text
+%           regardless of optional argument [boxcolor]
+%     \myTextColor[textcolor]{text}
+%           the text will always be black regardless of optional
+%           argument [textcolor] and formatted bold+smallcaps to
+%           differentiate it from other text
+\if@gfr@allowcolor
+  \NewDocumentCommand{\myColorBox}{sO{red}m}{%
+     \IfBooleanTF{#1}{% #1=star is present
+       \colorbox{#2}{\textcolor{-#2}{#3}}%
+     }{% #1=star is missing
+       \colorbox{#2}{#3}%
+     }
+  }
+  \NewDocumentCommand{\myTextColor}{O{red}m}{%
+     \textcolor{#1}{#2}%
+  }
+ %\NewDocumentCommand{\myColorBox}{om}{%
+ %   \IfValueTF{#1}{%
+ %      \colorbox{#1}{\textcolor{-#1}{#2}}%
+ %   } {%
+ %      \colorbox{red}{#2}%
+ %     %\colorbox{BurntOrange}{#2}%
+ %   }%
+ %}
+ %\NewDocumentCommand{\myTextColor}{om}{%
+ %   \textcolor{\IfValueTF{#1}{#1}{red}}{#2}%
+ %}
+\else
+  \NewDocumentCommand{\myColorBox}{som}{\colorbox{lightgray}{#3}}
+  \NewDocumentCommand{\myTextColor}{om}{\textit{#2}}
+\fi
+
+% marginnote package
+% provides \marginnote{} command that does not float, which is used in
+% one of the debugging versions of the FINALFIX command.
+\RequirePackage{marginnote}  % \marginnote{} that does not float.
+
+% Set up commands based on if 'draft' option was given
+\if@gfr@draft
+  % Set draft table of contents depth to 5
+  \setcounter{tocdepth}{5}
+  % Define \devNotes command to display some code development notes
+  % in red for draft version. These are used to identify things that
+  % need to be updated in the code to match the user manual.
+  \NewDocumentCommand{\devNotes}{m}{%
+    \vspace{1.0ex}%
+    \noindent%
+   %\framebox{%
+   %  \begin{minipage}{0.95\textwidth}
+        \if@gfr@allowcolor
+          \myColorBox{\textbf{DEVELOPER NOTE:}}%
+          \myTextColor{ \ #1}%
+        \else
+          \myColorBox{\parbox{0.99\textwidth}%
+                             {\textbf{DEVELOPER NOTE:}\myTextColor{ \ #1}}%
+                     }%
+        \fi
+   %  \end{minipage}
+   %}
+    \index{DEVELOPER NOTE}% Add to index for easier tracking.
+  }
+  % Define \FIXME command to format temporary notes about the contents of
+  % the user manual in red, which are only shown in the draft version.
+  % Usage examples:
+  % \FIXME{text} will add \noindent before the output "FIXME: text".
+  % \FIXME*{text} will not add \noindent before the output "FIXME: text".
+  \NewDocumentCommand{\FIXME}{sm}{%
+    \IfBooleanTF{#1}{}{\noindent}%
+    \textcolor{red}{{\bf FIXME:} #2}%
+    \index{FIXME}% Add to index for easier tracking.
+  }
+  % Define \IDEA command to format notes that give ideas for future
+  % improvements to the user manual, which are only shown in the draft version.
+  \NewDocumentCommand{\IDEA}{m}{%
+    \vspace{1.0ex}%
+    \noindent%
+    \if@gfr@allowcolor
+     %\myColorBox[Green]{\textbf{IMPROVEMENT IDEA:}}%
+     %\myTextColor[Green]{ \ #1}%
+      \myColorBox*[Blue]{\textbf{IMPROVEMENT IDEA:}}%
+      \myTextColor[Blue]{ \ #1}%
+    \else
+      \myColorBox{\parbox{0.99\textwidth}%
+                         {\textbf{IMPROVEMENT IDEA:}\myTextColor{ \ #1}}%
+                 }%
+    \fi
+    \index{IMPROVEMENT IDEA}% Add to index for easier tracking.
+  }
+  % Define \HIDE command that will show its contents in the draft version,
+  % but will hide the contents for the published version.
+  \NewDocumentCommand{\HIDE}{m}{%
+    \vspace{1.0ex}%
+    \noindent%
+    \framebox{%
+      \begin{minipage}{0.95\textwidth}
+        \colorbox{lightgray}{\textbf{HIDDEN:}}\\
+        \noindent #1
+      \end{minipage}
+    }
+   %\index{HIDDEN}% Add to index for easier tracking.
+  }
+  % Define \FINALFIX command that will hide the contents of the
+  % command for the draft version
+  \NewDocumentCommand{\FINALFIX}{m}{}
+\else
+  % Set published table of contents depth to 3
+  \setcounter{tocdepth}{3}
+  % Define \devNotes, \FIXME, and \HIDE commands to hide contents for
+  % published version
+  \NewDocumentCommand{\devNotes}{m}{}
+  \NewDocumentCommand{\FIXME}{sm}{}
+  \NewDocumentCommand{\IDEA}{m}{}
+  \NewDocumentCommand{\HIDE}{m}{}
+  % Define \FINALFIX command that can be used to fix vertical spacing
+  % issues that might arise from switching to the published version
+  %
+  % Use this version to help locate/debug fixes.
+  % leavevmode prevents vertical space after the marginpar.
+  %\NewDocumentCommand{\FINALFIX}{m}{#1\leavevmode\marginnote{FINALFIX}}
+  %\NewDocumentCommand{\FINALFIX}{m}{\marginnote{FINALFIX}#1}
+  % Use this version to remove the marginpar debug info.
+  \NewDocumentCommand{\FINALFIX}{m}{#1}
+\fi
+
+% If sepsec is true, set up hook to add \clearpage command
+% before the start of any section.
+% NOTE: If sepsec is false, we just dont want to set up a hook since
+%       latex doesnt start sections on new pages by default, so there
+%       is no need for an else statement.
+\if@gfr@sepsec
+  % Add \clearpage command before the start of any section
+  % NOTE: This hook stuff looks like it can be extremely useful.
+  %       See section 3.1 of lthooks-doc.pdf, which can be accessed
+  %       by running the command 'texdoc lthooks'.
+  \AddToHook{cmd/section/before}{\clearpage}
+\fi
+
+%\RequirePackage{mathtools} % Needed for DeclarePairedDelimiter
+
+\renewcommand\thesection      {\@arabic\c@section}
+\renewcommand\thesubsection   {\thesection.\@arabic\c@subsection}
+\renewcommand\thesubsubsection{\thesubsection.\@arabic\c@subsubsection}
+\renewcommand\theparagraph    {\thesubsubsection.\@arabic\c@paragraph}
+\renewcommand\thesubparagraph {\theparagraph.\@arabic\c@subparagraph}
+
+%\setcounter{secnumdepth}{3}% no counters \paragraph and below
+ \setcounter{secnumdepth}{5}% counters all the way through \subparagraph
+
+% Add period after section number
+%\def\@seccntformat#1{\csname the#1\endcsname.\quad}
+% No period after section number
+ \def\@seccntformat#1{\csname the#1\endcsname\quad}
+
+
+\renewcommand\section{%
+  \@startsection {section}%
+    {1}%
+    {\z@}%
+    {3.5ex \@plus -1ex \@minus -.2ex}%
+    {2.3ex \@plus.2ex}%
+    {\center\normalfont\LARGE\bfseries}%
+}
+
+\renewcommand\subsection{%
+  \@startsection{subsection}%
+    {2}%
+    {\z@}%
+    {-3.25ex\@plus -1ex \@minus -.2ex}%
+    {1.5ex \@plus .2ex}%
+    {\normalfont\Large\bfseries}%
+}
+
+\renewcommand\subsubsection{%
+  \@startsection{subsubsection}%
+    {3}%
+    {\z@}%
+    {-3.25ex\@plus -1ex \@minus -.2ex}%
+    {1.5ex \@plus .2ex}%
+    {\normalfont\large\bfseries}%
+}
+
+\renewcommand\paragraph{%
+  \@startsection{paragraph}%
+    {4}%
+    {\z@}%
+    {-2.25ex \@plus -1ex \@minus -.2ex}%
+    {0.4ex \@plus 0.1ex}%
+    {\normalfont\normalsize\bfseries}%
+}
+
+\renewcommand\subparagraph{%
+  \@startsection{subparagraph}%
+    {5}%
+    {\z@}%
+    {-2.25ex \@plus -1ex \@minus -.2ex}%
+    {0.2ex \@plus 0.1ex}%
+    {\normalfont\small\bfseries}%
+}
+
+%###############################################################################
+%###############################################################################
+%
+% The following commands are for trying to keep the variable notation
+% consistent throughout the GFR user manual
+%
+%###############################################################################
+%###############################################################################
+
+% Conserved variables vector when used as a variable. The optional argument
+% (default is empty) can be used to give a subscript index to the variable.
+\NewDocumentCommand{\cvVar}{O{}O{}}{\ensuremath{Q^{#2}_{#1}}}
+% Conserved variables vector in matrix notation.
+\NewDocumentCommand{\cvVec}{O{}O{}}{\ensuremath{\bm{Q}^{#2}_{#1}}}
+
+% Primitive variables vector when used as a variable. The optional argument
+% (default is empty) can be used to give a subscript index to the variable.
+\NewDocumentCommand{\pvVar}{O{}O{}}{\ensuremath{W^{#2}_{#1}}}
+% Primitive variables vector in matrix notation.
+\NewDocumentCommand{\pvVec}{O{}O{}}{\ensuremath{\bm{W}^{#2}_{#1}}}
+
+% Unit normal vector
+\NewDocumentCommand{\normal}{}{\ensuremath{\hat{n}}}
+
+% Unit vector of directional cosines
+\NewDocumentCommand{\dircos}{}{\ensuremath{\hat{\beta}}}
+
+%###############################################################################
+%###############################################################################
+%
+% The following commands are just shortcut commands for convenience
+%
+%###############################################################################
+%###############################################################################
+
+\NewDocumentCommand{\thatis}{}{i.e.,~}
+\NewDocumentCommand{\forexample}{}{e.g.,~}
+\NewDocumentCommand{\andor}{O{ }}{and\slash or#1}
+
+%###############################################################################
+%###############################################################################
+%
+% The following commands are some standardized physical quantities
+%
+%###############################################################################
+%###############################################################################
+
+% Gas constant
+\NewDocumentCommand{\rgas}{}{\ensuremath{R_{\textrm{gas}}}}
+
+% y+ for wall boundary layers
+\NewDocumentCommand{\yp}{O{y}}{\ensuremath{#1^{+}}}
+
+% Magnitude of a velocity vector
+\NewDocumentCommand{\vmag}{}{\ensuremath{\mathcal{U}}}
+
+%###############################################################################
+%###############################################################################
+%
+% The following commands are some standardized math symbols
+%
+%###############################################################################
+%###############################################################################
+
+% Vector operations.
+% \NewDocumentCommand{\dotprod}{}{\ensuremath{\cdot}}
+% \NewDocumentCommand{\dyadprod}{}{\ensuremath{\otimes}}
+  \NewDocumentCommand{\crossprod}{}{\ensuremath{\times}}
+
+%###############################################################################
+%###############################################################################
+%
+% The following commands are standardizing the format of simple code
+% and other computer items (e.g., file names)
+%
+%###############################################################################
+%###############################################################################
+
+% Text size to use for Fortran logical values
+\NewDocumentCommand{\logicalSize}{m}{\small{#1}}
+% Fortran .TRUE.
+\NewDocumentCommand{\tru}{}{{\logicalSize{\texttt{.TRUE.}}}}
+% Fortran .FALSE.
+\NewDocumentCommand{\fls}{}{{\logicalSize{\texttt{.FALSE.}}}}
+
+% Format for file system paths and file names
+% Must manually escape special characters!
+\NewDocumentCommand{\file}{m}{\texttt{#1}}
+
+%###############################################################################
+%###############################################################################
+%
+% Custom paired delimiters
+%
+%###############################################################################
+%###############################################################################
+
+% Delimiters for the magnitude of a vector
+%\DeclarePairedDelimiter{\norm}{\lVert}{\rVert}
+\NewDocumentCommand{\norm}{m}{\ensuremath{\left\|#1\right\|}}
+% Delimiters for the absolute value
+%\DeclarePairedDelimiter{\abs}{\lvert}{\rvert}
+\NewDocumentCommand{\abs}{m}{\ensuremath{\left|#1\right|}}
+
+%###############################################################################
+%###############################################################################
+%
+% Commands to make quotations uniform throughout
+%
+%###############################################################################
+%###############################################################################
+
+% Standard double quote in standard text font
+\NewDocumentCommand{\quoterm}{m}{``#1''}
+% Single quote in standard text font
+\NewDocumentCommand{\quotermSingle}{m}{`#1'}
+% Double quote in texttt font
+\NewDocumentCommand{\quotett}{m}{\texttt{"#1"}}
+
+%###############################################################################
+
+\endinput

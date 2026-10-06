@@ -1,0 +1,40 @@
+\subsection{2D Inviscid Bump}
+\label{SEC:Testcases:Bump}
+
+\begin{figure}[h!tb]
+  \begin{center}
+    \insertimage[width=6.0in]{test_cases/bump}
+    \caption[Inviscid Gaussian bump test case.]%
+            {Inviscid Gaussian bump test case, \PO[3] solution.}
+    \label{FIG:Bump}
+  \end{center}
+\end{figure}
+
+This test case involves the subsonic flow over a smooth Gaussian bump in a
+channel, and is aimed at testing high-order methods for the computation of
+internal flow with a high-order curved boundary representation.
+%
+In this subsonic flow problem, the geometry is smooth and symmetric in $x$,
+and so should the flow properties.
+
+This test case can be used to experiment with how the grid order affects
+solution accuracy for various solution orders.
+
+All of the provided grid files contain the same number of grid cells (256),
+and the names of the grid files refer to the order of the cells contained
+in the grid.
+%
+The 'bump.P1.msh' grid contains linear    (\PO[1]) cells,
+the 'bump.P2.msh' grid contains quadratic (\PO[2]) cells,
+the 'bump.P3.msh' grid contains cubic     (\PO[3]) cells, and
+the 'bump.P4.msh' grid contains quartic   (\PO[4]) cells.
+%
+%This case reaches convergence in just over 10 minutes running in serial,
+%and roughly 60 seconds using 16 MPI processes.
+%
+\Fref{FIG:Bump} shows the result on the \PO[3] grid.
+
+\SeeAlso{
+\inp[nmlInitialization::Initialization]{Initialization}=3
+}
+

@@ -1,0 +1,878 @@
+\subsection{nml\_bc}
+\label{SEC:nml_bc}
+\inp*[nmlBC]{}[nml\_bc][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify boundary conditions.
+
+\begin{nmlblocklst}[
+,escapeinside={!@}{!@}
+,label={LST:nml_bc}
+,caption={Namelist nml\_bc.}
+]
+&nml_bc
+  Walls_Are_Exact                          = T
+  Sub_Inflow_Method                        = 4
+  Use_BC_Conflicts                         = T
+  BC_Input(1)%Name                         = ""
+  BC_Input(1)%Set_BC_Value                 = -9999
+  BC_Input(1)%Temperature                  = -1.0               ! [K]
+  BC_Input(1)%Pressure                     = -1.0               ! [Pa]
+  BC_Input(1)%Density                      = -1.0               ! [kg/m^3]
+  BC_Input(1)%Mach                         = -1.0
+  BC_Input(1)%VelocityX                    = 0.0                ! [m/s]
+  BC_Input(1)%VelocityY                    = 0.0                ! [m/s]
+  BC_Input(1)%VelocityZ                    = 0.0                ! [m/s]
+  BC_Input(1)%Total_Temperature            = -1.0               ! [K]
+  BC_Input(1)%Total_Pressure               = -1.0               ! [Pa]
+  BC_Input(1)%Total_Density                = -1.0               ! [kg/m^3]
+  BC_Input(1)%AoA_Alpha                    = 0.0                ! [deg]
+  BC_Input(1)%AoA_Beta                     = 0.0                ! [deg]
+  BC_Input(1)%Wall_Temp                    = -1.0               ! [K]
+  BC_Input(1)%Rotation_Rate(1:3)           = [0.0,0.0,0.0]      ! [rpm]
+  BC_Input(1)%Is_Specified_In_MRF          = F
+  BC_Input(1)%Mass_Frac(1:7)               = [7*0.0]
+  BC_Input(1)%Species_Name(1:7)            = [7*""]
+  BC_Input(1)%Relax%Value                  = 1.0
+  BC_Input(1)%Relax%Time                   = 0.0                ! non-dim
+  BC_Input(1)%Relax%Iter                   = 0
+  BC_Input(1)%SEM%Profile_File             = ""
+  BC_Input(1)%SEM%Is_Cylindrical           = F
+  BC_Input(1)%SEM%Length_Scale             = 0.0                ! [m]
+  BC_Input(1)%SEM%Convective_Velocity      = 0.0                ! [m/s]
+  BC_Input(1)%SEM%Profile_Height           = 0.0                ! [m]
+  BC_Input(1)%SEM%Sub_In_BC_Grp            = 0
+  BC_Input(1)%SEM%Sub_In_BC_Idx            = 0
+  BC_Input(1)%Periodic%Matching_BC_Name    = ""
+  BC_Input(1)%Periodic%Matching_BC_Idx     = 0
+  BC_Input(1)%Periodic%RotationCenter(1:3) = [0.0,0.0,0.0]      ! grid units
+  BC_Input(1)%Periodic%RotationAngle(1:3)  = [0.0,0.0,0.0]      ! [deg]
+  BC_Input(1)%Periodic%RotationAxis(1:4)   = [0.0,0.0,0.0,0.0]
+  BC_Input(1)%Periodic%Translation(1:3)    = [0.0,0.0,0.0]      ! grid units
+/
+\end{nmlblocklst}
+\inpBC*[nmlBC::BCInput]{}
+
+%% These nml_bc entries were used to test \texttt and hyperlinks
+%% within the namelist block. To make the standard lstlisting match
+%% the \texttt font, must use ',basewidth={0.50em,0.45em}'.
+%% An extra space or two before the '=' is gobbled by Latex escape \@,
+%% which might affect alignment of '='.
+%%
+%  !@\texttt{BC\_Input(1)\%Periodic\%Translation(1:3)}!@      = [0.0,0.0,0.0]
+%  !@\BCinpBC[nmlBC::BCInput/Periodic/Translation][1]{Periodic\%Translation(1:3)}!@    = [0.0,0.0,0.0]
+
+%==========================================================================
+
+\begin{nmldescitem}
+Walls_Are_Exact = T
+\end{nmldescitem}
+\inp*[nmlBC::WallsAreExact]{}[Walls\_Are\_Exact][]
+
+\begin{nmldescbody}
+Specifies whether the wall boundary conditions are set
+directly using the exact flow conditions or
+indirectly using the ghost state that provides
+the exact flow conditions when averaged with the interior state.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.75\linewidth} @{} }
+  T & The wall boundary solution is the exact wall boundary condition,
+      \forexample
+      $\left[ u_{\textrm{wall}},
+              v_{\textrm{wall}},
+              w_{\textrm{wall}}
+       \right] = 0$ for a no-slip wall. \\
+  F & The average of the wall boundary solution
+      and the interior solution on the boundary face
+      recovers the exact wall boundary condition,
+      \forexample
+      $\left[ u_{\textrm{wall}},
+              v_{\textrm{wall}},
+              w_{\textrm{wall}}
+       \right] =
+      -\left[ u_{\textrm{wall}},
+              v_{\textrm{wall}},
+              w_{\textrm{wall}}
+       \right]$ for a no-slip wall.
+\end{tabular}
+
+\NOTE
+Hartmann and Leicht\cite{Hartmann_2013} report (Remark 6.13 on page 83) that
+using exact wall boundary conditions seems to be more accurate on coarse grids
+and for lower values of
+\linebreak[4]% Prevent next word from entering right margin.
+\inp[nmlNumerics::SolutionOrder]{Solution\_Order},
+whereas using the averaging method is more stable.
+%
+%Details can be found in \linecite{Hartmann_2013}.
+%{\small \url{http://elib.dlr.de/90967/1/hartmann_leicht_VKI_LS_2014-3.pdf}}
+
+%\FIXME{
+%\\
+%This description could be worded better.\\
+%Is this setting the external BC state or the actual face point values?\\
+%For each case above, at what location is
+%      $\left[ u_{\textrm{wall}},
+%              v_{\textrm{wall}},
+%              w_{\textrm{wall}}
+%       \right]$
+%specified? Is it a ghost cell?\\
+%}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Sub_Inflow_Method = 4
+\end{nmldescitem}
+\inp*[nmlBC::SubInflowMethod]{}[Sub\_Inflow\_Method][]
+
+\begin{nmldescbody}
+Specifies which subsonic inflow boundary condition algorithm to use.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  1 & Hold the total pressure and total temperature constant at the inflow,
+      use the outgoing characteristic from the interior, and
+      perform a Newton iteration to get
+      the static temperature, speed of sound, and normal velocity magnitude
+      for the exterior state. \\
+  2 & Use the BC static density and velocity, and the interior static
+      pressure. \\
+  3 & Use the method specified in
+      \linecite{Carlson_2011}. % NASA TM-2011-217181.
+      The interior static pressure, total enthalpy, and
+      outward propagating Riemann invariant are extrapolated
+      from the interior to the boundary.
+      %
+      These values with the BC total pressure and total temperature
+      are used to compute the BC speed of sound
+      by solving a quadratic equation based on adiabatic and
+      isentropic assumptions\slash relations.\\
+  4 & Use the BC total pressure, total temperature, angle of attack,
+      and the interior state to get the interior Mach number at the boundary.
+\end{tabular}
+\\
+See \sref{SEC:BC:Inflow:Subsonic} for a detailed description of how each of
+these methods is implemented.
+
+\NOTE
+It is recommended to use options 4, 3, or 1 (in that order).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Use_BC_Conflicts = T
+\end{nmldescitem}
+\inp*[nmlBC::UseBCConflicts]{}[Use\_BC\_Conflicts][]
+
+\begin{nmldescbody}
+Logical flag for determining whether or not to overwrite boundary solutions
+in adjacent cells if co-located boundary points have different boundary
+conditions.
+%
+The boundary preference hierarchy can be found in \file{kind\_types\_mod.f90} in
+the array \file{bc\_hierarchy}.
+
+\NOTE
+This is only relevant if using Legendre-Gauss-Lobatto points
+for solution points
+($\inp[nmlNumerics::LocSolutionPts]{Loc\_Solution\_Pts}=2$).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Name = ""
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/Name]{}[Name][]
+
+\begin{nmldescbody}
+Character string that matches the name of a boundary group in the grid file.
+%
+See \sref{SEC:Files:Grid_Input:CGNS:PWBC} for using Pointwise
+to set boundary conditions for CGNS files.
+%
+This input is the means of connecting boundary faces in the grid file with a
+boundary condition provided in the input file to specify the boundary type and
+flow conditions to use.
+
+\NOTE
+The character string is treated as case insensitive.
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+BC_Input(1)%Set_BC_Value = -9999
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/SetBCValue]{}[Set\_BC\_Value][]
+
+\begin{nmldescbody}
+This overrides the boundary condition type specified in the grid file,
+using this boundary condition type for the boundary group given by
+\BCinptext[1]{Name}.
+%
+Valid values for boundary condition types are:\\ %[0.25em]
+
+\begingroup
+\NewDocumentCommand{\bcgroup}{m}{\textbf{#1}}
+%
+%% Use threeparttable to add table footnote.
+\begin{threeparttable}
+\begin{tabular}{ @{} r @{ \quad } p{0.845\linewidth} @{} }
+%% Use longtable to permit page breaks.
+%\begin{longtable}{ @{} r @{ \quad } p{0.845\linewidth} @{} }
+        & \bcgroup{Inflow boundary conditions} \\*
+      1 & Generic inflow, subsonic\slash supersonic  \\*
+      2 & Subsonic inflow \\*
+      3 & Supersonic inflow \\*
+      5 & SEM (unsteady turbulent) inflow%
+          \tnote{\ensuremath{\ast}} %
+          \\[0.25em]
+        & \bcgroup{Outflow boundary conditions} \\*
+     11 & Generic outflow, subsonic\slash supersonic \\*
+     12 & Subsonic outflow \\*
+     13 & Supersonic outflow \\[0.25em]
+        & \bcgroup{Farfield boundary conditions} \\*
+     21 & Characteristic inflow\slash outflow based on Riemann invariants,
+          subsonic\slash supersonic%
+          \tnote{\ensuremath{\ast}} \\*
+     22 & Generic inflow\slash outflow, subsonic\slash supersonic \\*
+     23 & Fixed to freestream\slash reference flow conditions \\*
+     24 & Fixed flow conditions (equivalent to supersonic inflow) \\[0.25em]
+        & \bcgroup{Wall boundary conditions} \\*
+     50 & Slip wall \\*
+     52 & Adiabatic no-slip wall \\*
+     53 & Isothermal no-slip wall \\[0.25em]
+        & \bcgroup{Numerical boundary conditions} \\*
+     80 & Symmetry boundary condition (equivalent to slip wall) \\*
+     81 & Periodic (translated \andor rotated) coupled boundaries \\[0.25em]
+        & \bcgroup{Other boundary conditions} \\*
+  -9999 & Do not override the boundary condition type
+          from the grid file. \\*
+  \bottomrule
+%\end{longtable}
+\end{tabular}
+  \begin{tablenotes}
+    \item[\ensuremath{\ast}] Not compatible with multi-component gas mixtures.
+  \end{tablenotes}
+\end{threeparttable}
+\endgroup
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Temperature = -1.0  ! [K]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/Temperature]{}[Temperature][]
+
+\begin{nmldescbody}
+Static temperature (units of \unitTemp{}).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Pressure = -1.0  ! [Pa]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/Pressure]{}[Pressure][]
+
+\begin{nmldescbody}
+Static pressure (units of \unitPres{}).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Density = -1.0  ! [kg/m^3]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/Density]{}[Density][]
+
+\begin{nmldescbody}
+Static density (units of \unitDens{}).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Mach = -1.0
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/Mach]{}[Mach][]
+
+\begin{nmldescbody}
+Mach number (dimensionless).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%VelocityX = 0.0  ! [m/s]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/VelocityX]{}[VelocityX][]
+
+\begin{nmldescbody}
+Velocity in the $x$ coordinate direction (units of \unitVel{}).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%VelocityY = 0.0  ! [m/s]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/VelocityY]{}[VelocityY][]
+
+\begin{nmldescbody}
+Velocity in the $y$ coordinate direction (units of \unitVel{}).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%VelocityZ = 0.0  ! [m/s]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/VelocityZ]{}[VelocityZ][]
+
+\begin{nmldescbody}
+Velocity in the $z$ coordinate direction (units of \unitVel{}).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Total_Temperature = -1.0  ! [K]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/TotalTemperature]{}[Total\_Temperature][]
+
+\begin{nmldescbody}
+Total temperature (units of \unitTemp{}).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Total_Pressure = -1.0  ! [Pa]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/TotalPressure]{}[Total\_Pressure][]
+
+\begin{nmldescbody}
+Total pressure (units of \unitPres).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Total_Density = -1.0  ! [kg/m^3]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/TotalDensity]{}[Total\_Density][]
+
+\begin{nmldescbody}
+Total density (units of \unitDens{}).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%AoA_Alpha = 0.0  ! [deg]
+BC_Input(1)%AoA_Beta  = 0.0  ! [deg]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/AoAAlpha]{}[AoA\_Alpha][]
+\inpBC*[nmlBC::BCInput/AoABeta]{}[AoA\_Beta][]
+
+\begin{nmldescbody}
+Flow angles (in degrees):
+$\alpha$ is the
+\key[key:AngleOfAttack]{angle of attack}[flow angles!angle of attack]
+measured in the $x$-$y$ plane, and
+$\beta$  is the
+\key[key:AngleOfSideslip]{angle of sideslip}[flow angles!angle of sideslip]
+measured in the $x$-$z$ plane.
+
+
+%
+These flow angles are defined by
+\eref{EQN:FlowAngleVelX,EQN:FlowAngleVelY,EQN:FlowAngleVelZ} and
+\fref{FIG:FlowAngle} on \pref{\pageref{FIG:FlowAngle}}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Wall_Temp = -1.0  ! [K]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/WallTemp]{}[Wall\_Temp][]
+
+\begin{nmldescbody}
+Temperature for isothermal wall (units of \unitTemp{}).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Rotation_Rate(1:3) = [0.0,0.0,0.0]  ! [rpm] @(x,y,z)-axes
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/RotationRate]{}[Rotation\_Rate][]
+
+\begin{nmldescbody}
+This specifies the rotation rate vector of a moving boundary surface.
+%
+The components are defined with respect to the Cartesian axes,
+and the magnitude is the rotation rate (in RPMs).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Is_Specified_In_MRF = F
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/IsSpecifiedInMRF]{}[Is\_Specified\_In\_MRF][]
+
+\begin{nmldescbody}
+Setting this to true indicates that this boundary condition is specified in
+the moving reference frame. If the boundary is moving\slash rotating at the
+same speed as the moving reference frame, this works as a shortcut to apply
+the same motion to this boundary.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Mass_Frac(1:7) = [7*0.0]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/MassFrac]{}[Mass\_Frac][]
+
+\begin{nmldescbody}
+\raggedright % Avoid next word spilling in to right margin.
+\BCinptext{Mass\_Frac(n)} specifies the mass fraction
+of the species given in \BCinptext{Species\_Name(n)}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Species_Name(1:7) = [7*""]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/SpeciesName]{}[Species\_Name][]
+
+\begin{nmldescbody}
+Specifies the chemical name\slash formula for each of the species.
+\end{nmldescbody}
+
+%==========================================================================
+
+\subsubsection{Boundary Condition Relaxation Inputs}
+\begin{nmldescitem}
+BC_Input(1)%Relax%Value = 1.0
+BC_Input(1)%Relax%Time  = 0.0  ! non-dim, t[s] * (a[m/s] / L=1.0[m])
+BC_Input(1)%Relax%Iter  = 0
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/Relax/Value]{}[Relax\%Value][]
+\inpBC*[nmlBC::BCInput/Relax/Time]{}[Relax\%Time][]
+\inpBC*[nmlBC::BCInput/Relax/Iter]{}[Relax\%Iter][]
+
+\begin{nmldescbody}
+Typically the volume solution is initialized from the
+reference conditions specified in the
+\\% Prevent next word from entering right margin.
+\inp[nmlReference]{nml\_reference} namelist.
+%
+If boundary conditions are immediately applied, the sudden change
+can introduce numerical instabilities.
+%
+These relaxation parameters provide a way to gradually apply
+each boundary condition.
+
+\BCinptext{Relax\%Value} specifies
+the relaxation value (between 0.0 and 1.0) to limit the difference
+between the interior and exterior states.
+%
+The default value of 1.0 does not impose any limitation.
+
+There are two means for specifying when to end relaxation:
+one based on solution time, the other based on solution iterations.
+%
+Relaxation will end when either criteria is met.
+
+If $\BCinptext{Relax\%Time}>0.0$, it specifies
+the total accumulated solution time
+(nondimensionalized by the reference length of 1.0 meter and speed of sound)
+to end relaxation.
+
+If $\BCinptext{Relax\%Iter}>0$, it specifies
+the total accumulated time step iteration to end relaxation.
+\end{nmldescbody}
+
+
+%==========================================================================
+
+\subsubsection{Boundary Condition SEM Inputs}
+\begin{nmldescitem}
+BC_Input(1)%SEM%Profile_File = ""  ! 150 char max
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/SEM/ProfileFile]{}[SEM\%Profile\_File][]
+
+\begin{nmldescbody}
+This gives the path to the file containing the flow profile used for the
+synthetic eddy method (SEM) boundary condition.
+%
+See \sref{SEC:SEM:usage:profile} for a detailed description of the
+required file format and flow variables needed for the SEM profile.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%SEM%Is_Cylindrical = F
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/SEM/IsCylindrical]{}[SEM\%Is\_Cylindrical][]
+
+\begin{nmldescbody}
+This is used to declare if the synthetic eddy method (SEM) box is cylindrical.
+%
+This solely affects how the eddies are randomly generated to achieve a
+truly random distribution in the radial, $r$, direction.
+%
+For a cylindrical SEM box, randomly generating
+  $r\ (r_{\textrm{min}}\le r \le r_{\textrm{max}})$ and
+  $\theta\ (\theta_{\textrm{min}}\le \theta \le \theta_{\textrm{max}})$
+coordinate values to place a new eddy will result in
+more eddies near the symmetry axis and
+less eddies further away.
+%
+In order to generate a truly uniform random distribution,
+we need to use the equation
+  $r=\sqrt{\mathtt{Random}()\left[ r^2_{\textrm{max}}
+                                 - r^2_{\textrm{min}}
+                            \right] + r^2_{\textrm{min}}}$
+where $\mathtt{Random}()$ is a function that generates a random number
+on the unit interval.
+%
+This applies an area weighting to the radial distribution and
+results in a uniform distribution of eddies in the volume.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%SEM%Length_Scale = 0.0  ! [m]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/SEM/LengthScale]{}[SEM\%Length\_Scale][]
+
+\begin{nmldescbody}
+This gives the length scale (in meters) of the ``zone of influence'' of each
+synthetic eddy.
+%
+Recommended values are between $(1/3.5)\times$ and $(1/5)\times$ the
+height of the boundary layer profile from the SEM profile file.
+%
+See \sref{SEC:SEM:usage:recommendations}
+for a more detailed description of this input and how it relates to
+\inpBC[nmlBC::BCInput/SEM/ConvectiveVelocity]{SEM\%Convective\_Velocity}.
+
+\NOTE
+Previous testing seems to suggest that a slower convective velocity
+should be used when using a smaller length scale, and a higher convective
+velocity should be used when using a larger length scale.
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+BC_Input(1)%SEM%Convective_Velocity = 0.0  ! [m/s]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/SEM/ConvectiveVelocity]{}[SEM\%Convective\_Velocity][]
+
+\begin{nmldescbody}
+This gives the velocity (in m\slash s) at which the synthetic eddies are
+convected through the SEM box.
+%
+Recommended values are between $0.25\times$ and $1\times$ the
+freestream velocity for this BC.
+%
+See \sref{SEC:SEM:usage:recommendations}
+for a more detailed description of this input and how it relates to
+\\ % Prevent next word from entering right margin.
+\inpBC[nmlBC::BCInput/SEM/LengthScale]{SEM\%Length\_Scale}.
+
+\NOTE
+Previous testing seems to suggest that a slower convective velocity
+should be used when using a smaller length scale, and a higher convective
+velocity should be used when using a larger length scale.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%SEM%Profile_Height = 0.0  ! [m]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/SEM/ProfileHeight]{}[SEM\%Profile\_Height][]
+
+\begin{nmldescbody}
+\NOTE
+\emph{This variable is not an input.}
+%
+It will be calculated based on the profile data read from
+\inpBC[nmlBC::BCInput/SEM/ProfileFile]{SEM\%Profile\_File},
+and will be reported with the boundary condition information
+written to the display output.
+%
+This output can be used to verify that the profile data was
+properly interpreted.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%SEM%Sub_In_BC_Grp = 0
+BC_Input(1)%SEM%Sub_In_BC_Idx = 0
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/SEM/SubInBCGrp]{}[SEM\%Sub\_In\_BC\_Grp][]
+\inpBC*[nmlBC::BCInput/SEM/SubInBCIdx]{}[SEM\%Sub\_In\_BC\_Idx][]
+
+\begin{nmldescbody}
+\NOTE
+\emph{Theses variables are not inputs.}
+%
+They will be determined after setting up the SEM boundary condition
+and will be reported with the boundary condition information
+written to the display output.
+%
+This output can be used to verify that the profile data was
+properly interpreted.
+
+If the boundary layer profile specified in the
+\inpBC[nmlBC::BCInput/SEM/ProfileFile]{SEM\%Profile\_File}
+does not fully span the boundary domain, then
+a new inflow BC will automatically be created for the boundary points
+that are outside the SEM profile.
+% 
+\inptext{Sub\_In\_BC\_Grp} identifies the \emph{index of the BC group}
+to which the new inflow BC created for this SEM belongs.
+%
+\inptext{Sub\_In\_BC\_Idx} identifies the \emph{index for the new inflow BC}
+created for this SEM.
+
+\NOTE
+Inflow boundaries are automatically split in this way because
+the synthetic eddy method of imposing inflow turublence
+actually overprescribes flow conditions on subsonic boundaries.
+%
+Separating points outside the boundary layer profile into a
+standard inflow boundary allows those points to properly communicate
+information upstream as needed.
+%
+Therefore, we recommend that the SEM profile file not extend much
+beyond the edge of the boundary layer.
+%
+See \sref{SEC:SEM:usage:subsonic} for a more detailed explanation.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\subsubsection{Boundary Condition Periodicity Inputs}
+\begin{nmldescitem}
+BC_Input(1)%Periodic%Matching_BC_Name = ""
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/Periodic/MatchingBCName]{}[Periodic\%Matching\_BC\_Name][]
+
+\begin{nmldescbody}
+This specifies the name of the other boundary condition that is a matching
+periodic pair with this boundary condition.
+%
+If BC's $i$ and $j$ are a periodic pair, then
+the following two relations need to be true:
+\\[0.5em] % A little extra separation before tabular.
+\begin{tabular}{ @{\qquad} l } % @{ \quad } p{0.85\linewidth} @{} }
+  \BCinptext[i]{Periodic\%Matching\_BC\_Name} =
+  \BCinptext[j]{Name}, and
+\\
+  \BCinptext[j]{Periodic\%Matching\_BC\_Name} =
+  \BCinptext[i]{Name}.
+\end{tabular}
+
+\vspace{0.5em} % A little extra separation after tabular.
+\NOTE
+This and
+\inpBC[nmlBC::BCInput/Periodic/MatchingBCIdx]{Periodic\%Matching\_BC\_Idx}
+are redundant, but together they serve as a means of error checking the
+inputs for periodic pairs.
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+BC_Input(1)%Periodic%Matching_BC_Idx = 0
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/Periodic/MatchingBCIdx]{}[Periodic\%Matching\_BC\_Idx][]
+
+\begin{nmldescbody}
+This specifies the index of the other boundary condition that is a matching
+periodic pair with this boundary condition.
+%
+If BC's $i$ and $j$ are a periodic pair, then
+the following two relations need to be true:
+\\[0.5em] % A little extra separation before tabular.
+\begin{tabular}{ @{\qquad} l } % @{ \quad } p{0.85\linewidth} @{} }
+  \BCinptext[i]{Periodic\%Matching\_BC\_Idx} = j, and \\
+  \BCinptext[j]{Periodic\%Matching\_BC\_Idx} = i.
+\end{tabular}
+
+\vspace{0.5em} % A little extra separation after tabular.
+\NOTE
+This and
+\inpBC[nmlBC::BCInput/Periodic/MatchingBCName]{Periodic\%Matching\_BC\_Name}
+are redundant, but together they serve as a means of error checking the
+inputs for periodic pairs.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Periodic%RotationCenter(1:3) = [0.0,0.0,0.0]  ! [grid units]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/Periodic/RotationCenter]{}[Periodic\%RotationCenter][]
+
+\begin{nmldescbody}
+This array gives the coordinate origin
+(in \key[key:GridUnits]{grid units}) used for
+defining the rotation angles between rotated periodic boundary conditions.
+
+\NOTE
+This input should be the same for a matching pair of rotated periodic
+boundary conditions.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Periodic%RotationAngle(1:3) = [0.0,0.0,0.0]  ! [deg]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/Periodic/RotationAngle]{}[Periodic\%RotationAngle][]
+
+\begin{nmldescbody}
+This array gives the rotation angles (in degrees) about each of the
+coordinate axes from the current periodic boundary interface to the
+connecting periodic boundary interface.
+%
+If rotating about more than one axis, the rotation is performed
+first about the $x$-axis, then the $y$-axis, and finally the $z$-axis.
+
+\NOTE
+One may use either
+\inptext{Periodic\%RotationAngle} or  % Short Form
+%\BCinptext{Periodic\%RotationAngle} or  % Long Form
+%\\ % Prevent next word from entering right margin. Needed with Long Form.
+\inpBC[nmlBC::BCInput/Periodic/RotationAxis]{Periodic\%RotationAxis}
+to define rotated periodic boundary conditions, but not both.
+%
+If both are specified, \inptext{RotationAxis} will be ignored and
+\inptext{RotationAngle} will be used.
+
+\NOTE If BC's $i$ and $j$ are a periodic pair, the following relation needs
+to be true:
+\\[0.5em] % A little extra separation before tabular.
+\begin{tabular}{ @{\qquad} >{\small}l }
+   \BCinptext[i]{Periodic\%RotationAngle(:)} = 
+  -\BCinptext[j]{Periodic\%RotationAngle(:)}
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Periodic%RotationAxis(1:4) = [0.0,0.0,0.0,0.0]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/Periodic/RotationAxis]{}[Periodic\%RotationAxis][]
+
+\begin{nmldescbody}
+The first 3 values of this array define a vector representing the axis of
+rotation for this rotated periodic boundary condition, and
+the last value of the array defines the rotation angle (in degrees) about
+this axis.
+
+\NOTE
+The coordinate origin is used as the base of the vector defining the
+axis of rotation, NOT
+\inpBC[nmlBC::BCInput/Periodic/RotationCenter]{Periodic\%RotationCenter}.
+
+\NOTE
+The magnitude of the vector defining the axis of rotation is not used.
+The sole purpose of this vector is to define the \emph{direction} of the
+rotation axis.
+
+\NOTE
+One may use either
+\inpBC[nmlBC::BCInput/Periodic/RotationAngle]{Periodic\%RotationAngle} or
+%\\ % Prevent next word from entering right margin. Needed for Long Form.
+%\BCinptext{Periodic\%RotationAxis} % Long Form
+\inptext{Periodic\%RotationAxis} % Short Form
+to define rotated periodic boundary conditions, but not both.
+%
+If both are specified, \inptext{RotationAxis} will be ignored and
+\inptext{RotationAngle} will be used.
+
+\NOTE
+If BC's $i$ and $j$ are a periodic pair, one of the two following
+sets of relations needs to be true:
+\\[0.5em] % A little extra separation before tabular.
+{\small
+\begin{tabular}{ @{\qquad} l @{ = } l @{} l}
+     \BCinptext[i]{Periodic\%RotationAxis(1:3)}
+  & &\BCinptext[j]{Periodic\%RotationAxis(1:3)}
+     \\
+     \BCinptext[i]{Periodic\%RotationAxis(4)}
+  &-&\BCinptext[j]{Periodic\%RotationAxis(4)}
+\end{tabular}
+}
+\\[0.5em] % A little extra separation after tabular.
+or
+\\[0.5em] % A little extra separation before tabular.
+{\small
+\begin{tabular}{ @{\qquad} l @{ = } l @{} l}
+     \BCinptext[i]{Periodic\%RotationAxis(1:3)}
+  &-&\BCinptext[j]{Periodic\%RotationAxis(1:3)}
+     \\
+     \BCinptext[i]{Periodic\%RotationAxis(4)}
+  & &\BCinptext[j]{Periodic\%RotationAxis(4)}
+\end{tabular}
+}
+\\[0.5em] % A little extra separation after tabular.
+In other words, the opposing periodic face must either negate the
+axis direction or the rotation angle, but not both.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+BC_Input(1)%Periodic%Translation(1:3) = [0.0,0.0,0.0]  ! [grid units]
+\end{nmldescitem}
+\inpBC*[nmlBC::BCInput/Periodic/Translation]{}[Periodic\%Translation][]
+
+\begin{nmldescbody}
+This array gives the translation vector
+(in \key[key:GridUnits]{grid units}) from the current
+periodic boundary interface to the connecting periodic boundary interface.
+
+\NOTE
+If BC's $i$ and $j$ are a periodic pair, the following relation needs
+to be true:
+\\[0.5em] % A little extra separation before tabular.
+\begin{tabular}{ @{\qquad} l }
+     \BCinptext[i]{Periodic\%Translation(:)} = 
+    -\BCinptext[j]{Periodic\%Translation(:)}
+\end{tabular}
+\\[0.5em] % A little extra separation after tabular.
+In other words, the opposing periodic face must negate the translation
+vector.
+\end{nmldescbody}
+
+%==========================================================================
+

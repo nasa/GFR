@@ -1,0 +1,26 @@
+    \centering
+    \caption{Embedded-pair low storage implementation (3S*$\!{}_+$)}
+    \label{ALG:Time:Algorithms:EPERK}
+    \begin{algorithmic}[1]
+      \STATE $S_1 \leftarrow u^n ;
+              S_2 \leftarrow 0 ;
+              S_3 \leftarrow u^n ;
+              S_4 \leftarrow u^n $
+      \FOR{$i=1:s$}
+      \STATE $\tau \leftarrow t^n + c_i \Delta t$
+      \STATE $S_2 \leftarrow S_2 + \delta_i S_1$
+      \STATE $R_i \leftarrow \bm{\mathrm{R}}\left(\tau,S_1\right)$
+      \STATE $S_1 \leftarrow \gamma_{1,i} S_1 + 
+                             \gamma_{2,i} S_2 +
+                             \gamma_{3,i} S_3 + 
+                      \beta_i \Delta t R_i$
+      \STATE $S_4 \leftarrow S_4 + 
+                      \hat{b}_i \Delta t R_i$
+      \ENDFOR
+      \STATE $u^{n+1} \leftarrow S_1$
+      \STATE $\hat{u}^{n+1} \leftarrow S_4$
+      \IF{$\hat{b}_{s+1} \ne 0$}
+      \STATE $\hat{u}^{n+1} \leftarrow \hat{u}^{n+1} +
+            \hat{b}_{s+1} \Delta t \bm{\mathrm{R}}\left(t^{n+1},u^{n+1}\right)$
+      \ENDIF
+    \end{algorithmic}

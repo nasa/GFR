@@ -1,0 +1,42 @@
+\subsection{nml\_version}
+\label{SEC:nml_version}
+\inp*[nmlVersion]{}[nml\_version][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to inform GFR which version of the namelist to expect when reading
+through the input file.
+%
+This namelist block is provided as a means to allow the use of older input files
+without having to manually convert them to the current format.
+
+\begin{nmlblocklst}[
+,label={LST:nml_version}
+,caption={Namelist nml\_version.}
+]
+&nml_version
+  Namelist_Version = 2
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Namelist_Version = 2
+\end{nmldescitem}
+\inp*[nmlVersion::NamelistVersion]{}[Namelist\_Version][]
+
+\begin{nmldescbody}
+The format of the namelist input file.
+Valid options are: 1, 2.
+%
+Input variables may be added, removed, or renamed between versions.
+However, the code will attempt to convert an older input file to the
+current format.
+%
+This report documents the format of namelist version 2. Users should add the
+\inptext{nml\_version} block shown in \lref{LST:nml_version} to the top of
+their input files so that future versions of the code will recognize it.
+\end{nmldescbody}
+
+%==========================================================================
+

@@ -1,0 +1,218 @@
+\subsubsection{Periodic Coupled Boundaries}
+\label{SEC:BC:Numerical:Periodic}
+
+%###############################################################################
+
+\devNotes{%
+%
+  \\\indent
+%
+  Currently, the translational vector is specified in grid scaled units.
+  %
+  This needs to be changed to grid units.
+%
+  }
+
+%###############################################################################
+
+Periodic coupled boundaries permit the flow exiting one boundary of the
+computational domain to enter through a different boundary, and vice versa.
+%
+These two boundaries form a coupled pair of periodic boundary conditions.
+%
+Periodic boundaries fall into two categories of periodicity: translational and
+rotational. A pair of periodic boundaries can be either translational,
+rotational, or a combination of both.
+%
+Translational periodicity is quite useful for problems where the flow in one or
+more directions can be treated as infinite, \forexample channel flow; details
+and examples are discussed in
+\sref{SEC:BC:Numerical:Periodic:Inputs:Translated}.
+%
+Rotational periodicity is useful for problems containing rotational symmetries,
+\forexample a single blade from a turbomachinery rotor; details and examples are
+discussed in \sref{SEC:BC:Numerical:Periodic:Inputs:Rotated}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We first start with some preliminary definitions and notation that will be used
+for periodic coupled boundary conditions.
+%
+For all examples in this section, we will be working with a pair of periodic
+boundary conditions that are specified in the input file using \BCinptext[i]{}
+and \BCinptext[j]{}.
+%
+For the remainder of this section, every instance of \BCinptext[i]{} will have
+the following two specified values
+%
+\begin{InputExample}
+  \item[{\BCinptext[i]{Name = "Face Side A"}}]
+  \item[{\BCinptext[i]{Set\_BC\_Value = 81}}]
+\end{InputExample}
+%
+and similarly, \BCinptext[j] will have the following two specified values
+%
+\begin{InputExample}
+  \item[{\BCinptext[j]{Name = "Periodic-2"}}]
+  \item[{\BCinptext[j]{Set\_BC\_Value = 81}}]
+\end{InputExample}
+%
+Note, the strings used here for the \inptext{Name} components of each boundary
+condition have just been randomly created to illustrate that there is no
+restriction that they be coordinated in any way.
+%
+In practice, it is recommended that they are coordinated just to make things
+easier to understand, say something like \inptext{"Periodic-1A"} and
+\inptext{"Periodic-1B"} if there might be more than one pair of periodic
+boundary conditions.
+
+%###############################################################################
+
+\subsubsubsection{Things to Consider when Using Periodic Boundary Conditions}
+
+\begin{itemize}
+  %
+  \item
+    After all translation and rotation operations are performed on one side of a
+    pair of coupled periodic boundaries, the linear grid components (linear cell
+    vertices and faces) of the two boundaries need to result in a 1-to-1 match.
+    %
+    The algorithm for finding all of the matching pairs of vertices between two
+    periodic boundaries works by computing the distance from the current vertex
+    from the left boundary to all the vertices on the right boundary that have
+    not yet been matched to a left vertex.
+    %
+    The matching right vertex is simply determined to be the one with the
+    minimum distance to the current left vertex.
+    %
+    If the minimum distance is greater than 0.001
+    \key[key:GridScaledUnits]{grid scaled units}[grid scaled units]
+    (\thatis meters), an error will occur.
+
+    For a pair of matching linear cell faces on periodic boundaries, the
+    geometries for both faces of the pair need to match (\thatis both
+    triangles, or both quadrilaterals), and the set of grid vertices for both
+    faces need to create a matching set.
+    %
+    For example, let us say we have face $a$ defined by vertices $[1,2,3]$, and
+    it was found to be a periodic match for face $b$ defined by vertices
+    $[143,22,200]$.
+    %
+    For this to be a valid match, vertex 1 needs to match to one of the three
+    vertices for face $b$; for this example we will say it matches to vertex
+    200.
+    %
+    Vertex 2 then needs to be a match to either vertex 143 or 22; we will say 22
+    for this example.
+    %
+    That means vertex 3 \emph{must} be a match to vertex 143, or else this is
+    not a valid pair of matching faces.
+    %
+    Finally, the order of the matched vertices is not important here since after
+    the faces are confirmed to be a valid match, the ordering will be used to
+    find the relative rotation between the two faces.
+  %
+  \item
+    Provided the previous bullet is satisfied such that the linear grid
+    components of a pair of periodic boundaries are found to be an exact
+    1-to-1 match, there are no other requirements on the topology, shape,
+    or orientation of the boundaries.
+    %
+    Periodic boundaries can be high-order, curved surfaces, and they are not
+    required to be planar or aligned with any coordinate direction\slash axis.
+    %
+    For example, a two-dimensional infinite turbine blade cascade could be
+    simulated using only a single blade with translationally periodic boundaries
+    along the curved geometric mid-passage lines above\slash below the blade.
+  %
+  \item
+    For LES, make sure the distance between a pair of coupled
+    periodic boundaries are separated by a distance that is sufficient enough to
+    allow for turbulent structures to breakdown\slash dissipate\slash cascade
+    into finer turbulent length scales along the direction of the periodicity.
+    %
+    If a pair of coupled periodic boundaries are too close to each other, the
+    turbulent length scale will get artificially constrained in the periodic
+    direction.
+    %
+    This will cause energy to get trapped in the larger\slash macro vortical
+    structures, ultimately preventing a truly three-dimensional turbulent flow.
+    
+   %\FIXME{\\
+   %This discusses breakdown, but don't periodic boundaries inhibit
+   %\emph{growth} of turbulent structures?\\
+   %Recommendation for spanwise width for LES?
+   %Perhaps some multiple of the expected turbulent length scale?
+   %}
+  %
+  \item
+    Similar to the previous bullet, be careful with over-prescribing
+    a simulation with too many periodic boundaries in such a way that the
+    periodic boundary conditions change the flow dynamics.
+    %
+    The use of periodic boundary conditions is actually creating an infinite
+    array of identical coupled simulations that are interacting with each other.
+    %
+    If the effect of this coupling is not well thought out, it can have
+    unforeseen consequences ranging from unstable simulations that can be hard
+    to diagnose the source of the instabilities, to questions on the validity
+    \andor accuracy of a simulation and any conclusions that may have resulted.
+     
+    As mentioned in the previous bullet, having periodic boundaries too close to
+    each other is an example of this, but another example is the fully periodic
+    isentropic vortex problem\cite{Spiegel_2015}.
+    %
+    For this problem, 
+    1) the Euler equations provide no physical dissipation;
+    2) the high-order FR scheme provides minimal numerical dissipation; and
+    3) the fully periodic boundaries prevent both numerical and machine
+       roundoff errors from escaping the system.
+    %
+    With no means to dissipate the error or let it leave the system, all of the
+    numerical and roundoff errors created by the simulation become trapped, and
+    eventually these errors grow large enough to negatively effect the
+    simulations with unstable\slash diverging solutions.
+    %
+    Replacing the periodic boundaries with characteristic boundary conditions
+    completely eliminates all instabilities allowing us to demonstrate that
+    the FR method achieves super accuracy for this problem.
+    %
+    Further details about this can be found in \linecite{Spiegel_2015}.
+  %
+\end{itemize}
+
+%###############################################################################
+
+\subsubsubsection{Specifying Coupled Periodic Boundary Conditions}
+\label{SEC:BC:Numerical:Periodic:Inputs}
+
+%###############################################################################
+
+When specifying periodic boundary conditions, some input parameters are
+commonly used with all such boundaries, and others are specific to
+translational or rotational periodicity.
+%
+We discuss each in the sections that follow.
+
+%###############################################################################
+
+\input{BCs/numerical/periodic/common}
+
+%###############################################################################
+
+\input{BCs/numerical/periodic/translated}
+
+%###############################################################################
+
+\input{BCs/numerical/periodic/rotated}
+
+%###############################################################################
+
+\input{BCs/numerical/periodic/examples}
+
+%###############################################################################
+%###############################################################################
+%###############################################################################
+%###############################################################################
+%###############################################################################
+

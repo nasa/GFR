@@ -1,0 +1,28 @@
+\subsubsection{Synthetic Eddy Method (SEM) Boundary Condition}%
+\label{SEC:BC:Inflow:SEM}
+
+The Synthetic Eddy Method (SEM) provides an unsteady turbulent inflow boundary
+condition that is crucial for accurate LES without requiring large run-up
+sections of computational grid for fully developing a turbulent boundary layer
+prior to the computational geometry of interest.
+%
+The user provides an inflow profile with the desired time-averaged flow
+properties and turbulence statistics.
+%
+At each time step, the SEM will then generate an unsteady inflow profile with
+turbulent fluctuations that, when time averaged, will reproduce the requested
+distribution.
+%
+\Sref{SEC:SEM} provides extensive details on the synthetic eddy method:
+%
+\sref{SEC:SEM:theory} provides the theory behind the method as well as an
+overview of how the method works;
+%
+\sref{SEC:SEM:usage} provides details on how to use the SEM in GFR including the
+file format for the SEM profile, the relevant input variables with some
+recommendations, and other aspects unique to the SEM implementation within GFR;
+%
+and \sref{SEC:SEM:FAQ} provides a collection of frequently asked questions.
+
+%###############################################################################
+

@@ -1,0 +1,37 @@
+\subsubsection{General Outflow Boundary Condition}
+\label{SEC:BC:Outflow:General}
+
+This boundary condition combines subsonic and supersonic outflow boundary
+conditions into a single option.
+%
+This boundary condition takes the velocity from the left\slash interior state,
+$\vec{u}_\subL$, and evaluates the magnitude of that velocity normal to the
+boundary face, $v_{n,\subL}$, as
+%
+\[
+  v_{n,\subL} = \vec{u}_\subL\cdot\normal
+\]
+%
+where \normal{} is the unit normal for the boundary face that points outside the
+computational domain.
+%
+The interior static temperature $T_\subL$ and $v_{n,\subL}$ can then be used to
+compute an interior Mach number normal to the outflow boundary, $M_{n,\subL}$, as
+%
+\[
+  M_{n,\subL} = \frac{v_{n,\subL}}{\sqrt{\gamma \rgas T_\subL}}
+\]
+%
+If $M_{n,\subL} \geq 1$, the outflow is supersonic, and the
+right state is evaluated the same way as \sref{SEC:BC:Outflow:Supersonic} by
+fixing it to the interior state, \thatis \[ \cvVecR = \cvVecL \]
+%
+Otherwise, the outflow is subsonic, and the right state is evaluated based on
+the subsonic outflow boundary condition (\ref{SEC:BC:Outflow:Subsonic}), except
+there is no safe guard for the outflow being supersonic since that situation is
+already dealt with for this boundary condition; the safe guard on the flow
+becoming reversed does still exist, but again, only provides minimal protection
+against very minor violations of the assumed outflow.
+
+%###############################################################################
+

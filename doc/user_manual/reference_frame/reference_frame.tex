@@ -1,0 +1,327 @@
+\section{Reference Frame Rotation}
+\label{SEC:Ref_Frame}
+
+GFR supports a rotating reference frame in which all elements in the
+domain move at a constant rotation rate.
+%
+This can be used to simulate flow within rotating channels or
+turbomachinery components.
+%
+The default rotation rate is zero, which means the simulation is
+computed in a fixed reference frame.
+
+\begin{figure}[h]
+ \begin{center}
+ %\input{Figures/tikz_frames}
+  \insertimage[width=0.75\textwidth]{tikz/tikz_frames}
+  \caption{Reference Frames}
+  \label{FIG:RefFrames}
+ \end{center}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\Fref{FIG:RefFrames} illustrates the relationship between
+the     inertial (fixed)    $(\fix{x},\fix{y},\fix{z})$ frame and
+the non-inertial (rotating) $(\rot{x},\rot{y},\rot{z})$ frame,
+whose origin is shifted by $\fvs{\FrameTransVecVar}$ and whose axes
+may be rotated by the rotation rate vector $\fvs{\FrameSpinVecVar}$.
+%
+This spin vector $\fvs{\FrameSpinVecVar}$ is defined by
+the rotation rate $\FrameRotRate$ of the reference frame
+about a unit axis $\fvs{a}$.
+\begin{align}
+     \fvs{a}      =& \fvi{a}{x} \unitvec{\fix{x}}
+                  +  \fvi{a}{y} \unitvec{\fix{y}}
+                  +  \fvi{a}{z} \unitvec{\fix{z}}
+   & \fvi{a}{}    =& \| \fvs{a} \| = \sqrt{\fix{a}_k \fix{a}_k} = 1
+  \\
+     \fvs{\FrameSpinVecVar} =& \fvi{\FrameSpinVecVar}{x} \unitvec{\fix{x}}
+                            +  \fvi{\FrameSpinVecVar}{y} \unitvec{\fix{y}}
+                            +  \fvi{\FrameSpinVecVar}{z} \unitvec{\fix{z}}
+                            =  \fvi{\FrameSpinVecVar}{}  \fvs{a}
+   & \fvi{\FrameSpinVecVar}{}
+                     =&     \| \fvs{\FrameSpinVecVar}    \|
+                     =  \sqrt{ \fvi{\FrameSpinVecVar}{k}
+                               \fvi{\FrameSpinVecVar}{k} }
+                     =  \FrameRotRate
+\end{align}
+%
+A rotation rate tensor $\fts{\FrameSpinTenVar}$ can likewise be defined
+such that
+$\fts{\FrameSpinTenVar} \cdot \fvs{v}
+   = \fvs{\FrameSpinVecVar} \crossprod \fvs{v}$
+for any vector $\fvs{v}$.
+%
+For clarity, we shall write this using the following annotated tensor matrix
+notation, where the associated basis vectors are indicated in blue to the left
+and top of the rows and columns of each matrix.
+%
+\begin{align}
+      \fti{\FrameSpinTenVar}{ij}
+  =& - \perm{ijk} \fvi{\FrameSpinVecVar}{k}
+  =  \begin{bNiceArray}{ccc}[first-row,first-col]
+                          &  \unitvec{\fix{x}}
+                          &  \unitvec{\fix{y}}
+                          &  \unitvec{\fix{z}}   \\
+       \unitvec{\fix{x}}  &  \mspace{3mu} 0
+                          &           - \fvi{\FrameSpinVecVar}{\fix{z}}
+                          &  \phantom{-}\fvi{\FrameSpinVecVar}{\fix{y}} \\
+       \unitvec{\fix{y}}  &  \phantom{-}\fvi{\FrameSpinVecVar}{\fix{z}}
+                          &  \mspace{3mu} 0
+                          &           - \fvi{\FrameSpinVecVar}{\fix{x}} \\
+       \unitvec{\fix{z}}  &           - \fvi{\FrameSpinVecVar}{\fix{y}}
+                          &  \phantom{-}\fvi{\FrameSpinVecVar}{\fix{x}}
+                          &  \mspace{3mu} 0
+     \end{bNiceArray}
+   & \fti{\FrameSpinTenVar}{}
+                     =&     \| \fti{\FrameSpinTenVar}{ij}   \|
+                     =  \sqrt{ \fti{\FrameSpinTenVar}{ij}
+                               \fti{\FrameSpinTenVar}{ij}/2 }
+                     =  \sqrt{ \fvi{\FrameSpinVecVar}{k}
+                               \fvi{\FrameSpinVecVar}{k}    }
+                     =  \FrameRotRate
+\end{align}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+From this, a passive transformation $\fms{\FrameRotMatVar}$ can be constructed
+for converting the vector components from the inertial to the
+non-inertial unit vectors.
+\begin{align}
+     \label{EQN:QRotMatrixArbAxis}
+     \fms{\FrameRotMatVar}
+  =& \begin{bNiceArray}{ccc}[first-row,first-col]
+                          &  \unitvec{\fix{x}}
+                          &  \unitvec{\fix{y}}
+                          &  \unitvec{\fix{z}} \\
+       \unitvec{\rot{x}}  &  \fvia{x}^2        b +          c
+                          &  \fvia{x} \fvia{y} b + \fvia{z} s
+                          &  \fvia{x} \fvia{z} b - \fvia{y} s \\
+       \unitvec{\rot{y}}  &  \fvia{x} \fvia{y} b - \fvia{z} s
+                          &  \fvia{y}^2        b +          c
+                          &  \fvia{y} \fvia{z} b + \fvia{x} s \\
+       \unitvec{\rot{z}}  &  \fvia{x} \fvia{z} b + \fvia{y} s
+                          &  \fvia{y} \fvia{z} b - \fvia{x} s
+                          &  \fvia{z}^2        b +          c
+     \end{bNiceArray}
+  &
+  &  \begin{aligned}
+       \FrameRotAngle =& \int_{t=0}^{\, t} { \FrameRotRate dt } \\
+       b =& 1 - \cos{ \FrameRotAngle } \\
+       c =&     \cos{ \FrameRotAngle } \\
+       s =&     \sin{ \FrameRotAngle }
+     \end{aligned}
+\end{align}
+%
+Note that $\fms{\FrameRotMatVar}(t)$ is a time-dependent proper orthogonal
+rotational transformation tensor such that:
+\begin{align}
+    \label{EQN:QProperOrthoMatrix}
+       {\fms{\FrameRotMatVar}}   {\fms{\FrameRotMatVar}}^T
+ =& \; {\fms{\FrameRotMatVar}}^T {\fms{\FrameRotMatVar}} = {\bm I},
+    \quad\quad
+    \det {\fms{\FrameRotMatVar}} = 1
+\end{align}
+%
+%% Next line is not that important.
+%Because the determinant is one, it does not alter the magnitude of
+%the vector on which it operates.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The motion of this moving non-inertial reference frame $\rvs{x}$
+can therefore be described in terms of the
+arbitrary time-dependent translation and rotation of the
+inertial reference frame $\fvs{x}$
+by the following relations:
+\begin{align}
+    \rot{t}   =& \fix{t} + t_0 &
+    \fix{t}   =& \rot{t} - t_0 \\
+    \rvs{x}   =& {\fms{\FrameRotMatVar}}(t)
+                 \left( \fvs{x} - \fvs{\FrameTransVecVar}(t) \right) &
+    \fvs{x}   =& {\fms{\FrameRotMatVar}}^T
+                        \rvs{x} + \fvs{\FrameTransVecVar}    \\
+    \label{EQ:MovingCoords}
+    \rot{x}_i =& \fmi{\FrameRotMatVar}{ij}
+                 \left( \fvi{x}{j} - \fvi{\FrameTransVecVar}{j} \right) &
+    \fix{x}_i =& \fmi{\FrameRotMatVar}{ij}^T
+                        \rvi{x}{j} + \fvi{\FrameTransVecVar}{i}
+\end{align}
+%where $\rot{\phantom{.}}$ denotes quantites within the moving frame.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+It is important to remember that scalars, vectors, and tensors represent
+physical quantities that are defined {\em with respect to a particular
+reference frame} (\thatis as perceived by an observer in that frame).
+%
+For example, to an observer standing in a room with stagnant air, the air
+is still. However, to another observer in the room riding a carousel, the
+air would seem to approach at a speed equal and opposite his motion.
+ 
+Once the physical orientation of a vector or tensor has been defined
+(based on the chosen reference frame), it is still possible to represent
+that quantity using a different set of unit vectors than the default set
+for that frame.
+%
+This includes other unit vectors within the same frame
+or even the unit vectors of another frame.
+%
+For example, using the transformation $\fms{\FrameRotMatVar}$,
+it is possible to write any fixed frame vector or tensor
+using the unit vectors of the moving frame.
+\begin{align}
+    \mvi{v}{i}  =& \fmi{\FrameRotMatVar}{im} \fvi{v}{m} \\
+    \mti{T}{ij} =& \fmi{\FrameRotMatVar}{im} \fti{T}{mn}
+                   \fmi{\FrameRotMatVar}{nj}^T
+\end{align}
+%
+Thus, $\fvs{v}$ and $\mvs{v}$ represent the same physical vector
+(magnitude and direction) but are written here with separate symbols
+because their component values differ due to the different unit vectors.
+%
+An {\em objective} scalar, vector, or tensor is one that maintains the
+same magnitude and orientation when observed from both the inertial and
+non-inertial frames.  Such objective quantities transform according to:
+\begin{align}
+ && % empty column
+    \label{EQN:ObjectiveScalar}
+ &  \text{Scalar:} &
+    \rot{s}     =& \fix{s}
+ && % empty column
+    \\
+ && % empty column
+    \label{EQN:ObjectiveVector}
+ &  \text{Vector:} &
+    \rvi{v}{i}  =& \mvi{v}{i}
+ && % empty column
+    \\ % = \fmi{\FrameRotMatVar}{im} \fvi{v}{m}  \\
+ && % empty column
+    \label{EQN:ObjectiveTensor}
+ &  \text{Tensor:} &
+    \rti{T}{ij} =& \mti{T}{ij}
+%               =  \fmi{\FrameRotMatVar}{im} \fti{T}{mn}
+%                  \fmi{\FrameRotMatVar}{nj}^T
+ && % empty column
+\end{align}
+In other words, the vector/tensor defined with respect to the moving frame
+perspective happens to match that observed from the fixed frame.
+%
+The same unit vectors must be used when comparing these vector/tensor component
+values between frames, so the \emph{transformed} fixed frame components
+must be used.
+
+For these reasons, it is important to distinguish both the observer perspective
+and the unit vectors used to express the component form of vectors and tensors.
+%
+To avoid confusion, we use the following convention:
+quantities without an accent ($\fvs{v}$) are defined
+with respect to the     inertial frame and that frame's unit vectors,
+quantities denoted with ($\rvs{v}$) are defined
+with respect to the non-inertial frame and that frame's unit vectors, and
+quantities denoted with ($\mvs{v}$) are defined
+with respect to the     inertial frame but written in terms of the
+unit vectors in the non-inertial frame
+through the application of the transformation tensor ${\fms{\FrameRotMatVar}}$.
+%
+Most of the scalars used herein are objective quantities,
+and we shall not distinguish between such scalars in different frames.
+%
+However, because velocity is the most commonly encountered
+non-objective vector quantity, this also means that
+kinetic energy and any other quantity commputed from it
+(\forexample total conditions for energy, enthalpy, pressure, or temperature)
+are also non-objective scalar quantities.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+When applying the transformation to the rotation axis,
+one finds (after substituting $\fms{\FrameRotMatVar}$ from
+Eq.~(\ref{EQN:QRotMatrixArbAxis}) and doing some math):
+\begin{align}
+     \mvs{a}
+  \equiv&
+     \begin{bNiceArray}{c}[first-row,first-col]
+                          &  1       \\
+       \unitvec{\rot{x}}  &  \mvia{x}  \\
+       \unitvec{\rot{y}}  &  \mvia{y}  \\
+       \unitvec{\rot{z}}  &  \mvia{z}  \\
+     \end{bNiceArray}
+  =  {\fms{\FrameRotMatVar}} \fvs{a}
+%%This is standard matrix notation.
+% =  {\fms{\FrameRotMatVar}} \begin{bmatrix} a_x \\ a_y \\ a_z \end{bmatrix}
+% =                          \begin{bmatrix} a_x \\ a_y \\ a_z \end{bmatrix}
+%%This is annotated matrix notation.
+  =  {\fms{\FrameRotMatVar}} \cdot
+     \begin{bNiceArray}{c}[first-row,first-col]
+                          &  1       \\
+       \unitvec{\fix{x}}  &  \fvia{x}  \\
+       \unitvec{\fix{y}}  &  \fvia{y}  \\
+       \unitvec{\fix{z}}  &  \fvia{z}  \\
+     \end{bNiceArray}
+  =
+     \begin{bNiceArray}{c}[first-row,first-col]
+                          &  1       \\
+       \unitvec{\rot{x}}  &  \fvia{x}  \\
+       \unitvec{\rot{y}}  &  \fvia{y}  \\
+       \unitvec{\rot{z}}  &  \fvia{z}  \\
+     \end{bNiceArray}
+     \label{EQN:RotationAxisRotation}
+\end{align}
+Thus, the values of the components of
+$\mvs{a} = ( \mvia{x}, \mvia{y}, \mvia{z} )$
+are identical to those of
+$\fvs{a} = ( \fvia{x}, \fvia{y}, \fvia{z} )$
+even though they are written using two different sets of unit vectors.
+%
+This occurs because as the frame rotates, the angle between the
+rotation axis and the unit vectors remains the same.
+%
+Since $\fvs{\FrameSpinVecVar} = \FrameRotRate \fvs{a}$,
+a similar conclusion holds for the vector components of
+$\mvs{\FrameSpinVecVar}$ and $\fvs{\FrameSpinVecVar}$
+as well as the tensor components of
+$\mts{\FrameSpinTenVar}$ and $\fts{\FrameSpinTenVar}$.
+
+\begin{align}
+     \mvs{\FrameSpinVecVar}
+  =& \fvi{\FrameSpinVecVar}{x} \unitvec{\rot{x}}
+  +  \fvi{\FrameSpinVecVar}{y} \unitvec{\rot{y}}
+  +  \fvi{\FrameSpinVecVar}{z} \unitvec{\rot{z}}
+  =  \fms{\FrameRotMatVar}     \fvs{\FrameSpinVecVar}
+  \\
+      \mti{\FrameSpinTenVar}{ij}
+  =& - \perm{ijk} \mvi{\FrameSpinVecVar}{k}
+  =  \begin{bNiceArray}{ccc}[first-row,first-col]
+                          &  \unitvec{\rot{x}}
+                          &  \unitvec{\rot{y}}
+                          &  \unitvec{\rot{z}}   \\
+       \unitvec{\rot{x}}  &  \mspace{3mu} 0
+                          &           - \fvi{\FrameSpinVecVar}{\fix{z}}
+                          &  \phantom{-}\fvi{\FrameSpinVecVar}{\fix{y}} \\
+       \unitvec{\rot{x}}  &  \phantom{-}\fvi{\FrameSpinVecVar}{\fix{z}}
+                          &  \mspace{3mu} 0
+                          &           - \fvi{\FrameSpinVecVar}{\fix{x}} \\
+       \unitvec{\rot{x}}  &           - \fvi{\FrameSpinVecVar}{\fix{y}}
+                          &  \phantom{-}\fvi{\FrameSpinVecVar}{\fix{x}}
+                          &  \mspace{3mu} 0
+     \end{bNiceArray}
+  =  ( \fms{\FrameRotMatVar} \fts{\FrameSpinTenVar} {\fms{\FrameRotMatVar}}^T )_{ij}
+\end{align}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For additional information about the derivation of the equations of
+motion in a rotating reference frame, see \linecite{Yoder_2026}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlPhysics]{nml\_physics},
+\inp[nmlPhysics::MovingRefFrame/Rotation]%
+    {Moving\_Ref\_Frame\%Rotation},
+\inp[nmlPhysics::MovingRefFrame/Translation]%
+    {Moving\_Ref\_Frame\%Translation}
+}
+

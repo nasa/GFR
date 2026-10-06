@@ -1,0 +1,243 @@
+%##%\FINALFIX{\newpage}
+\subsection{nml\_reference}
+\label{SEC:nml_reference}
+\inp*[nmlReference]{}[nml\_reference][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify the reference conditions for the simulation.
+%
+These conditions are used within the flow solver to nondimensionalize
+the internal variables, and in most cases to initialize the
+volume solution.
+%
+They are also written to the screen during code execution.
+
+\begin{nmlblocklst}[
+,label={LST:nml_reference}
+,caption={Namelist nml\_reference.}
+]
+&nml_reference
+  Mach         = 0.4
+  Reynolds     = -1.0      ! rho*U*L/mu, L=1.0[m]
+  Gamma        = 1.4
+  Gas_Constant = 287.05    ! [J/(kg*K)] = [m^2/(s^2*K)]
+  Density      = -1.0      ! [kg/m^3]
+  Temperature  = 300.0     ! [K]
+  Pressure     = 100000.0  ! [Pa]
+  AoA_Alpha    = 0.0       ! [deg]
+  AoA_Beta     = 0.0       ! [deg]
+  Prandtl      = 0.72
+  Schmidt      = 0.72
+  Suth_Muref   = 1.716e-5  ! [Pa*s] = [N*s/m^2]
+  Suth_Tref    = 273.0     ! [K]
+  Suth_Sref    = 110.4     ! [K]
+/
+\end{nmlblocklst}
+
+\NOTE
+Certain initialization options replace the reference conditions
+by preset values to ensure repeatability of these benchmark cases.
+%
+See the \inp[nmlInitialization::Initialization]{Initialization}
+input for details.
+
+%==========================================================================
+
+\begin{nmldescitem}
+Mach = 0.4
+\end{nmldescitem}
+\inp*[nmlReference::Mach]{}[Mach][]
+
+\begin{nmldescbody}
+Reference Mach number.
+Must be non-negative.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Reynolds = -1.0  ! rho*U*L/mu, L=1.0[m]
+\end{nmldescitem}
+\inp*[nmlReference::Reynolds]{}[Reynolds][]
+
+\begin{nmldescbody}
+Reference Reynolds number, $Re = \rho U L / \mu$, based on
+reference conditions.
+%
+Here,
+$\rho$ is the reference density;
+$U$ is the velocity magnitude computed from
+  the reference Mach number and
+  speed of sound at the reference temperature;
+$L$ is the reference length of 1.0 meter; and 
+$\mu$ is the viscosity computed from
+  Sutherland's viscosity law using \eref{EQN:Viscosity_Sutherland}
+  at the reference temperature.
+
+How the Reynolds number is used depends on the input value:
+\\
+\begin{tabular}{ @{\qquad} r @{ \quad } p{0.85\linewidth} @{} }
+%\begin{longtable}{ @{\qquad} r @{ \quad } p{0.85\linewidth} @{} }
+  $\leq0$
+       & The Reynolds number will be computed from the
+         other reference flow properties.
+         %
+         This yields \scinum{8.7319}{6} for the default values shown above,
+         but will change if you modify any of the other reference conditions.
+         \\
+  $>0$ & The Reynolds number will be used with the
+         other reference conditions you specify
+         to recalibrate the $\mu_0$ constant
+         (\inp[nmlReference::SuthMuref]{Suth\_Muref})
+         in \key[key:SutherlandsViscosityLaw]{Sutherland's viscosity law}[=],
+         see \eref{EQN:Viscosity_Sutherland}.
+         %
+         This can be used to prescribe an artificially lower Reynolds number
+         that permits better resolution of turbulent scales with
+         large-eddy simulation.
+         %
+         It cannot be used to compute other unspecified conditions such as
+         density, pressure, or temperature.
+%\end{longtable}
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Gamma = 1.4
+\end{nmldescitem}
+\inp*[nmlReference::Gamma]{}[Gamma][]
+
+\begin{nmldescbody}
+Reference $\gamma$ (ratio of specific heats).
+%
+If the value specified is negative, it will be reset to the default
+of 1.4 (the typical value for air).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Gas_Constant = 287.05  ! [J/(kg*K)] = [m^2/(s^2*K)]
+\end{nmldescitem}
+\inp*[nmlReference::GasConstant]{}[Gas\_Constant][]
+
+\begin{nmldescbody}
+Reference specific gas constant (units of \unit{\J\per\kg\per\K}).
+%
+If the value specified is negative, it will be reset to the default
+of 287.05 (the typical value for air).
+ 
+\noindent\NOTE
+In the code, the default value actually has more precision since it is computed
+as $\texttt{Gas\_Constant} = R_\textrm{univ} / M_\textrm{air}$,
+where $R_\textrm{univ}$ is the universal gas constant that is hard-coded as a
+Fortran constant with the value
+$8314.5\ \unit{\J\per\K\per\kmol}$,
+and $M_\textrm{air}$ is the
+molar mass of air which is also a hard-coded Fortran constant with the value
+$28.9651159\ \unit{\kg\per\kmol}$.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Density     = -1.0      ! [kg/m^3]
+Temperature = 300.0     ! [K]
+Pressure    = 100000.0  ! [Pa]
+\end{nmldescitem}
+\inp*[nmlReference::Density]{}[Density][]
+\inp*[nmlReference::Temperature]{}[Temperature][]
+\inp*[nmlReference::Pressure]{}[Pressure][]
+
+\begin{nmldescbody}
+Reference static
+density $\rho$ (\unitDens{}),
+temperature $T$ (\unitTemp{}), and 
+pressure $p$ (\unitPres{}).
+
+\NOTE
+If all three inputs are positive, a consistency check will be performed.
+%
+If one of these three inputs is negative, it will be computed
+from the other two using the equation of state, \eref{EQN:EqOfState}.
+%
+So, for the default values shown above,
+density will evaluate to 1.160833 \unitDens{}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+AoA_Alpha = 0.0  ! [deg]
+AoA_Beta  = 0.0  ! [deg]
+\end{nmldescitem}
+\inp*[nmlReference::AoAAlpha]{}[AoA\_Alpha][]
+\inp*[nmlReference::AoABeta]{}[AoA\_Beta][]
+
+\begin{nmldescbody}
+Reference flow angles (in degrees):
+$\alpha$ is the
+\key[key:AngleOfAttack]{angle of attack}[flow angles!angle of attack]
+measured in the $x$-$y$ plane, and
+$\beta$  is the
+\key[key:AngleOfSideslip]{angle of sideslip}[flow angles!angle of sideslip]
+measured in the $x$-$z$ plane.
+%
+These flow angles are defined by
+\eref{EQN:FlowAngleVelX,EQN:FlowAngleVelY,EQN:FlowAngleVelZ} and
+\fref{FIG:FlowAngle} on \pref{\pageref{FIG:FlowAngle}}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Prandtl = 0.72
+\end{nmldescitem}
+\inp*[nmlReference::Prandtl]{}[Prandtl][]
+
+\begin{nmldescbody}
+Prandtl number of the flow.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Schmidt = 0.72
+\end{nmldescitem}
+\inp*[nmlReference::Schmidt]{}[Schmidt][]
+
+\begin{nmldescbody}
+Schmidt number of the flow.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Suth_Muref = 1.716e-5  ! [Pa*s] = [N*s/m^2]
+Suth_Tref  = 273.0     ! [K]
+Suth_Sref  = 110.4     ! [K]
+\end{nmldescitem}
+\inp*[nmlReference::SuthMuref]{}[Suth\_Muref][]
+\inp*[nmlReference::SuthTref]{}[Suth\_Tref][]
+\inp*[nmlReference::SuthSref]{}[Suth\_Sref][]
+
+\begin{nmldescbody}
+These inputs correspond to the constants
+  $\mu_0$,
+  $T_0$, and
+  $S_0$
+in \key[key:SutherlandsViscosityLaw]{Sutherland's viscosity law}[=],
+\eref{EQN:Viscosity_Sutherland}.
+
+\noindent
+\NOTE
+If the reference Reynolds number specified is positive,
+it will be used to recalibrate the $\mu_0$ constant.
+See \inp[nmlReference::Reynolds]{Reynolds} for details.
+\end{nmldescbody}
+
+%==========================================================================
+

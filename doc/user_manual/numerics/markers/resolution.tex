@@ -1,0 +1,104 @@
+\subsubsection{Resolution Marker}
+\label{SEC:ResolutionMarker}
+\key*{}[marker!resolution marker]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%! The idea behind the resolution marker is that numerical instabilities
+%! often appear in the highest polynomial mode(s).
+
+As discussed in \sref{SEC:Filtering}, numerical instabilities often
+appear in the highest polynomial mode(s).
+%
+An easy way to distinguish between well-resolved and possibly unstable
+cells is to examine the highest mode of the solution within each cell.
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Recall that the \key{modal form}[polynomial!modal form] of the
+solution polynomial for a given flow variable is given by \eref{EQN:Modal_Form}
+\begin{align*}
+       u (r) =& \sum_{n=1}^{N_p} \uModal[n] (t) \psi_n (r)
+& \psi_n (r) =& r^{n-1}
+\end{align*}
+where $\uModal[n]$ represents the modal coefficients, with $\uModal[1]$ being
+the coefficient for the lowest\slash constant mode and $\uModal[N_p]$ being
+the coefficient for the highest\slash degree-\PO{} mode.
+%
+A diagonal filter matrix can be applied to remove the highest mode of the
+solution.
+\begin{align}
+    \bm{\underline{\uModal[]}}
+ =& \bm{\sigma} \bm{\uModal[]}
+  &
+    \sigma_n
+ =& \begin{cases}
+      0 & n = N_p \\
+      1 & \text{otherwise}
+    \end{cases}
+\end{align}
+ 
+A comparison of this filtered solution to the actual solution will
+provide a test for the possibility of numerical instabilities in
+the cell.
+%
+Namely, in a well-resolved solution,
+$\bm{\uModal[]} \simeq \bm{\underline{\uModal[]}}$.
+%
+Any cells in which this comparison shows a difference that is beyond
+a certain threshold are marked as ``troubled'' cells.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+To do this, we compute the local resolution marker
+as\cite{Persson_2006,Barter_2007,Barter_2008}
+\begin{align}
+    \label{EQN:ResolutionMarker}
+    \marker \left( \bm{\uModal[]} , \bm{\underline{\uModal[]}} \right)
+ =& \log_{10}
+    \left[
+      \frac{
+        \left( \bm{\uModal[]} - \bm{\underline{\uModal[]}} \right) \cdot
+        \left( \bm{\uModal[]} - \bm{\underline{\uModal[]}} \right)
+      }{
+               \bm{\uModal[]} \cdot        \bm{\uModal[]}
+      }
+    \right]
+\end{align}
+where $\bm{\uModal[]}$ is the user-specified solution variable
+to check (density is recommended).
+%
+If all of the conserved variables are specified, then
+\eref{EQN:ResolutionMarker} is computed for each one and the
+maximum value is used.
+%
+Note that the numerator represents the norm of the highest mode
+and the denominator represents the norm of all the modes combined.
+%
+The marker will have values in the range $\marker = [-\infty,0]$ where
+the lower value indicates that nothing is contained in the highest mode and 
+the upper value indicates that everything is contained in the highest mode.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Next, we compute the local scaled marker as described in \sref{SEC:ScaledMarker}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%!% AIAA-2022-1813 by Spiegel used:
+%!\begin{align}
+%!    {\cal S} >& - \left( \psi + 4.25 \log_{10} \left( \PO \right) \right) &
+%!\end{align}
+%!where $\psi$ is a user-specified constant that will depend on the
+%!problem and the polynomial order $\PO$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlLimiter::MarkerOption]{Marker\_Option},
+\inp[nmlLimiter::MarkerVariable]{Marker\_Variable}
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

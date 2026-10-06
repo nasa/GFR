@@ -1,0 +1,37 @@
+\subsubsection{Subsonic Outflow Boundary Condition}%
+\label{SEC:BC:Outflow:Subsonic}
+
+This boundary condition assumes the velocity normal to the boundary face is
+subsonic and leaving the computational domain.
+%
+The right state is computed as
+%
+\begin{alignat*}{1}
+  \vec{u}_\subR & = \vec{u}_\subL \\
+  T_\subR & = T_\subL \\
+  p_\subR & = p_\subBC
+\end{alignat*}
+%
+This boundary condition does have some built-in safe guards in case the
+velocity at the boundary face becomes supersonic or reversed (\thatis inflow
+instead of outflow).
+%
+However, these safe guards only provide minimal protection against
+minor violations of the assumed subsonic outflow.
+%
+\begin{itemize}[itemsep=5pt,topsep=5pt,parsep=0pt]
+  \item If you suspect your outflow boundary will likely contain large sections
+    of both subsonic and supersonic outflow, you should consider using either
+    the general outflow (\ref{SEC:BC:Outflow:General}) or characteristic
+    (\ref{SEC:BC:Farfield:Characteristic}) boundary conditions.
+  \item If you suspect there is a chance parts of your outflow boundary could
+    reverse direction, at a minimum you should switch to using a characteristic
+    (\ref{SEC:BC:Farfield:Characteristic}) boundary condition instead of a
+    subsonic outflow boundary condition. However, the better option is to modify
+    the grid so that the outflow boundary is in a region that maintains a flow
+    directed out of the domain and is not susceptible to reversing that
+    direction.
+\end{itemize}
+
+%###############################################################################
+

@@ -1,0 +1,16 @@
+VARIABLES="x","y","z"
+ZONE T="3D Tet"
+DATAPACKING=POINT
+Nodes=8
+ELEMENTS=1
+ZONETYPE=FEBRICK
+# Tet with equal edge lengths, so h=sqrt(6)/3*length
+  0.0     0.0     0.0     
+  1.0     0.0     0.0     
+  0.5     0.866   0.0     
+  0.5     0.866   0.0     
+  0.5     0.2887  0.8165  
+  0.5     0.2887  0.8165  
+  0.5     0.2887  0.8165  
+  0.5     0.2887  0.8165  
+1 2 3 4 5 6 7 8

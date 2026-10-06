@@ -1,0 +1,52 @@
+\subsubsection{Ducros Marker}
+\label{SEC:DucrosMarker}
+\key*{}[marker!Ducros Marker]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The Ducros marker uses a divergence based indicator together with the jump
+marker to identify troubled cells.
+%
+First, the jump marker is computed using
+\eref{EQN:JumpIndicator2,EQN:JumpMarker} and then the scaled jump marker,
+$\scaledmarker_{\textrm{jump}}$, is evaluated using
+\eref{EQN:ScaledResolutionMarker}.
+%
+Next, the divergence indicator is computed using the equation:
+%
+\begin{equation}
+  \scaledmarker_{\textrm{div}} = \left(
+                                 \frac{2 \left|\nabla\cdot\vec{V}\right|}{a}
+                                 \cdot
+                                 \frac{h}{\p[+1]{}}
+                                 \right)^4
+\end{equation}
+%
+where $h$ is the maximum length of a cell across all Cartesian coordinate
+directions and $a$ is the speed of sound.
+%
+The value of $\scaledmarker_{\textrm{div}}$ for a cell is taken as the maximum
+value from all solution points of the cell.
+%
+Finally, the scaled Ducros marker is computed as
+%
+\begin{equation}
+  \scaledmarker_{\textrm{Ducros}} = \scaledmarker_{\textrm{jump}} \cdot
+                                    \scaledmarker_{\textrm{div}}
+\end{equation}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Further information about the Ducros marker can be found in
+\linecite{Koeplinger_2026}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlLimiter::MarkerOption]{Marker\_Option},
+\inp[nmlLimiter::MarkerVariable]{Marker\_Variable}
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

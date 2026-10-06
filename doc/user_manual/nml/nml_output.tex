@@ -1,0 +1,842 @@
+\subsection{nml\_output}
+\label{SEC:nml_output}
+\inp*[nmlOutput]{}[nml\_output][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to control various output files.
+
+\begin{nmlblocklst}[
+,label={LST:nml_output}
+,caption={Namelist nml\_output.}
+]
+&nml_output
+  Time_Scaling_Factor                =  1.0
+  Display_Interval                   =  1
+  Residual_Interval                  =  0
+  Restart_Interval                   =  0
+  Restart_Frequency                  = -1.0  ! tstar
+  Restart_Output_Uses_Host_Roots     =  T
+  Restart_Output_Disabled            =  F
+  Output_Dir                         = "."
+  Output_Interval                    = -5
+  Output_Frequency                   = -1.0  ! tstar
+  Output_Order                       = -3
+  Output_Summary_File                =  F
+  Dmat_Grad_Temp_Order               = -1
+  Loc_Output_Pts                     =  0
+  CGNS_High_Order_Output             =  F
+  CGNS_Mixed_Output                  =  T
+  CGNS_Output_Disabled               =  F
+  Probes_Collection_Interval         =  0
+  Probes_Write_Interval              =  100
+  Point_Probes(1)%xyz(1:3)           =  [-999.,-999.,-999.] ! grid units
+  Rake_Probes(1)%num_probes          =  0
+  Rake_Probes(1)%xyz_beg(1:3)        =  [-999.,-999.,-999.] ! grid units
+  Rake_Probes(1)%xyz_end(1:3)        =  [-999.,-999.,-999.] ! grid units
+  Cell_Probes(1)%xyz(1:3)            =  [-999.,-999.,-999.] ! grid units
+  Profile_IO_All                     =  F
+  Profile_IO_Restart                 =  F
+  Profile_IO_CGNS                    =  F
+  Profile_IO_CGNS_Subs               =  F
+  Lustre_Stripe_Count                =  64
+  Lustre_Stripe_Size                 = "4m"
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Time_Scaling_Factor = 1.0  ! [1/s]
+\end{nmldescitem}
+\inp*[nmlOutput::TimeScalingFactor]{}[Time\_Scaling\_Factor][]
+
+\begin{nmldescbody}
+This scaling factor is used to define a non-dimensional time
+(\key*[key:tstar]{\tstar}[t *@\tstar])
+\begin{gather}
+  \label{EQN:tstar}
+  \tstar = ( t - t_0 ) \cdot \inptext{Time\_Scaling\_Factor}
+\end{gather}
+where $t$ is the dimensional time (in seconds).
+%
+If time-averaging has been activated, then $t_0$ is the dimensional time
+(in seconds) when time-averaging began.
+Otherwise, $t_0=0$.
+%
+This non-dimensional time (\tstar)
+is what is written to standard output and the residual file.
+It is also used by the following input variables to
+determine when certain events should occur:
+\begin{itemize}
+\item
+  \inp[nmlPhysics::MovingRefFrame/Spinup/Tstar]{Moving\_Ref\_Frame\%Spinup\%Tstar} for the moving reference frame startup,
+\item
+  \inp[nmlTimeAve::StartAveragingTstar]{Start\_Averaging\_Tstar}
+  for time averaging startup,
+\item
+  \inp[nmlOutput::RestartFrequency]{Restart\_Frequency} of restart files,
+\item
+  \inp[nmlOutput::OutputFrequency]{Output\_Frequency} of CGNS files,
+  and
+\item
+  \inp[nmlTimestep::FinalTime]{Final\_Time} for when to stop a simulation.
+\end{itemize}
+
+
+For example, many simulations are based on a number of flow-through periods.
+%
+In this case, the \inptext{Time\_Scaling\_Factor} should be set to
+the value of $U/L$, where
+  $U$ is the convective velocity and
+  $L$ is the flow-through length of the domain.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Display_Interval = 1
+\end{nmldescitem}
+\inp*[nmlOutput::DisplayInterval]{}[Display\_Interval][]
+
+\begin{nmldescbody}
+Number of time steps between writing the time-stepping, residual,
+and convergence statistics to standard output.
+%
+The input is treated as follows:
+\\
+\begin{tabular}{ @{\qquad} r @{ \quad } p{0.75\linewidth} @{} }
+  $< 0$ & Reset to
+          $\inp[nmlTimestep::NumTimesteps]{Num\_Timesteps} /
+           | \inptext{Display\_Interval} |$.\\
+  $= 0$ & Reset to 1.\\
+  $> 0$ & Use as-is.
+\end{tabular}
+
+\NOTE
+When running the Taylor-Green vortex problem or the
+Taylor-Couette problem, this input is also used as the interval for
+writing integrated kinetic energy dissipation rate (KEDR)
+statistics to the file ``TaylorGreen\_KEDR.dat'' or
+``TaylorCouette\_KEDR.dat'', respectively.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Residual_Interval = 0
+\end{nmldescitem}
+\inp*[nmlOutput::ResidualInterval]{}[Residual\_Interval][]
+
+\begin{nmldescbody}
+Number of time steps between writing the residual and convergence
+statistics for all conserved and primitive variables to the
+residual file ``residual.dat''.
+%
+The input is treated as follows:
+\\
+\begin{tabular}{ @{\qquad} r @{ \quad } p{0.75\linewidth} @{} }
+  $< 0$ & Reset to
+          $\inp[nmlTimestep::NumTimesteps]{Num\_Timesteps} /
+           | \inptext{Residual\_Interval} |$.\\
+  $= 0$ & Reset to
+          $\inp[nmlTimestep::NumTimesteps]{Num\_Timesteps} / 500$.\\
+  $> 0$ & Use as-is.
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Restart_Interval = 0
+\end{nmldescitem}
+\inp*[nmlOutput::RestartInterval]{}[Restart\_Interval][]
+
+\begin{nmldescbody}
+Specifies the number of time steps between writing restart files.
+%
+Note that a restart file is always written before the first (non-restarted)
+time step and after completing the last time step.
+%
+With the default value of 0, no intermediate files will be written,
+only the restarts before the first time step and after the final time step.
+%
+After successfully writing a new restart file, a
+symbolic link will be created that points to the latest restart
+file.
+%
+The name of this link will be:
+\newline\indent
+``\inp[nmlOutput::OutputDir]{Output\_Dir}\slash{Restart\_files}\slash{out.current.rst}'' 
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Restart_Frequency = -1.0  ! tstar
+\end{nmldescitem}
+\inp*[nmlOutput::RestartFrequency]{}[Restart\_Frequency][]
+
+\begin{nmldescbody}
+If $>0$, this value specifies the non-dimensional time
+(\key[key:tstar]{\tstar}[t *@\tstar]) interval, \eref{EQN:tstar},
+to write restart files.
+%
+This is complimentary to \inptext{Restart\_Interval}
+and will write additional restart files.
+%
+After successfully writing a new restart file, a
+symbolic link will be created that points to the latest restart
+file.
+%
+The name of this link will be:
+\newline\indent
+``\inp[nmlOutput::OutputDir]{Output\_Dir}\slash{Restart\_files}\slash{out.current.rst}'' 
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Restart_Output_Uses_Host_Roots = T
+\end{nmldescitem}
+\inp*[nmlOutput::RestartOutputUsesHostRoots]{}[Restart\_Output\_Uses\_Host\_Roots][]
+
+\begin{nmldescbody}
+Indicates which MPI processes are involved in writing to the
+restart file.
+%
+If true, then only the root processes on each host node will
+preform the output.
+%
+Otherwise, all MPI processes will be involved in the output.
+
+\NOTE
+This is only applicable for parallel simulations run across
+multiple physical computers, \forexample multiple nodes on
+the NASA HECC supercomputers.
+%
+Only change this if you encounter MPI errors that occur when
+trying to write restart files.
+%
+Changing this to false will most likely result in higher
+I\slash O file contention and possibly increased memory usage.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Restart_Output_Disabled = F
+\end{nmldescitem}
+\inp*[nmlOutput::RestartOutputDisabled]{}[Restart\_Output\_Disabled][]
+
+\begin{nmldescbody}
+If set to true, this option will prevent any instantaneous or time-averaged
+restart files from being written.
+%
+This is intended for simulations that will complete with the allotted
+resources and will not need to be restarted later.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Output_Dir = "."
+\end{nmldescitem}
+\inp*[nmlOutput::OutputDir]{}[Output\_Dir][]
+
+\begin{nmldescbody}
+File path to the directory used for writing output files.
+
+\NOTE
+If one is available, it is recommended that the output directory be
+located on a Lustre file system in order to get the best I\slash O
+performance possible.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Output_Interval = -5
+\end{nmldescitem}
+\inp*[nmlOutput::OutputInterval]{}[Output\_Interval][]
+
+\begin{nmldescbody}
+This controls the number of time steps between writing CGNS solution files.
+The input value is interpreted as follows:
+\\
+\begin{tabular}{ @{\qquad} r @{ \quad } p{0.85\linewidth} @{} }
+  $<0$ & For most situations, every
+         $\inp[nmlTimestep::NumTimesteps]{Num\_Timesteps} /
+           | \inptext{Output\_Interval} |$
+         time steps.\\
+  $=0$ & For most situations, every
+         $\inp[nmlTimestep::NumTimesteps]{Num\_Timesteps}/50$ time steps.\\
+  $>0$ & For all situations, every
+         \inptext{Output\_Interval} time steps.
+\end{tabular}
+\\
+The first two options result in a fixed number of output files
+each time the code is run, assuming the code does not terminate
+early.
+
+
+\NOTE
+For the following special cases, the input value is interpreted differently:
+\begin{itemize}
+%---------------------------------------------------------------------
+\item 
+If either
+  $\inp[nmlOutput::OutputFrequency]{Output\_Frequency}>0$ or
+  $\inp[nmlOutput::CGNSOutputDisabled]{CGNS\_Output\_Disabled}=\texttt{T}$,
+the action associated with those inputs will take precedence
+and this input will not be used.
+%---------------------------------------------------------------------
+\item
+If running any of the transport problems (isentropic vortex,
+density\slash entropy advection), this input value is used to
+determine when a CGNS solution file will be written as follows:
+\\
+\begin{tabular}{ @{\qquad} r @{ \quad } p{0.75\linewidth} @{} }
+  $<0$ & At the completion of every $|\inptext{Output\_Interval}|$
+         flow-through periods.\\
+  $=0$ & At the completion of every flow-through period.
+\end{tabular}
+%---------------------------------------------------------------------
+\item
+If running either the Taylor-Green vortex problem or the
+Taylor-Couette problem, CGNS solution files will automatically be
+written at certain specific values of
+non-dimensional time (\key[key:tstar]{\tstar})
+that are of interest
+to each specific problem. If $\inptext{Output\_Interval}=0$,
+only these problem specific CGNS solution files will be written;
+otherwise ($\inptext{Output\_interval}\neq 0$) this behaves the
+same as ``most situations'' in addition to writing the
+problem-specific CGNS solution files.
+%---------------------------------------------------------------------
+\end{itemize}
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Output_Frequency = -1.0  ! tstar
+\end{nmldescitem}
+\inp*[nmlOutput::OutputFrequency]{}[Output\_Frequency][]
+
+\begin{nmldescbody}
+If $>0$, this value specifies the non-dimensional time
+(\key[key:tstar]{\tstar}[t *@\tstar]) interval, \eref{EQN:tstar},
+to write CGNS files.
+%
+\inp[nmlOutput::OutputInterval]{Output\_Interval} will be disabled.
+%% Users need not know this detail:
+%  by setting it to $\inp[nmlTimestep::NumTimesteps]{Num\_Timesteps}+1$.
+%
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Output_Order = -3
+\end{nmldescitem}
+\inp*[nmlOutput::OutputOrder]{}[Output\_Order][]
+
+\begin{nmldescbody}
+Specifies the degree of the polynomial space used to represent the solution
+in the CGNS solution files. This allows the ability to over-sample the
+solution polynomial within each cell which provides a smoother solution 
+when visualizing within your favorite post-processing software.
+
+\NOTE
+If using \inp[nmlOutput::CGNSHighOrderOutput]{CGNS\_High\_Order\_Output}, the
+output order will be limited to a maximum of 4, since that is the
+maximum order supported by the CGNS library.
+
+\NOTE
+If
+$\inptext{Output\_Order} < \inp[nmlNumerics::SolutionOrder]{Solution\_Order}$,
+the solution order will be used instead.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Output_Summary_File = F
+\end{nmldescitem}
+\inp*[nmlOutput::OutputSummaryFile]{}[Output\_Summary\_File][]
+
+\begin{nmldescbody}
+Setting this to true will create the file ``summary.log'' when the
+simulation successfully stops.
+%
+This file contains summarized information about the simulation like:
+\begin{itemize}[noitemsep,nolistsep]
+\item
+  computational cost
+\item
+  solution order
+\item
+  number of cells
+\item
+  degrees of freedom
+\item
+  total time or \key[key:tstar]{\tstar}[t *@\tstar]
+  elapsed during this simulation
+\item
+  final time or \key[key:tstar]{\tstar}[t *@\tstar]
+  at the end of the simulation\\
+  (\thatis combining the elapsed value with that from the restart file)
+\item
+  the current length of time averaging (if applicable)
+\item
+  and more
+\end{itemize}
+
+When running the channel flow test case using the internal grid generator,
+it will also contain detailed grid information such as the number of
+grid cells and degrees of freedom in each direction, as well as their
+respective spacings.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Dmat_Grad_Temp_Order = -1
+\end{nmldescitem}
+\inp*[nmlOutput::DmatGradTempOrder]{}[Dmat\_Grad\_Temp\_Order][]
+
+\begin{nmldescbody}
+If outputting the derivative of temperature, this is the quadrature order
+used for computing temperature before projecting down to the solution order
+and computing the derivative.
+
+\NOTE
+If $\inptext{Dmat\_Grad\_Temp\_Order} < 0$,
+\inp[nmlNumerics::SolutionOrder]{Solution\_Order}
+will be used instead.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Loc_Output_Pts = 0
+\end{nmldescitem}
+\inp*[nmlOutput::LocOutputPts]{}[Loc\_Output\_Pts][]
+
+\begin{nmldescbody}
+Specifies the location of the \key{output nodal points}[points!output]
+ within the grid cells when writing the CGNS solution files.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  0 & \key{Equidistant points}[points!equidistant] nodes \\
+  1 & \key{Legendre-Gauss (Gauss) points}[points!Legendre-Gauss (Gauss)] nodes \\
+  2 & \key{Legendre-Gauss-Lobatto (Lobatto) points}[points!Legendre-Gauss-Lobatto (Lobatto)] nodes
+\end{tabular}
+
+\NOTE
+Using Legendre-Gauss nodes for the CGNS solution output files
+will result in empty space between all cells because
+those points do not extend all the way to the cell edge and
+there is no connectivity information between cells.
+%
+This only affects your ability to visualize the solution
+and does not affect the solution accuracy in any way.
+\end{nmldescbody}
+
+%==========================================================================
+
+%\begin{nmldescitem}
+%Continuous_Output = F
+%\end{nmldescitem}
+%\inp*[nmlOutput::ContinuousOutput]{}[Continuous\_Output][]
+%
+%\begin{nmldescbody}
+%Specifies whether the output routine should attempt to create a smooth,
+%continuous solution across all cells before writing to the
+%CGNS solution file.
+% 
+%This option is intended for use with
+%\inp[nmlOutput::LocOutputPts]{Loc\_Output\_Pts}=1 (Legendre-Gauss nodes),
+%which have empty space between all cells because
+%those points do not extend all the way to the cell edge and
+%there is no connectivity information between cells.
+%%
+%When activated, additional output points will be added within
+%each cell to fill this gap.
+%%
+%This will create CGNS solution files that are significantly larger in file
+%size compared to the regular CGNS solution files.
+%
+%\NOTE
+%This only works with a single MPI process.
+%%
+%So far, tests of this feature have been underwhelming with regards
+%to creating a cleaner visualization of the solution for things
+%like isosurfaces.
+%
+%\end{nmldescbody}
+
+%==========================================================================
+
+%\begin{nmldescitem}
+%Interpolate_Before_Output_Variable = T
+%\end{nmldescitem}
+%\inp*[nmlOutput::InterpolateBeforeOutputVariable]{}[Interpolate\_Before\_Output\_Variable][]
+%
+%\begin{nmldescbody}
+%Determines whether interpolation to the output points is done
+%before or after the output variables are computed.
+%
+%\begin{tabular}{ @{} r @{ = } p{0.85\linewidth} @{} }
+%  T & Interpolation is done before the output variable is computed.
+%      Flow variables are interpolated from the solution points
+%      to the output points, then output quantities are computed
+%      at the output points.
+%      This provides consistency between the various output variables
+%      at the output points.\\
+%  F & Interpolation is done after the output variable is computed.
+%      Output quantities are computed from the flow variables
+%      at the solution points, then interpolated to the output points.
+%\end{tabular}
+%
+%In GFR, the conserved variables are represented as polynomials
+%within each element.
+%%
+%However, derived quantities such as velocity, temperature, and
+%pressure cannot be exactly represented as a polynomial
+%because they involve nonlinear relations or fractions of polynomials.
+%%
+%If one interpolates the conserved variables to the output points
+%and then computes the derived quantities, all the output variables
+%at the output points will be self-consistent.
+%%
+%If one instead computes the derived quantities at the solution points
+%and uses those approximate polynomials to interpolate onto the
+%output points, the conserved and derived values at the output
+%points will not be self-consistent.
+%
+%\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+CGNS_High_Order_Output = F
+\end{nmldescitem}
+\inp*[nmlOutput::CGNSHighOrderOutput]{}[CGNS\_High\_Order\_Output][]
+
+\begin{nmldescbody}
+Setting this to true will write the CGNS grid file (solution.grid.cgns)
+using high-order cells. If not enabled (the default), the CGNS grid file
+breaks each cell into linear sub-cells.
+
+\NOTE
+Visualizing high-order CGNS solution files requires specialized software,
+such as Tecplot 2023 or newer.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+CGNS_Mixed_Output = T
+\end{nmldescitem}
+\inp*[nmlOutput::CGNSMixedOutput]{}[CGNS\_Mixed\_Output][]
+
+\begin{nmldescbody}
+This determines how cell connectivity is handled in high-order CGNS grid files.
+%
+If true, all grid cells will be combined into a single zone
+regardless of cell geometry or order.
+%
+If false, each individual combination of cell geometry and order
+will be written to its own zone.
+%
+Some post-processing software may prefer the latter format.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+CGNS_Output_Disabled = F
+\end{nmldescitem}
+\inp*[nmlOutput::CGNSOutputDisabled]{}[CGNS\_Output\_Disabled][]
+
+\begin{nmldescbody}
+Completely disables CGNS solutions from being output at the output interval.
+
+On some systems with a large number of processors,
+the output of CGNS files can be slow.
+%
+It can be advantageous to instead output restart files,
+and later use
+\inp[nmlUtility::ConvertRestartToCGNS]{Convert\_Restart\_To\_CGNS}
+in the \inptext{nml\_utility} namelist block of \sref{SEC:nml_utility}
+to have GFR batch convert those restart files to CGNS.
+%
+This post-processing step can be done using a minimal number
+of processors, because most of the work is simple file I\slash O.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Probes_Collection_Interval = 0
+\end{nmldescitem}
+\inp*[nmlOutput::ProbesCollectionInterval]{}[Probes\_Collection\_Interval][]
+
+\begin{nmldescbody}
+If $>0$, this value specifies the iteration interval used to collect
+time-history data for each of the probes. The information collected at this
+interval is saved to a buffer and only written out after completing the number
+of collections specified by the input
+\inp[nmlOutput::ProbesWriteInterval]{Probes\_Write\_Interval}.
+%
+With the default value of 0, no time-history probe data will be collected or
+output.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Probes_Write_Interval = 100
+\end{nmldescitem}
+\inp*[nmlOutput::ProbesWriteInterval]{}[Probes\_Write\_Interval][]
+
+\begin{nmldescbody}
+This value specifies how often to write out the buffer used to collect
+time-history data for the probes.
+
+\NOTE
+This interval is relative to the number of collections completed, and is not
+relative to the simulation iteration.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Point_Probes(1)%xyz(1:3) = [-999.,-999.,-999.]  ! input grid units
+\end{nmldescitem}
+\inp*[nmlOutput::PointProbes]{}[Point\_Probes][]
+
+\begin{nmldescbody}
+This specifies the location of a single point \key[key:probes]{probe}[probes] to
+collect time-history data.
+%
+The values specified for this input are assumed to be in the units of the input
+mesh file (\thatis \emph{grid units} as discussed in \sref{SEC:Grid_Scaling}).
+%
+Up to 200 point probes may be used.
+%
+Probes set to the default location are ignored.
+%
+For more information on the point probe files, see
+\sref{SEC:Files:Probes_Output}.
+
+\NOTE
+The solution point closest to these coordinates will be used as the source for
+the probe data.
+
+\NOTE
+If an individual solution point is identified as the source of a point probe by
+more than one point\slash rake\slash cell probe, the duplicate probes will be
+removed and only a single probe will be collected for that solution point.
+%
+This will make it seem like there are missing probe files.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Rake_Probes(1)%Num_Probes   = 0
+Rake_Probes(1)%xyz_beg(1:3) = [-999.,-999.,-999.]  ! input grid units
+Rake_Probes(1)%xyz_end(1:3) = [-999.,-999.,-999.]  ! input grid units
+\end{nmldescitem}
+\inp*[nmlOutput::RakeProbes]{}[Rake\_Probes][]
+
+\begin{nmldescbody}
+These inputs provide the details necessary to create a rake of point
+\key[key:probes]{probes}[probes].
+%
+The number of probes to create within rake $i$ is specified using the input
+\inptext{Rake\_Probes($i$)\%Num\_Probes}.
+%
+\inptext{Rake\_Probes($i$)\%xyz\_beg(1:3)} and
+\inptext{Rake\_Probes($i$)\%xyz\_end(1:3)}
+specify the coordinates for the start and end points of the rake, with both of
+these coordinate inputs assumed to be in the units of the mesh file (\thatis
+\emph{grid units} as discussed in \sref{SEC:Grid_Scaling}).
+
+In the case that $\inptext{Num\_Probes}=1$, the single probe created by the
+rake will be located halfway between the start and end points for the rake.
+%
+Otherwise, probes will be located at both the start and end points for the
+rake, and $\inptext{Num\_Probes}-2$ probes will be equally spaced along the
+line between the start and end points.
+
+Up to 10 rake probes may be used, with no limit on the number of probes per rake.
+%
+Rakes with $\inptext{Num\_Probes}=0$ or $\inptext{xyz\_beg}=\inptext{xyz\_end}$
+are ignored, and no time-history probe data will be collected or
+output for the rake.
+%
+For more information on the rake probe files, see
+\sref{SEC:Files:Probes_Output}.
+
+\NOTE
+For each individual rake probe, the solution point closest to the probe
+coordinates will be used as the source for the probe data.
+
+\NOTE
+If an individual solution point is identified as the source of a point probe by
+more than one point\slash rake\slash cell probe, the duplicate probes will be
+removed and only a single probe will be collected for that solution point.
+%
+This will make it seem like there are missing probe files.
+
+\NOTE
+It should be warned that too many probes (1000+) may have a large negative
+impact on code and file system performance.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Cell_Probes(1)%xyz(1:3) = [-999.,-999.,-999.]  ! input grid units
+\end{nmldescitem}
+\inp*[nmlOutput::CellProbes]{}[Cell\_Probes][]
+
+\begin{nmldescbody}
+This input provides the ability to create a set of point probes for every
+solution point within a grid cell.
+%
+For the grid cell that contains the coordinates of this input, individual point
+\key[key:probes]{probes}[probes] will be created for every solution point within
+that grid cell, resulting in time-history data for the entire cell.
+%
+The values specified for this input are assumed to be in the units of the input
+mesh file (\thatis \emph{grid units} as discussed in \sref{SEC:Grid_Scaling}).
+%
+Up to 10 cell probes may be used.
+%
+Probes set to the default location are ignored.
+%
+For more information on the cell probe files, see
+\sref{SEC:Files:Probes_Output}.
+
+\NOTE
+If an individual solution point is identified as the source of a point probe by
+more than one point\slash rake\slash cell probe, the duplicate probes will be
+removed and only a single probe will be collected for that solution point.
+%
+This will make it seem like there are missing probe files.
+
+\NOTE
+It should be warned that too many cell probes may have a large negative impact
+on code and file system performance.
+%
+A single cell probe for a \PO[3] hexahedral cell will result in 64 separate
+point probes, and 125 probes for a \PO[4] hexahedral cell.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Profile_IO_All = F
+\end{nmldescitem}
+\inp*[nmlOutput::ProfileIOAll]{}[Profile\_IO\_All][]
+
+\begin{nmldescbody}
+If true, sets both
+  \inp[nmlOutput::ProfileIOCGNS]{Profile\_IO\_CGNS} and
+  \inp[nmlOutput::ProfileIORestart]{Profile\_IO\_Restart}
+to true.
+%
+If false, it has no effect on the other input parameters.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Profile_IO_Restart = F
+\end{nmldescitem}
+\inp*[nmlOutput::ProfileIORestart]{}[Profile\_IO\_Restart][]
+
+\begin{nmldescbody}
+Activates timers to measure how long it takes to write each restart or
+time-averaged restart file, and outputs the results to standard output.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Profile_IO_CGNS = F
+\end{nmldescitem}
+\inp*[nmlOutput::ProfileIOCGNS]{}[Profile\_IO\_CGNS][]
+
+\begin{nmldescbody}
+Activates timers to measure how long it takes to write each CGNS solution file,
+and outputs the results to standard output.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Profile_IO_CGNS_Subs = F
+\end{nmldescitem}
+\inp*[nmlOutput::ProfileIOCGNSSubs]{}[Profile\_IO\_CGNS\_Subs][]
+
+\begin{nmldescbody}
+Activates timers to measure how long it takes to complete each individual call
+to a function from the CGNS library, and outputs the results to standard output.
+%Outputs timing information for each individual call to a CGNS function.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Lustre_Stripe_Count = 64
+\end{nmldescitem}
+\inp*[nmlOutput::LustreStripeCount]{}[Lustre\_Stripe\_Count][]
+
+\begin{nmldescbody}
+Specifies the approximate number of stripes to use when writing a CGNS
+solution file or a restart file.
+
+\NOTE
+This is only used if \inp[nmlOutput::OutputDir]{Output\_Dir}
+is on a Lustre file system.
+%
+The code will take this value and find the closest integer value satisfying:
+$\textrm{mod} \left( \textsl{ncpu}
+                   , \inptext{Lustre\_Stripe\_Count}
+              \right) = 0$
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Lustre_Stripe_Size = "4m"
+\end{nmldescitem}
+\inp*[nmlOutput::LustreStripeSize]{}[Lustre\_Stripe\_Size][]
+
+\begin{nmldescbody}
+Specifies the number of bytes to store on each stripe before moving to the
+next stripe.
+
+\NOTE
+This is only used if \inp[nmlOutput::OutputDir]{Output\_Dir}
+is on a Lustre file system.
+%
+The value of \linebreak[4]\inptext{Lustre\_Stripe\_Size}
+must be a multiple of 65,536 bytes (64 KB), and the suffixes
+`k', `m', or `g' can be used to specify units of
+KB, MB, or GB, respectively.
+
+\EXAMPLE
+$\textrm{``4m''} \Rightarrow 4~\textrm{MB}
+                 \Rightarrow 4,194,304~\textrm{bytes}$
+\end{nmldescbody}
+
+%==========================================================================
+

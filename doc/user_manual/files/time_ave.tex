@@ -1,0 +1,297 @@
+%\subsection{\texorpdfstring{\colorbox{yellow}{Time-Averaging Output}}%
+%                                             {Time-Averaging Output}}
+\subsection{Time-Averaging Output}%
+\label{SEC:Files:Time_Averaging_Output}
+\key*{}[time averaging]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+When performing large-eddy simulations, time-averaged variables are
+often needed to aid in post-processing.
+%
+Storing all of the instantaneous flow variables at every sampling time
+would permit one to compute any time-averaged quantity at the end of the
+simulation by re-processing the data, but would also require a prohibitive
+amount of storage.
+%
+Instead, these time-averaged variables can be computed on-the-fly
+during each iteration of the solution process and output as a
+separate set of restart and CGNS files whenever those are written.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+{%BEG_newcommand_scope
+\newcommand{\ux}{u_x}
+\newcommand{\ur}{u_r}
+\newcommand{\ut}{u_\theta}
+\newcommand{\cp}{c_p}
+ 
+The list of variables that are computed and saved in the
+time-averaged restart file is as follows.
+%
+\begin{align*}
+   & \ReyAve{\rho}      && \ReyAve{\rho^2} 
+\\ & \ReyAve{T}         && \ReyAve{T^2} && \ReyAve{T_t}
+\\ & \ReyAve{p}         && \ReyAve{p^2} && \ReyAve{p_t}
+%   & \ReyAve{\rho^2}    && \ReyAve{p^2} && \ReyAve{T^2}
+%\\ & \ReyBar{\rho  }    && \ReyBar{p}   && \ReyBar{T}
+\\ & \ReyAve{\rho u}    && \ReyBar{u}   
+\\ & \ReyAve{\rho v}    && \ReyBar{v}   && \ReyAve{\rho \ur} && \ReyAve{\ur}
+\\ & \ReyAve{\rho w}    && \ReyBar{w}   && \ReyAve{\rho \ut} && \ReyAve{\ut}
+\\ & \ReyAve{\rho e_t}
+  && \ReyAve{\rho T}
+\displaybreak[2]
+\\ & \ReyAve{\ux \ux}   && \ReyAve{\rho \ux \ux}
+  && \ReyAve{\ux  T}    && \ReyAve{\rho \ux T}
+\\ & \ReyAve{\ur \ur}   && \ReyAve{\rho \ur \ur}
+  && \ReyAve{\ur  T}    && \ReyAve{\rho \ur T}
+\\ & \ReyAve{\ut \ut}   && \ReyAve{\rho \ut \ut}
+  && \ReyAve{\ut  T}    && \ReyAve{\rho \ut T}
+\\ & \ReyAve{\ux \ur}   && \ReyAve{\rho \ux \ur}
+\\ & \ReyAve{\ux \ut}   && \ReyAve{\rho \ux \ut}
+\\ & \ReyAve{\ur \ut}   && \ReyAve{\rho \ur \ut}
+\end{align*}
+%
+Note that these are the time averages of instantaneous flow variables, and
+the higher order terms do not directly represent the turbulent fluctuations.
+%
+However, this set of terms provides the ability during post-processing to
+compute conservative and primitive mean-flow variables,
+turbulent stresses, and turbulent heat fluxes
+in either the Reynolds-averaged or Favre-averaged form.
+%
+For example,
+\begin{align}
+%   Reynolds stress
+    - \ReyBar{\rho} \ReyAve{\ReyFlx{u}_x \ReyFlx{u}_\theta}
+ =& - \ReyBar{\rho}
+      \left(
+        \ReyAve{u_x u_\theta}
+      - \ReyAve{u}_x \ReyAve{u}_\theta
+      \right)
+  & 
+%   Favre stress
+    - \ReyAve{\rho \FavFlx{u}_x \FavFlx{u}_\theta}
+ =& -
+      \left(
+        \ReyAve{\rho u_x u_\theta}
+      - \ReyBar{\rho} \FavAve{u}_x \FavAve{u}_\theta
+      \right)
+  & 
+%   Favre velocity
+      \FavAve{u}_x
+ =&   \ReyAve{\rho u_x} / \ReyBar{\rho}
+    \label{EQN:Time_Ave_PostProc_Equations}
+ \\
+%   Reynolds heat flux
+      \ReyBar{\rho} \ReyAve{\ReyFlx{u}_x \ReyFlx{h}}
+ =&   \ReyBar{\rho} \cp
+      \left(
+        \ReyAve{u_x T}
+      - \ReyBar{u}_x \ReyBar{T}
+      \right)
+  &
+%   Favre heat flux
+      \ReyAve{\rho \FavFlx{u}_x \FavFlx{h}}
+ =&   \cp
+      \left(
+        \ReyAve{\rho u_x T}
+      - \ReyBar{\rho} \FavBar{u}_x \FavBar{T}
+      \right)
+  &
+%   Favre velocity
+      \FavAve{u}_\theta
+ =&   \ReyAve{\rho u_\theta} / \ReyBar{\rho}
+    \nonumber
+ \\
+ &&
+ &&
+%   Favre temperature
+      \FavBar{T}
+ =&   \ReyAve{\rho T} / \ReyBar{\rho}
+    \nonumber
+\end{align}
+%
+If the input
+\inp[nmlTimeAve::TimeAveVelIsAxisymm]{Time\_Ave\_Vel\_Is\_Axisymm}
+is false, then the variables $(\ux,\ur,\ut)$ in the statistics above
+are replaced with $(u,v,w)$ and the Cartesian stresses and
+heat fluxes are retained instead.
+%
+If a rotating reference frame is used, then the output will also
+be with respect to that reference frame.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Even though all of the previously mentioned variables are computed and saved in
+the time-averaged restart file, most users are primarily interested in those
+needed to compute the Reynolds-averaged quantities.
+%
+Therefore only the subset of variables in
+\tref{TAB:CGNS_Time_Ave_Output_Variables} is output to the time-averaged CGNS
+file.
+%
+Changing the output list requires modifying subroutine {\tt
+get\_cgns\_time\_ave\_variables} and recompiling the code.
+%
+In the CGNS time-averaged solution files, there are several variables whose
+names consist of only two letters, \forexample \texttt{TT}, \texttt{uv},
+\texttt{rf}.
+%
+These two letter combinations represent the fluctuating Reynolds-averaged terms,
+with the previously mentioned examples representing
+$\left(\texttt{TT},\texttt{uv},\texttt{rf}\right)=
+\left(\ReyAve{\ReyFlx{T}\ReyFlx{T}},
+      \ReyAve{\ReyFlx{u}\ReyFlx{v}},
+      \ReyAve{\ReyFlx{\ur}\ReyFlx{\ut}}\right)$.
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{table}[h]
+\begin{center}
+\caption[Time-averaged variables output to CGNS.]%
+        {Time-averaged variables output to CGNS based on
+         \inp[nmlTimeAve::TimeAveVelIsAxisymm]{Time\_Ave\_Vel\_Is\_Axisymm}.}
+\label{TAB:CGNS_Time_Ave_Output_Variables}
+\begingroup % limit scope of local commands
+%\renewcommand{\arraystretch}{1.4}
+%
+\begin{tabular}{ cc @{\qquad} l @{\qquad} l}
+    \toprule
+    \multicolumn{2}{@{}c@{\qquad}}{Output Mode}
+  & % blank
+  & % blank
+    \\
+    %---------------------------------------------
+    XYZ
+  & Axi
+  & Variables
+  & CGNS Variable Names
+    \\
+    %---------------------------------------------
+    \midrule
+    \checkmark
+  & \checkmark
+  & $\ReyBar{\rho}$,
+    $\ReyBar{p}$,
+    $\ReyBar{T}$,
+    $\ReyAve{\ReyFlx{T}\ReyFlx{T}}$
+  & \texttt{Density},
+    \texttt{Pressure},
+    \texttt{Temperature},
+    \texttt{TT}
+    \\[0.40em]
+    %---------------------------------------------
+    \checkmark
+  & \checkmark
+  & $\ReyBar{T_t}$,
+    $\ReyBar{p_t}$
+  & \texttt{StagnationTemperature},
+    \texttt{StagnationPressure}
+    \\[0.40em]
+    %---------------------------------------------
+    \checkmark
+  & \checkmark
+  & $\ReyBar{u},\ReyBar{v},\ReyBar{w}$
+  & \texttt{VelocityX, VelocityY, VelocityZ}
+    \\[0.40em]
+    %---------------------------------------------
+    % blank
+  & \checkmark
+  & $\ReyBar{u}_r,\ReyBar{u}_\theta$
+  & \texttt{VelocityR, VelocityTheta}
+    \\[0.40em]
+    %---------------------------------------------
+    \checkmark
+  & % blank
+  & $\ReyAve{\ReyFlx{u  }\ReyFlx{u  }}$,
+    $\ReyAve{\ReyFlx{v  }\ReyFlx{v  }}$,
+    $\ReyAve{\ReyFlx{w  }\ReyFlx{w  }}$
+  & \texttt{uu, vv, ww}
+    \\[0.40em]
+    %---------------------------------------------
+    % blank
+  & \checkmark
+  & $\ReyAve{\ReyFlx{u  }\ReyFlx{u  }}$,
+    $\ReyAve{\ReyFlx{\ur}\ReyFlx{\ur}}$,
+    $\ReyAve{\ReyFlx{\ut}\ReyFlx{\ut}}$
+  & \texttt{uu, rr, ff}
+    \\[0.40em]
+    %---------------------------------------------
+    \checkmark
+  & % blank
+  & $\ReyAve{\ReyFlx{u  }\ReyFlx{v  }}$,
+    $\ReyAve{\ReyFlx{u  }\ReyFlx{w  }}$,
+    $\ReyAve{\ReyFlx{v  }\ReyFlx{w  }}$
+  & \texttt{uv, uw, vw}
+    \\[0.40em]
+    %---------------------------------------------
+    % blank
+  & \checkmark
+  & $\ReyAve{\ReyFlx{u  }\ReyFlx{\ur}}$,
+    $\ReyAve{\ReyFlx{u  }\ReyFlx{\ut}}$,
+    $\ReyAve{\ReyFlx{\ur}\ReyFlx{\ut}}$
+  & \texttt{ur, uf, rf}
+    \\[0.40em]
+    %---------------------------------------------
+    \checkmark
+  & % blank
+  & $\ReyAve{\ReyFlx{u  }\ReyFlx{T}}$,
+    $\ReyAve{\ReyFlx{v  }\ReyFlx{T}}$,
+    $\ReyAve{\ReyFlx{w  }\ReyFlx{T}}$
+  & \texttt{uT, vT, wT}
+    \\[0.40em]
+    %---------------------------------------------
+    % blank
+  & \checkmark
+  & $\ReyAve{\ReyFlx{u  }\ReyFlx{T}}$,
+    $\ReyAve{\ReyFlx{\ur}\ReyFlx{T}}$,
+    $\ReyAve{\ReyFlx{\ut}\ReyFlx{T}}$
+  & \texttt{uT, rT, fT}
+    \\
+    %---------------------------------------------
+    \bottomrule
+\end{tabular}
+%
+\endgroup
+\end{center}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlTimeAve]{nml\_time\_ave}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\vspace{1.0em}%
+%\FIXME{
+%\begin{itemize}
+%\setlength\topsep{0.0em}
+%\setlength\itemsep{0.0em}
+%\setlength\parsep{0.0em}
+%%
+%\item \raggedright
+%For rotating reference frame, need more clarity on the reference frame
+%and unit vectors of the output variables.
+%Are $\fvs{u}=(u,v,w)$ really
+%$\mvs{u}=(\mix{u},\mix{v},\mix{w}) = \fms{\FrameRotMatVar}\fvs{u}$?
+%Is $\ReyAve{u  }$ really $\ReyAve{\mix{u}        }$?
+%Is $\ReyAve{u u}$ really $\ReyAve{\mix{u} \mix{u}}$?
+%What are $(\ur,\ut)$?
+%%
+%\item \raggedright
+%Since $\fms{\FrameRotMatVar}=\fms{\FrameRotMatVar}(t)$, the
+%rotating frame unit vectors vary with time.
+%If $\fms{\FrameRotMatVar}$ is inside the time-average, where do the
+%unit vectors of those averaged values point?
+%%
+%\end{itemize}
+%%
+%} %end FIXME
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+}%END_newcommand_scope
+

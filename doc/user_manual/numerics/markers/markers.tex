@@ -1,0 +1,62 @@
+\subsection{Troubled Cell Markers}%
+\label{SEC:Markers}%
+\key*[key:marker]{}[marker]%
+
+\IDEA{Add Ducros and Ducros+Jump markers.}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%! Blindly applying filtering or limiting to every element in the domain
+%! can cause a reduction in numerical accuracy.
+%! %
+%! Therefore, we wish to restrict such treatments to only those elements
+%! that are experiencing numerical instability.
+%! %
+%! This is done through the use of a troubled cell marker.
+%! %
+%! A few different types of markers are available for use and are
+%! described below.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Instabilities within a given simulation are usually highly-localized
+to very small regions of the grid domain.
+%
+Frequently, just a single cell out of perhaps millions of cells will
+entirely contain the instability at a particular time step of a simulation.
+%
+Indiscriminately applying numerical dissipation to all cells in a
+simulation for stabilization purposes will add unwanted dissipation
+in places where it is not needed, severely affecting the overall accuracy
+of the solution.
+%
+Therefore, a method is needed to identify only those cells whose
+solutions show signs of becoming unstable, so they can be specifically
+targeted with additional numerical dissipation.
+%
+A few different types of troubled cell markers are available for use
+and are described below.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{numerics/markers/resolution}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{numerics/markers/jump}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{numerics/markers/mlp}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{numerics/markers/ducros}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{numerics/markers/scaling}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

@@ -1,0 +1,75 @@
+\begin{nmlblocklst}[
+,label={LST:testcase:couette}
+,caption={Sample input file for Couette flow test case.}
+]
+&nml_version
+  Namelist_Version          =  2
+/
+&nml_grid
+  Grid_Format               =  3  ! Plot3D format
+  Grid_File                 =  '../grid_files/couette.grd'
+  Plot3d_BCSfile            =  '../grid_files/couette.bcs.grd'
+/
+&nml_reference
+  Mach                      =       0.201569299302318  ! U = 70 m/s
+  Reynolds                  =     200.0
+  Gamma                     =       1.4
+  Gas_Constant              =     287.142857142857     ! J/(kg*K)
+  Temperature               =     300.0  ! K
+  Pressure                  =  100000.0  ! Pa
+  Suth_Muref                =       0.406301824212273  ! Pa*s
+  Suth_Tref                 =     300.0  ! K
+  Suth_Sref                 =       0.0  ! K
+/
+&nml_physics
+  Governing_Equations       =  2  ! Navier-Stokes
+/
+&nml_initialization
+  Initialization            =  1  ! Init to ref conditions
+/
+&nml_timestep
+  Runge_Kutta_Scheme        =  3
+  Num_Timesteps             =  1000000
+  Final_Time                =    100.0
+  Timestep_Type             =  1  ! Global CFL
+  CFL                       =  0.1
+  CFL_Ramping_Beg           =  0.1
+  CFL_Ramping_End           =  0.4
+  CFL_Ramping_Iterations    =  1000
+  Convergence_Order_Abs_Res = -10.0
+  Convergence_Order_Max_Res = -10.0
+/
+&nml_numerics
+  All_Orders                =  2  ! P2 solution, 3rd order accuracy
+  All_Points                =  1  ! Legendre-Gauss points
+/
+&nml_output
+  Restart_Interval          =  10000
+  Display_Interval          =    100
+  Residual_Interval         =    100
+  Output_Interval           =  10000
+/
+&nml_bc
+  BC_Input(1)%Name                      =  'TOP_WALL'
+  BC_Input(1)%Set_BC_Value              =   53         ! Isothermal Wall
+  BC_Input(1)%VelocityX                 =   70.0       ! m/s
+  BC_Input(1)%Wall_Temp                 =  300.0       ! K
+  !
+  BC_Input(2)%Name                      =  'BOT_WALL'
+  BC_Input(2)%Set_BC_Value              =   53         ! Isothermal Wall
+  BC_Input(2)%Wall_Temp                 =  300.0       ! K
+  !
+  BC_Input(3)%Name                      =  'INFLOW'
+  BC_Input(3)%Set_BC_Value              =   81         ! Periodic
+  BC_Input(3)%Periodic%Matching_BC_Name =  'OUTFLOW'
+  BC_Input(3)%Periodic%Matching_BC_Idx  =    4
+  BC_Input(3)%Periodic%Translation(1)   =    2.0
+  !
+  BC_Input(4)%Name                      =  'OUTFLOW'
+  BC_Input(4)%Set_BC_Value              =   81         ! Periodic
+  BC_Input(4)%Periodic%Matching_BC_Name =  'INFLOW'
+  BC_Input(4)%Periodic%Matching_BC_Idx  =    3
+  BC_Input(4)%Periodic%Translation(1)   =   -2.0
+/
+\end{nmlblocklst}
+

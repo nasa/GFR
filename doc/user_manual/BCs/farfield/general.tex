@@ -1,0 +1,83 @@
+\subsubsection{General Free-flow Boundary Condition}
+\label{SEC:BC:Farfield:General}
+
+This boundary condition serves as a generalized inflow\slash outflow for both
+subsonic and supersonic flow regimes, essentially combining the general inflow
+(\ref{SEC:BC:Inflow:General}) and general outflow (\ref{SEC:BC:Outflow:General})
+boundary conditions into a single option.
+%
+This boundary condition takes the velocity from the left\slash interior state,
+$\vec{u}_\subL$, and evaluates the magnitude of that velocity normal to the
+boundary face, $v_{n,\subL}$, as
+%
+\[
+  v_{n,\subL} = \vec{u}_\subL\cdot\normal
+\]
+%
+where \normal{} is the unit normal for the boundary face that points outside the
+computational domain.
+%
+The interior static temperature $T_\subL$ and $v_{n,\subL}$ can then be used to
+compute an interior Mach number normal to the inflow boundary, $M_{n,\subL}$, as
+%
+\[
+  M_{n,\subL} = \frac{v_{n,\subL}}{\sqrt{\gamma \rgas T_\subL}}
+\]
+%
+From here, there are four options based on the magnitude and sign of
+$M_{n,\subL}$:
+%
+\begin{itemize}
+  %
+  \item $M_{n,\subL}\geq +1$\quad (\textit{Supersonic Outflow})
+
+    The interior flow is supersonic and exiting the domain.
+    %
+    The right state is evaluated the same way as the supersonic outflow boundary
+    condition (\ref{SEC:BC:Outflow:Supersonic}) by just fixing it to the
+    interior state, \thatis \[ \cvVecR = \cvVecL \]
+  %
+  \item $M_{n,\subL}\leq -1$\quad (\textit{Supersonic Inflow})
+
+    The interior flow is supersonic because the magnitude of the Mach number is
+    greater than or equal to 1. It is entering the domain since a negative value
+    indicates the flow is aligned in the opposite direction as the outward
+    facing normal.
+    %
+    The right state is evaluated the same way as the supersonic inflow boundary
+    condition (\ref{SEC:BC:Inflow:Supersonic}) by just fixing it to the boundary
+    condition state, \thatis \[ \cvVecR = \cvVecBC \]
+  %
+  \item $0 \leq M_{n,\subL} < 1$\quad (\textit{Subsonic Outflow})
+
+    The interior flow is subsonic and exiting the domain.
+    %
+    The right state is evaluated based on the subsonic outflow boundary
+    condition (\ref{SEC:BC:Outflow:Subsonic}), except there are no safe guards
+    in place for supersonic or reversed flows since the other three conditional
+    statements of this bulleted list explicitly deal with those situations for
+    this boundary condition.
+  %
+  \item $-1 < M_{n,\subL} < 0$\quad (\textit{Subsonic Inflow})
+
+    The interior flow is subsonic because the magnitude of the Mach number is
+    less than 1; it is entering the domain since a negative value indicates the
+    flow is aligned in the opposite direction as the outward facing normal.
+    %
+    The right state is evaluated based on the subsonic inflow boundary condition
+    with $\inptext{Sub\_Inflow\_Method}=4$ (\ref{SEC:BC:Inflow:Subsonic:4}).
+    %
+    It should be noted that this boundary condition will always operate as if
+    $\inptext{Sub\_Inflow\_Method}=4$ when the interior Mach number indicates a
+    subsonic inflow condition; the value of the input
+    \inptext{Sub\_Inflow\_Method} has no control over the subsonic inflow
+    method used for this boundary condition and is therefore ignored.
+  %
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\devNotes{Need to fix subsonic inflow angle-of-attack bug.}
+
+%###############################################################################
+

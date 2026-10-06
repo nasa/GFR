@@ -1,0 +1,246 @@
+\subsection{nml\_time\_ave}
+\label{SEC:nml_time_ave}
+\inp*[nmlTimeAve]{}[nml\_time\_ave][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+controls time averaging of solution variables.
+
+\begin{nmlblocklst}[
+,label={LST:nml_time_ave}
+,caption={Namelist nml\_time\_ave.}
+]
+&nml_time_ave
+  Compute_Time_Averaging      =  F
+  Num_Saved_Time_Ave_Restarts =  2
+  Input_Time_Ave_File         = "out.ave"
+  Time_Ave_Vel_Is_Axisymm     =  F
+  Start_Averaging_Timestep    = -1
+  Start_Averaging_Tstar       = -1.0
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Compute_Time_Averaging = F
+\end{nmldescitem}
+\inp*[nmlTimeAve::ComputeTimeAveraging]{}[Compute\_Time\_Averaging][]
+
+\begin{nmldescbody}
+This flag enables or disables the accumulation of time-averaged
+flow variables.
+%
+If enabled, time-averaged restart and CGNS solution files will be
+written whenever the standard restart and CGNS solution files are written.
+
+
+%%BegCut:
+%%Describe the restart files using a single paragraph with no line breaks.
+%%This was hard to read, so it was replaced with the paragraph below it.
+% 
+% The time-averaged restart file will be written to the
+%   ``\inp[nmlOutput::OutputDir]{Output\_Dir}\slash{Restart\_files}\slash''
+% directory.
+% %
+% In order to save disk space, the name of the time-averaged restart file
+% will alternate between
+%   ``out.1.ave'' and
+%   ``out.2.ave''.
+% %
+% After successfully writing a new time-averaged restart file, a
+% symbolic link will be created that points to the latest
+% time-averaged restart file.
+% %
+% The name of this link will be:
+%   ``out.current.ave''.
+%%EndCut:
+
+
+The time-averaged restart file will be written to the
+  ``\inp[nmlOutput::OutputDir]{Output\_Dir}\slash{Restart\_files}\slash''
+directory.
+%
+In order to save disk space, the name of the time-averaged restart file
+will cycle between the following:
+\newline\indent
+``\inp[nmlOutput::OutputDir]{Output\_Dir}\slash{Restart\_files}\slash{out.1.ave}''
+\newline\indent
+``\inp[nmlOutput::OutputDir]{Output\_Dir}\slash{Restart\_files}\slash{out.2.ave}''
+\newline\indent
+\ldots
+\newline\indent
+``\inp[nmlOutput::OutputDir]{Output\_Dir}\slash{Restart\_files}\slash{out.N.ave}''
+\newline
+where N=\inp[nmlTimeAve::NumSavedTimeAveRestarts]{Num\_Saved\_Time\_Ave\_Restarts}.
+%
+After a new time-averaged restart file is successfully written,
+%After successfully writing a new time-averaged restart file,
+a symbolic link will be created that points to the latest time-averaged restart
+file. The name of this link will be:
+\newline\indent
+``\inp[nmlOutput::OutputDir]{Output\_Dir}\slash{Restart\_files}\slash{out.current.ave}'' 
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Num_Saved_Time_Ave_Restarts = 2
+\end{nmldescitem}
+\inp*[nmlTimeAve::NumSavedTimeAveRestarts]{}[Num\_Saved\_Time\_Ave\_Restarts][]
+
+\begin{nmldescbody}
+This is used to change the number of time-averaged restart files
+(out.$\ast$.ave) that are saved to the Restart\_files directory.
+The default is 2, so output will cycle between out.1.ave and out.2.ave.
+
+Through the setting of
+\inp[nmlOutput::RestartInterval]{Restart\_Interval},
+\inp[nmlOutput::RestartFrequency]{Restart\_Frequency}, and
+this input,
+one should ensure there is a viable fallback solution to
+restart from should an NaN occur.
+\end{nmldescbody}
+
+%==========================================================================
+
+%##%\FINALFIX{\newpage}
+\begin{nmldescitem}
+Input_Time_Ave_File = "out.ave"
+\end{nmldescitem}
+\inp*[nmlTimeAve::InputTimeAveFile]{}[Input\_Time\_Ave\_File][]
+
+\begin{nmldescbody}
+\IDEA{Change this input to \inptext{Input\_Time\_Ave\_File}.}
+
+File path to the time-averaged solution restart file that will be
+read during initialization if the following criteria are met:
+%
+\begin{itemize}
+  \item
+    $\inp[nmlInitialization::LoadRestartFile]{Load\_Restart\_File}=\mathtt{T}$
+  \item One of the following is met:
+    \begin{itemize}
+      \item
+        $\inp[nmlTimeAve::ComputeTimeAveraging]{Compute\_Time\_Averaging}=\texttt{T}$
+      \item
+        $\inp[nmlTimeAve::StartAveragingTstar]{Start\_Averaging\_Tstar}>0$ and
+        $\inptext{Start\_Averaging\_Tstar} \leq \tstar$,
+        where \key[key:tstar]{\tstar}[t *@\tstar] is the
+        non-dimensional simulation time, \eref{EQN:tstar}, of the data that was
+        read in from \inp[nmlInitialization::RestartFile]{Restart\_File}.
+      \item
+        $\inp[nmlTimeAve::StartAveragingTimestep]{Start\_Averaging\_Timestep}>0$
+        and $\inptext{Start\_Averaging\_Timestep} \leq iteration$,
+        where $iteration$ is the iteration number of the data that was
+        read in from \inptext{Restart\_File}.
+    \end{itemize}
+\end{itemize}
+%
+The code will read the time-averaged flow variables of the
+previous simulation from which the new simulation was restarted,
+and then add to those statistics during the current run job.
+
+\NOTE
+If the above criteria are met, but the file specified by
+\inptext{Input\_Time\_Ave\_File} does not exist, a completely new time averaging will
+be started.
+%
+This is the case even if you were intending to restart a previous time
+averaging, and the reason the file could not be found was due to a small typo in
+the file name.
+
+\NOTE
+This file is only for \emph{reading} during initialization and
+is \emph{not an output file}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Time_Ave_Vel_Is_Axisymm = F
+\end{nmldescitem}
+\inp*[nmlTimeAve::TimeAveVelIsAxisymm]{}[Time\_Ave\_Vel\_Is\_Axisymm][]
+
+\begin{nmldescbody}
+% Specifies whether axisymmetric velocity components should be included
+% in the time-averaged flow variables.
+% 
+% If false, the time-averaged Cartesian velocity components
+% ($v_x$, $v_y$, $v_z$) will be saved
+% along with the Cartesian stress and heat flux data.
+% %
+% If true, the grid is assumed to be axisymmetric about the $x$-axis and
+% the time-averaged
+%   streamwise      ($v_x$),
+%   radial          ($v_r$), and
+%   circumferential ($v_\theta$)
+% velocity components will added.
+% %
+% This option is useful for recording statistics for axisymmetric flows.
+
+This option is useful for recording statistics for axisymmetric flows.
+%
+It specifies whether axisymmetric velocity components should be included
+in the time-averaged flow variables.
+%
+Note, regardless of the value for this input variable, the Cartesian momentum
+and velocity components ($[\rho v_x,\rho v_y,\rho v_z]$ and $[v_x,v_y,v_z]$)
+will always be averaged and saved to the time-averaged restart file.
+\\[0.25em]
+\begin{tabular}{ @{\qquad} r @{ \quad } p{0.85\linewidth} @{} }
+  T & The geometry is assumed to be axisymmetric about the $x$-axis.
+      %
+      The axisymmetric momentum and velocity components in the
+      radial ($\rho v_r, v_r$) and
+      circumferential ($\rho v_\theta, v_\theta$)
+      directions will also be averaged and saved to the
+      time-averaged restart file.
+      %
+      The stress and heat flux data will be for the axisymmetric terms,
+      \emph{not} the Cartesian terms
+      (\thatis the axisymmetric velocity components are used in the
+      time-averaged terms).
+      %
+      For example, the averaged term \ReyAve{v_y T} will be replaced with
+      \ReyAve{v_r T} and \ReyAve{\rho v_x v_z} will be replaced with
+      \ReyAve{\rho v_x v_\theta}.
+  \\
+  F & % The time-averaged Cartesian velocity components
+      % ($v_x$, $v_y$, $v_z$) will be saved.
+      %
+      The stress and heat flux data will be for the Cartesian terms
+      (\thatis the Cartesian velocity components are used in the
+      time-averaged terms).
+\end{tabular}
+\\[0.25em]
+\NOTE
+See \sref{SEC:Files:Time_Averaging_Output} for additional details.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Start_Averaging_Timestep = -1
+\end{nmldescitem}
+\inp*[nmlTimeAve::StartAveragingTimestep]{}[Start\_Averaging\_Timestep][]
+
+\begin{nmldescbody}
+Iteration number to begin time averaging.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Start_Averaging_Tstar = -1.0
+\end{nmldescitem}
+\inp*[nmlTimeAve::StartAveragingTstar]{}[Start\_Averaging\_Tstar][]
+
+\begin{nmldescbody}
+Non-dimensional simulation time (\key[key:tstar]{\tstar}[t *@\tstar]),
+\eref{EQN:tstar},
+to begin time averaging.
+\end{nmldescbody}
+
+%==========================================================================
+

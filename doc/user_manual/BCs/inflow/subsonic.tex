@@ -1,0 +1,373 @@
+\subsubsection{Subsonic Inflow Boundary Condition}
+\label{SEC:BC:Inflow:Subsonic}
+
+We first need to introduce notation for some quantities that will be utilized
+frequently when describing the different subsonic inflow methods.
+%
+For the velocity vector $\vec{u}$, let \vmag{} represent the total magnitude of
+the vector, \thatis
+%
+\[ \vmag = \norm{\vec{u}} \]
+%
+We also introduce the following notation to represent the vector of the
+directional cosines for each respective component of a velocity vector
+%
+\begin{equation}
+  \dircos = \frac{\vec{u}}{\vmag}
+  \label{EQ:BC:Inflow:Subsonic:DirCosines}
+\end{equation}
+%
+where the accent ${\hat{\phantom{a}}}$ is used here to denote this is a unit
+vector by definition.
+%
+For most of the following subsonic inflow methods, the directional cosines of
+the prescribed inflow velocity are used to fix the angle of attack for the right
+state velocity, therefore $\dircos_\subR=\dircos_\subBC$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Using these definitions, the velocity in the direction of the
+(outward pointing) surface normal can be written as
+%
+\begin{equation}
+  v_n = \vec{u}\cdot\normal
+      = \left(\vmag\dircos\right)\cdot\normal
+      = \vmag\left(\dircos\cdot\normal\right)
+      = \vmag\dcnorm
+  \label{EQ:BC:Inflow:Subsonic:NormalVelocity}
+\end{equation}
+%
+where
+\vmag{} is the magnitude of the velocity vector defined above and
+\dcnorm{} represents the fraction of \vmag{} in the direction of \normal.
+%
+For a flow that is perpendicular to the surface, $\dcnorm{} = -1$.
+%
+We also note that $v_n < 0$ on an inflow surface and
+$\abs{v_n} < a$ on a subsonic inflow.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The Riemann invariants and corresponding characteristic velocities are
+given by
+%
+\begin{align}
+      R^+       &= v_n + \frac{2a_\subL}{\gamma-1}
+  &   \lambda_1 &= v_n + a > 0
+  &&  \text{Outgoing}
+  \\
+      R^-       &= v_n - \frac{2a_\subL}{\gamma-1}
+  &   \lambda_2 &= v_n - a < 0
+  &&  \text{Incoming}
+\end{align}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+It should be noted that for multi-component gas mixtures, the right state is
+determined in a manner similar to method 4 (\ref{SEC:BC:Inflow:Subsonic:4})
+unless method 2 (\ref{SEC:BC:Inflow:Subsonic:2}) is specified via
+\inp[nmlBC::SubInflowMethod]{Sub\_Inflow\_Method}.
+
+\devNotes{Need to fix subsonic inflow angle-of-attack bug for TPG subroutine.}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsubsection{\texorpdfstring{\inptext{Sub\_Inflow\_Method} = 1}%
+                                 {Sub\_Inflow\_Method = 1}}
+\label{SEC:BC:Inflow:Subsonic:1}
+
+This method performs a Newton iteration on the total temperature to get the
+right state.
+%
+It is based on the method found on pages 8--9 of \linecite{Cooper_1990} from
+the subsection titled \emph{Internal Flows} in Section 4.2.1.
+%
+This method uses the specified boundary condition values $p_{t,\subBC}$,
+$T_{t,\subBC}$, and $\dircos_\subBC$ along with the outward propagating
+Riemann invariant, $R^+$, to determine the right state.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We start with enforcing that the total temperature for the right state is equal
+to the prescribed total temperature
+%
+\[
+  T_{t,\subR} = T_\subR \left(1 + \frac{\gamma-1}{2}M^2_\subR\right)
+              = T_{t,\subBC}
+\]
+%
+Using the relations $M=\vmag/a$, $a^2=\gamma\rgas T$, and
+$c_p=\gamma\rgas/\left(\gamma-1\right)$, the total temperature can be rewritten
+as
+%
+\begin{equation}
+  T_{t,\subBC} = T_\subR + \frac{1}{2c_p}\vmag^2_\subR
+  \label{EQ:BC:Inflow:Subsonic1:Ttotal}
+\end{equation}
+%
+The next step is to set the outgoing Riemann invariant, $R^+$, using the
+interior state.
+%
+We use the subscript $\subL$ to note that the invariant is computed from
+the left (interior) state.
+%
+\begin{equation}
+  R^+_\subL = \vec{u}_\subL\cdot\normal + \frac{2a_\subL}{\gamma-1}
+  \label{EQ:BC:Inflow:Subsonic1:RplusL}
+\end{equation}
+%
+We want to find a right state normal velocity and speed of sound that keeps the
+outgoing invariant constant, or
+%
+\begin{equation}
+  \vec{u}_\subR\cdot\normal + \frac{2a_\subR}{\gamma-1} = R^+_\subL
+  \label{EQ:BC:Inflow:Subsonic1:Rplus}
+\end{equation}
+%
+Using \eref{EQ:BC:Inflow:Subsonic:NormalVelocity} to represent the velocity
+normal to the surface, we can rearrange \eref{EQ:BC:Inflow:Subsonic1:Rplus} as
+%
+\begin{equation}
+  \vmag_\subR = \frac{1}{\dcnorm_\subBC}
+                \left( R^+_\subL - \frac{2a_\subR}{\gamma-1} \right)
+  \label{EQ:BC:Inflow:Subsonic1:vmagR}
+\end{equation}
+%
+where the subscript \subBC{} has been added to $\dcnorm_\subBC$ to indicate
+that we are using the direction cosines from the boundary condition velocity
+vector to enforce the right state velocity to the prescribed angles of attack.
+%
+Finally, we can combine \eref{EQ:BC:Inflow:Subsonic1:Ttotal} and
+\eref{EQ:BC:Inflow:Subsonic1:vmagR} resulting in the equation
+%
+\begin{equation*}
+  T_{t,\subBC} = T_\subR + \frac{1}{2c_p}
+    \left[ 
+      \frac{1}{\dcnorm_\subBC}
+      \left( R^+_\subL - \frac{2a_\subR}{\gamma-1} \right)
+    \right]^2
+\end{equation*}
+%
+With $a_\subR=\sqrt{\gamma\rgas T_\subR}$, this equation becomes solely
+dependent on the right state temperature $(T_\subR)$ with all the other
+variables being either constant or prescribed by the boundary condition state
+%
+\begin{equation}
+  f\left(T_\subR\right) = T_\subR + \frac{1}{2c_p}
+    \left[ 
+      \frac{1}{\dcnorm_\subBC}
+      \left( R^+_\subL - \frac{2a_\subR}{\gamma-1} \right)
+    \right]^2 - T_{t,\subBC}
+  = 0
+  \label{EQ:BC:Inflow:Subsonic1:fTr}
+\end{equation}
+%
+We can solve this numerically using a Newton iteration
+%
+\begin{align*}
+  T^{n+1}_\subR =&
+         T^n_\subR - \frac{f\left(T^n_\subR\right)}{f'\left(T^n_\subR\right)}
+  \\
+  a^{n+1}_\subR =& \sqrt{ \gamma \rgas T^{n+1}_\subR }
+\end{align*}
+%
+where $n$ is the current iteration of the Newton solver.
+%
+All that remains is taking the derivative of $f\left(T_\subR\right)$, which
+condenses nicely to
+%
+\begin{equation*}
+  f'\left(T_\subR\right) = 1 - \frac{\vmag_\subR}{\dcnorm_\subBC a_\subR}
+\end{equation*}
+%
+After the Newton iteration converges to a solution for $T_\subR$ and
+$a_\subR$,
+%the speed of sound is updated using $a_\subR=\sqrt{\gamma\rgas T_\subR}$,
+we can then continue on to compute the final right state variables needed
+for the boundary condition.
+%
+The next step is to update $\vmag_\subR$ using
+\eref{EQ:BC:Inflow:Subsonic1:vmagR} from which a Mach number,
+$M_\subR=\vmag_\subR / a_\subR$, can be evaluated.
+%
+Finally, the primitive variables for the right state can be computed as
+%
+\begin{alignat}{1}
+  \vec{u}_\subR & = \vmag_\subR \dircos_\subBC
+  \label{EQ:BC:Inflow:Subsonic1:velR}
+  \\
+        p_\subR & = p_{t,\subBC}
+                    \left( 1 + \frac{\gamma-1}{2} M^2_\subR
+                    \right)^{-\gamma / \left( \gamma - 1 \right)}
+  \label{EQ:BC:Inflow:Subsonic1:presR}
+  \\
+     \rho_\subR & = \frac{p_\subR}{\rgas T_\subR}
+  \label{EQ:BC:Inflow:Subsonic1:densR}
+\end{alignat}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsubsection{\texorpdfstring{\inptext{Sub\_Inflow\_Method} = 2}%
+                                 {Sub\_Inflow\_Method = 2}}
+\label{SEC:BC:Inflow:Subsonic:2}
+
+This method is exactly the opposite of the subsonic outflow method, using the
+density and velocity specified for the boundary condition and taking the static
+pressure from the interior
+%
+\begin{alignat*}{1}
+  \rho_\subR & = \rho_\subBC \\
+  \vec{u}_\subR & = \vec{u}_\subBC \\
+  p_\subR & = p_\subL
+\end{alignat*}
+%
+This method does not enforce the total temperature or pressure at the inflow, so
+caution should be taken with its use.
+%
+This method is probably only suitable for a subsonic inflow that is far upstream
+from the body of interest. Even then, it is probably best to use one of the
+other subsonic inflow methods or the characteristic boundary condition
+(\ref{SEC:BC:Farfield:Characteristic}) instead.
+%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsubsection{\texorpdfstring{\inptext{Sub\_Inflow\_Method} = 3}%
+                                 {Sub\_Inflow\_Method = 3}}
+\label{SEC:BC:Inflow:Subsonic:3}
+
+This method uses the specified boundary condition values $p_{t,\subBC}$,
+$\dircos_\subBC$, and $H_{t,\subBC}$ (total enthalpy) along with the outward
+propagating Riemann invariant, $R^+$, to determine the right state.
+%
+It is very similar to
+$\inptext{Sub\_Inflow\_Method}=1$ (\ref{SEC:BC:Inflow:Subsonic:1}),
+but a quadratic equation is solved for $a_\subR$
+instead of using a Newton iteration for $T_\subR$.
+%
+It is also equivalent to the method found in Section 2.7 of
+\linecite{Carlson_2011} (pages 7--9), though somewhat different notation is
+used there and the flow is assumed to be normal to the boundary.
+
+We start by rewriting \eref{EQ:BC:Inflow:Subsonic1:fTr} in terms of the
+speed of sound, with $R^+$ computed from the left (interior) state using
+\eref{EQ:BC:Inflow:Subsonic1:RplusL},
+\begin{equation}
+  \frac{a_\subR^2}{\gamma \rgas} + \frac{1}{2c_p}
+    \left[ 
+      \frac{1}{\dcnorm_\subBC}
+      \left( R^+_\subL - \frac{2a_\subR}{\gamma-1} \right)
+    \right]^2 - T_{t,\subBC}
+  = 0
+\end{equation}
+%
+and then rearranging the terms into a standard quadratic form
+with $H_{t,\subBC} = c_p T_{t,\subBC}$.
+\begin{equation}
+    \left[ \dcnorm^2_\subBC + \frac{2}{\gamma-1} \right] a^2_\subR
+  - \left[ 2 R^+_\subL \right] a_\subR
+  + \frac{\gamma-1}{2}
+    \left[ \left( R^+_\subL \right)^2 - 2 \dcnorm^2_\subBC H_{t,\subBC} \right]
+  = 0
+% \label{EQ:BC:Inflow:Subsonic3:Quadratic}
+\end{equation}
+%
+Using the quadratic formula to solve this equation results in two solutions for
+$a_\subR$.
+%
+If for some reason both solutions are negative, the speed of sound from the
+interior state is used for the right state, \thatis $a_\subR = a_\subL$.
+%
+Otherwise $a_\subR$ is taken to be the maximum value between the two solutions.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The temperature can be computed from $T_\subR = a_\subR^2 / \gamma \rgas$,
+and the remaining primitive variables can be updated in the same way as in
+\inptext{Sub\_Inflow\_Method}=1 (\sref{SEC:BC:Inflow:Subsonic:1}).
+%
+$\vmag_\subR$ is updated using \eref{EQ:BC:Inflow:Subsonic1:vmagR}
+from which a Mach number, $M_\subR=\vmag_\subR / a_\subR$, can be evaluated.
+%
+Then $\vec{u}_\subR$, $p_\subR$, and $\rho_\subR$ are computed from
+\eref{%
+EQ:BC:Inflow:Subsonic1:velR,%
+EQ:BC:Inflow:Subsonic1:presR,%
+EQ:BC:Inflow:Subsonic1:densR%
+}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsubsection{\texorpdfstring{\inptext{Sub\_Inflow\_Method} = 4}%
+                                 {Sub\_Inflow\_Method = 4}}
+\label{SEC:BC:Inflow:Subsonic:4}
+
+This is the default method used for the subsonic inflow boundary condition,
+because it is the simplest of the four available methods that also enforces the
+total conditions specified for the boundary condition.
+%
+This method uses the specified boundary condition values $p_{t,\subBC}$,
+$T_{t,\subBC}$, and $\dircos_\subBC$ along with the interior Mach number at the
+boundary to determine the right state.
+%
+Since both $p_{t,\subBC}$ and $T_{t,\subBC}$ are specified, this implies that
+$\rho_{t,\subBC}$ is also specified through the ideal gas law.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+It starts by enforcing that the right state Mach number is set to the interior
+Mach number
+\[
+  M_\subR = M_\subL = \frac{\vmag_\subL}{a_\subL}
+\]
+%
+which then allows us to compute the static temperature for the
+right state based on the specified total temperature using
+%
+\[
+  T_\subR = T_{t,\subBC} \left(1 + \frac{\gamma-1}{2}M^2_\subR\right)^{-1}
+\]
+%
+From here, the magnitude of the right state velocity can be computed as
+%
+\[
+  \vmag_\subR = M_\subR a_\subR = M_\subR \sqrt{\gamma \rgas T_\subR}
+\]
+%
+which gives us everything that is needed to finally compute the primitive
+variables for the right state
+%
+\begin{alignat}{1}
+     \rho_\subR & = \left( \frac{p_{t,\subBC}}{\rgas T_{t,\subBC}} \right)
+                    \left( 1 + \frac{\gamma-1}{2} M^2_\subR
+                    \right)^{-1 / \left( \gamma - 1 \right)} \\
+  \vec{u}_\subR & = \vmag_\subR \dircos_\subBC \\
+        p_\subR & = \rho_\subR \rgas T_\subR
+  \label{EQ:BC:Inflow:Subsonic4:PV2}
+\end{alignat}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%If looking at this from a practical stance separate of the GFR code, most users
+%would want to specify a total pressure and total temperature for a subsonic
+%inflow boundary condition.
+%%
+%In this case, you could think of this as first computing $p_\subR$ from
+%\eref{EQ:BC:Inflow:Subsonic3:PV} using the boundary condition total pressure,
+%$p_{t,\subBC}$, and then using the ideal gas law to compute $\rho_\subR$ from
+%$p_\subR$ and $T_\subR$.
+%%
+%Either way, the right state variables in \eref{EQ:BC:Inflow:Subsonic4:PV}
+%should come out the same assuming $\rho_{t,\subBC}$, $p_{t,\subBC}$, and
+%$T_{t,\subBC}$ all conform to the ideal gas law.
+%%
+%Within GFR, this does not really matter since the requirement from
+%\sref{SEC:BC:Specify:FullState} of having to fully define each flow-through
+%boundary condition means these three total conditions are all known and
+%consistent.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%###############################################################################
+

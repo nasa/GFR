@@ -1,0 +1,43 @@
+%\section{\texorpdfstring{\colorbox{yellow}{Time Stepping}}{Time Stepping}}
+\section{Time Stepping}
+\label{SEC:Time}
+
+\begingroup
+
+\NewDocumentCommand{\CFL}{}{\ensuremath{\text{CFL}}}
+\NewDocumentCommand{\CFLmax}{}{\ensuremath{\CFL_\text{max}}}
+\NewDocumentCommand{\dt}{}{\ensuremath{\Delta t}}
+\NewDocumentCommand{\eig}{}{\ensuremath{\lambda}}
+\NewDocumentCommand{\eigmax}{}{\ensuremath{\abs{\eig}_\text{max}}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\vspace{1.0em}
+Acronyms used in this section:
+\\[1.0em]
+\begin{tabular}{ @{} r @{ : } p{0.75\linewidth} @{} }
+  RK    & Runge-Kutta \\
+  ERK   & Explicit Runge-Kutta \\
+  SSP   & Strong stability preserving ERK \\
+  VOERK & Vortex-optimized ERK \\
+  AOERK & Advection-optimized ERK \\
+  FSAL  & First-same-as-last \\
+  EPERK & Embedded-pair ERK with adaptive time stepping \\
+  PID   & Proportional-integral-derivative
+\end{tabular}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{time_stepping/methods/methods}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{time_stepping/algorithms/algorithms}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{time_stepping/controlling_dt}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\endgroup
+

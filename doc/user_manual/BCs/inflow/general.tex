@@ -1,0 +1,48 @@
+\subsubsection{General Inflow Boundary Condition}
+\label{SEC:BC:Inflow:General}
+
+This boundary condition combines subsonic and supersonic inflow boundary
+conditions into a single option.
+%
+This boundary condition takes the velocity from the left\slash interior state,
+$\vec{u}_\subL$, and evaluates the magnitude of that velocity normal to the
+boundary face, $v_{n,\subL}$, as
+%
+\[
+  v_{n,\subL} = \vec{u}_\subL\cdot\normal
+\]
+%
+where \normal{} is the unit normal for the boundary face that points outside the
+computational domain.
+%
+The interior static temperature $T_\subL$ and $v_{n,\subL}$ can then be used to
+compute an interior Mach number normal to the inflow boundary, $M_{n,\subL}$, as
+%
+\[
+  M_{n,\subL} = \frac{v_{n,\subL}}{\sqrt{\gamma \rgas T_\subL}}
+\]
+%
+If $M_{n,\subL} \leq -1$ (negative because the normal points outside the
+domain), the inflow is determined to be supersonic, and the right state is
+evaluated the same way as the supersonic inflow of
+\sref{SEC:BC:Inflow:Supersonic} by just fixing it to
+the boundary condition state, \thatis \[ \cvVecR = \cvVecBC \]
+%
+Otherwise, the inflow is subsonic, and the right state is evaluated based on the
+subsonic inflow boundary condition with $\inptext{Sub\_Inflow\_Method}=4$
+(\ref{SEC:BC:Inflow:Subsonic:4}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+It should be noted that this boundary condition will always operate as if
+$\inptext{Sub\_Inflow\_Method}=4$ when the interior Mach number is found to be
+subsonic.  The value of the input \inptext{Sub\_Inflow\_Method} has no control
+over the subsonic inflow method used for this boundary condition and is
+therefore ignored.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\devNotes{Need to fix subsonic inflow angle-of-attack bug.}
+
+%###############################################################################
+

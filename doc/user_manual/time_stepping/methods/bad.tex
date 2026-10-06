@@ -1,0 +1,71 @@
+\subsubsection{\emph{NOT} Recommended Runge-Kutta Methods}
+\label{SEC:Time:Methods:Bad}
+
+The methods in \tref{TAB:RKMethods_Bad} are not recommended mostly due to
+significantly worse performance compared to the baseline SSP3 method.
+%
+The one exception is the 1-stage/\nth{1}-order Classic RK method (\thatis
+Forward Euler method), which is not recommended due to its low accuracy and
+small CFL limit.
+%
+Although some of the AOERK methods achieve similar time-to-solution performance
+compared to SSP3, they have all been listed here as not recommended because
+every one of these methods is worse than their respective VOERK method
+counterpart.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{table}[h!]
+\begin{center}
+\begin{threeparttable}
+%-------------------------------------------------------------------------------
+\caption{Not Recommended Runge-Kutta Methods.}
+\label{TAB:RKMethods_Bad}
+%-------------------------------------------------------------------------------
+% Set S column format to right-align integers and then center in column.
+\sisetup{
+  table-alignment-mode = format,
+  table-number-alignment = center,
+}
+%  table-figures-decimal = 0,
+%  table-figures-integer = 5
+%}
+\begin{tabular}{ S[table-format = +4] r @{ / } l l c }
+  \toprule
+  \multicolumn{1}{l}{\inp[nmlTimestep::RungeKuttaScheme]{Runge\_Kutta\_Scheme}}
+        &    Stages &         Order & Description                & 
+  Speedup\tnote{\ensuremath{\ast}} \\
+  \midrule\\[-1.00em]
+  \multicolumn{5}{l}{CFL-Based Methods} \\
+   \pm 1 &   1-stage & \nth{1}-order & Forward Euler method       & n/a \\
+     -53 &   5-stage & \nth{3}-order & AOERK\cite{AlJahdali_2022} & n/a \\
+    -113 &  11-stage & \nth{3}-order & AOERK\cite{AlJahdali_2022} & n/a \\
+     -64 &   6-stage & \nth{4}-order & AOERK\cite{AlJahdali_2022} & n/a \\
+    -154 &  15-stage & \nth{4}-order & AOERK\cite{AlJahdali_2022} & n/a \\
+     -85 &   8-stage & \nth{5}-order & AOERK\cite{AlJahdali_2022} & n/a \\
+    -165 &  16-stage & \nth{5}-order & AOERK\cite{AlJahdali_2022} & 0.98x \\
+  \midrule\\[-1.00em]
+  \multicolumn{5}{l}{Adaptive Time Stepping Methods} \\
+    54 &   6-stage & \nth{5}(\nth{4})-order
+                   & Dormand-Prince EPERK\cite{Dormand_1980} & 0.64x \\
+   853 &  12-stage & \nth{8}(\nth{5})-order
+                   & Dormand-Prince EPERK\cite{Hairer_1993}  & 0.61x \\
+  1054 &  10-stage & \nth{5}(\nth{4})-order
+                   & EPERK FSAL\cite{Ranocha_2022}           & 0.85x \\
+ -1054 &  10-stage & \nth{5}(\nth{4})-order
+                   & EPERK non-FSAL\cite{Ranocha_2022}       & n/a \\
+  \bottomrule
+\end{tabular}
+%-------------------------------------------------------------------------------
+\begin{tablenotes}
+  \item[\ensuremath{\ast}]
+  Relative to \inptext{Runge\_Kutta\_Scheme}=3,
+  the 3-stage/\nth{3}-order SSP ERK method.
+\end{tablenotes}
+%-------------------------------------------------------------------------------
+\end{threeparttable}
+\end{center}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

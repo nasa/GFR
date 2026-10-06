@@ -1,0 +1,140 @@
+\section{Overview and Features}
+
+The Glenn Flux Reconstruction (GFR) code is a high-order computational fluid
+dynamics (CFD) flow solver based on the flux reconstruction (FR)
+method\cite{Huynh_2007}.
+%
+%It provides a Large-Eddy Simulation (LES) capability that is both accurate and
+%efficient for complex aeropropulsion flows.
+%
+The FR approach offers a simple, efficient, and easy-to-implement method for
+solving the differential form of the Navier-Stokes equations on unstructured
+grids and is accurate to an arbitrary order\cite{Huynh_2007, Huynh_2009,
+Huynh_2011, Vincent_2011, Castonguay_2012, Huynh_2014, Vincent_2015}.
+%
+This makes it well-suited for scale-resolving simulations (SRS), \forexample
+large-eddy simulations (LES), of complex aeropropulsion flows.
+%
+The code’s performance demonstrates good parallel scaling, as well as an
+implementation of the FR method with a computational cost\slash
+degree-of-freedom\slash time-step that is essentially independent of the
+solution order of accuracy for structured geometries.\cite{Spiegel_2016}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Listed below are the primary features and capabilities of GFR.
+These are discussed in detail in the following sections.
+
+\newlist{overview}{itemize}{3}
+\setlist[overview,1]{label=\textbullet,
+                     itemsep=3pt,
+                     parsep=0pt,
+                     font=\normalsize,
+                     before=\normalsize}
+
+\setlist[overview,2]{label=$\ast$,
+                     itemsep=1pt,
+                     parsep=0pt,
+                     font=\small,
+                     before=\small}
+
+\setlist[overview,3]{label=--,
+                     itemsep=1pt,
+                     parsep=0pt,
+                     font=\footnotesize,
+                     before=\footnotesize}
+
+\begin{overview}
+\item Element Types
+  \begin{overview}
+  \item 1d (line)
+  \item 2d (triangle, quadrilateral)
+  \item 3d (tetrahedron, pyramid, prism, hexahedron)
+  \item Collapsed 2d edges and 3d faces are not supported.
+  \end{overview}
+\item Grid File Formats
+  \begin{overview}
+    \item Plot3D
+    \begin{overview}
+      \item with support for high-order curved meshes through agglomeration
+    \end{overview}
+    \item CGNS
+    \begin{overview}
+      \item with native support for high-order curved meshes
+    \end{overview}
+    \item Gmsh
+    \begin{overview}
+      \item (ASCII Legacy version 2 only) with native support for high-order
+        curved meshes
+    \end{overview}
+  % \item Gambit Neutral
+  \end{overview}
+\item Automatic domain decomposition via METIS
+\item Parallel processing via MPI
+\item Reference Frame
+  \begin{overview}
+  \item Fixed or Rotating Frame
+  \end{overview}
+\item Physical Models
+  \begin{overview}
+  \item Euler or Navier-Stokes Equations
+  \item Finite-Rate Chemistry
+ %\item Synthetic Eddy Method (SEM)
+  \end{overview}
+\item Explicit Runge-Kutta Time Advancement
+  \begin{overview}
+    \item Industry Standard Runge-Kutta Methods
+      \begin{overview}
+        \item Classic, Carpenter\slash Kennedy Low-Storage 5-stage\slash
+          4\supth-order, SSP 3\slash3, SSP 5\slash4
+      \end{overview}
+    \item Optimized Runge-Kutta Methods\cite{AlJahdali_2022}
+      \begin{overview}
+        \item Vortex-Optimized 11-stage\slash 3\suprd-order, Vortex-Optimized
+          15-stage\slash 4\supth-order, etc.
+      \end{overview}
+    \item Embedded-Pair Optimized Runge-Kutta Methods with Adaptive
+      Time Stepping\cite{Ranocha_2022}
+      \begin{overview}
+        \item Optimized 9-stage\slash 4\supth-order with embedded 3\suprd-order,
+          etc.
+      \end{overview}
+  \end{overview}
+\item Numerical Stability Treatments and Shock-Capturing
+  \begin{overview}
+    \item De-aliasing
+    \item Filtering
+    \item Limiting
+  \end{overview}
+\item Boundary Conditions
+  \begin{overview}
+  \item Inviscid Wall
+  \item Adiabatic Viscous Wall
+  \item Isothermal Viscous Wall
+  \item Coupled Translated \andor Rotated Periodic Boundaries
+  \item Subsonic Inflow and Outflow
+  \item Supersonic Inflow and Outflow
+  \item Unsteady Turbulent Inflow using Synthetic Eddy Method
+  \end{overview}
+\item Post-processing and Solution Visualization
+  \item Time Averaging
+  \begin{overview}
+    \item Parallel CGNS output of instantaneous and time-averaged solution data
+      \begin{overview}
+        \item Approximated high-order solutions using linear sub-cells
+          (compatible with most visualization software supporting CGNS file
+          format)
+        \item Native high-order solutions (limited compatibility with
+          visualization software, \forexample Tecplot 360 version 2023 or newer)
+      \end{overview}
+  \end{overview}
+\end{overview}
+
+
+\IDEA{
+The next couple paragraphs could include some sample results
+for various cases.
+}
+
+
+

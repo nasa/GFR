@@ -1,0 +1,114 @@
+\subsubsection{Adaptive Time Stepping}
+\label{SEC:Time:Algorithms:Adaptive}
+
+A second set of ERK methods exist within GFR which belong to the family of
+embedded-pair explicit Runge-Kutta (EPERK) methods.
+%
+EPERK methods contain an additional Runge-Kutta method of lower order than the
+primary method that is simultaneously evaluated with minimal additional cost,
+thus an embedded pair of methods.
+%
+At the end of a given time step, the difference between these two methods can be
+viewed as the error in the primary time-stepping method.
+%
+This error can be used as the input to a PID controller to automate the
+selection of an optimal time step size for the following
+iteration.\cite{Berzins_1995,Ware_1995,Ranocha_2022}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The implementation and usage of the optimized EPERK schemes follows the work of
+\linecite{Ranocha_2022}.
+%
+The EPERK methods use the low-storage 3S*$\!{}_+$ algorithm shown in
+\cref{ALG:Time:Algorithms:EPERK} that requires the same three registers as the
+ERK 3S* low-storage algorithm plus a fourth register, $S_4$, for the error
+estimate.
+%
+%\input{Figures/timestepping/sep_eperk_alg}%
+%
+The quantity $\hat{u}^{n+1}$ represents the solution as updated by the embedded
+lower-order scheme using the additional coefficients $\hat{b}_i$.
+%
+The time stepping error from the embedded RK pair is given by
+%
+\begin{equation*}
+  \varepsilon_{n+1} = \frac{1}{w_{n+1}},\quad
+  w_{n+1} = \frac{1}{m} \sum_{i=1}^m \left( 
+     \frac{u_i^{n+1} - \hat{u}_i^{n+1}}
+          {\mathtt{atol}+\mathtt{rtol}\!\cdot\!
+           \max\left\{\left|u_i^{n+1}\right|,
+                      \left|\hat{u}_i^{n+1}\right|\right\}}
+          \right)
+ %\label{eq:eperk:error}
+\end{equation*}
+%
+where $m$ is the total degrees-of-freedom, and $\mathtt{atol}$ and
+$\mathtt{rtol}$ are the respective absolute and relative error tolerances.
+%
+Finally, the time stepping error is used with a PID controller to determine the
+time step size for the next iteration
+%
+\begin{equation*}
+  \Delta t^{n+1} = \varepsilon^{\beta_{1} / k}_{n+1}
+                   \varepsilon^{\beta_{2} / k}_{n}
+                   \varepsilon^{\beta_{3} / k}_{n-1} \Delta t^n
+ %\label{eq:eperk:controller}
+\end{equation*}
+%
+where $k$ is the order of the EPERK method, and $\beta_{i}$ are the controller
+parameters.
+%
+The error tolerances and controller parameters used in this work are those
+recommended in \linecite{Ranocha_2022}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%Each of these optimized methods contains two versions, a base version and a
+%first-same-as-last (FSAL) version.
+%%
+%In FSAL methods, the last evaluation of the right-hand-side function needed by
+%the embedded scheme is equivalent to the right-hand-side function needed for the
+%first stage of the following time step.
+%%
+%Therefore, this redundancy in FSAL methods can be exploited to reduce the number
+%of right-hand-side evaluations per time step by one.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\NOTE Adaptive time stepping cannot be used with limiting\slash filtering.
+%
+The limiting\slash filtering step, which modifies the solution variables, occurs
+immediately after the completion of a Runge-Kutta stage.
+%
+This means the right-hand-side that was used by the EPERK method to update the
+solution variables is no longer consistent with the limited\slash filtered
+solution variables.
+%
+This inconsistency also applies to the embedded ERK method which ultimately
+causes the adaptive time stepping algorithm to fail when using limiting\slash
+filtering.
+%
+Being a global time stepping method and its incompatibility with limiting\slash
+filtering, this option is suitable for time-accurate simulations of low-speed
+flows.
+%
+Further details about EPERK methods and adaptive time stepping can be found in
+\linecite{Spiegel_2025}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+As with the CFL-based global time stepping, a unique time step size is computed
+for each cell, and the minimum time step size across all grid cells is taken to
+be the global time step size that all cells use to update their solutions in
+time.
+%
+When it works as intended, this method is the easiest to use because the
+adaptive algorithm produces a near-optimal time step size with zero input from
+the user.
+%
+However, testing has found that it tends to not work more than it works as
+intended.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

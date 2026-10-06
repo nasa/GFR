@@ -1,0 +1,62 @@
+\subsubsection{Highly Recommended Runge-Kutta Methods}
+\label{SEC:Time:Methods:Recommended}
+
+The methods in \tref{TAB:RKMethods_Good} are highly recommended due to
+significantly greater performance compared to the baseline SSP3 method.
+%
+Although these methods require the evaluation of $1.7\times$--$5\times$ as many
+right-hand-side evaluations (\thatis number of stages), the maximum stable CFL
+allowed by each of these methods compared to that of the baseline SSP3 method 
+more than offsets this additional computational cost resulting in significant
+reductions in time-to-solution.
+
+\FINALFIX{\newpage}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{table}[h!]
+\begin{center}
+\begin{threeparttable}
+%-------------------------------------------------------------------------------
+\caption{Recommended Runge-Kutta Methods.}
+\label{TAB:RKMethods_Good}
+%-------------------------------------------------------------------------------
+% Set S column format to right-align integers and then center in column.
+\sisetup{
+  table-alignment-mode = format,
+  table-number-alignment = center,
+  table-figures-decimal = 0,
+  table-figures-integer = 3
+}
+\begin{tabular}{ S r @{ / } l l c }
+  \toprule
+  \multicolumn{1}{l}{\inp[nmlTimestep::RungeKuttaScheme]{Runge\_Kutta\_Scheme}}
+        &    Stages &         Order & Description                & 
+  Speedup\tnote{\ensuremath{\ast}} \\
+  \midrule\\[-1.00em]
+  \multicolumn{5}{l}{CFL-Based Methods} \\
+    113 &  11-stage & \nth{3}-order & VOERK\cite{AlJahdali_2022} & 1.33x \\
+    154 &  15-stage & \nth{4}-order & VOERK\cite{AlJahdali_2022} & 1.33x \\
+      4 &   5-stage & \nth{4}-order & SSP ERK\cite{Spiteri_2002} & 1.22x \\
+    165 &  16-stage & \nth{5}-order & VOERK\cite{AlJahdali_2022} & 1.18x \\
+  \midrule\\[-1.00em]
+  \multicolumn{5}{l}{Adaptive Time Stepping Methods} \\
+    943 &   9-stage & \nth{4}(\nth{3})-order
+                    & EPERK FSAL\cite{Ranocha_2022} & 1.22x \\
+    532 &   5-stage & \nth{3}(\nth{2})-order
+                    & EPERK FSAL\cite{Ranocha_2022} & 1.09x \\
+  \bottomrule
+\end{tabular}
+%-------------------------------------------------------------------------------
+\begin{tablenotes}
+  \item[\ensuremath{\ast}]
+  Relative to \inptext{Runge\_Kutta\_Scheme}=3,
+  the 3-stage/\nth{3}-order SSP ERK method.
+\end{tablenotes}
+%-------------------------------------------------------------------------------
+\end{threeparttable}
+\end{center}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

@@ -1,0 +1,38 @@
+\subsubsection{MLP Marker}
+\label{SEC:MLPMarker}
+\key*{}[marker!MLP marker]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The MLP marker is normally computed as part of the
+Multidimensional Limiting Process\cite{Park_2014,Park_2016,Park_2017}.
+%
+It first identifies troubled cells using the
+$\PO[1]$-projected MLP condition, which compares the cell vertex (corner)
+values to those of the adjacent cells.
+%
+Then the MLP extrema detector is applied to identify local smooth extrema
+near the vertex points and unmark those cells.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+When GFR outputs the MLP marker, the value \marker{} represents the
+polynomial order of the limited solution,
+with possible real values of [0:1,2,3,...,$\PO$].
+%
+Values less than $\PO$ indicate that the polynomial in the cell
+has been reduced to that value to maintain stability.
+%
+Values between [0:1] indicate that all of the higher modes have been removed
+and the linear mode was limited by that fraction in order to remain stable.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlLimiter::MarkerOption]{Marker\_Option},
+\inp[nmlLimiter::MarkerVariable]{Marker\_Variable}
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

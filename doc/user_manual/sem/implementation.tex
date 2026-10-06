@@ -1,0 +1,320 @@
+\subsubsection{SEM Implementation}\label{SEC:SEM:implementation}
+
+This section provides details on certain aspects of the synthetic eddy method
+regarding how it is implemented in GFR.
+%
+
+%###############################################################################
+
+\subsubsubsection{Interpolation of SEM Profile onto Inflow Plane}%
+[SEC:SEM:implementation:profile]
+
+GFR requires a 1D The SEM profile 
+
+%###############################################################################
+
+\subsubsubsection{Inflow Plane Geometry}[SEC:SEM:implementation:geometry]
+
+In its current form in GFR, the SEM can only used on a constant-$x$ inflow
+boundary.
+%
+The primary reason for this restriction is that the synthetic eddies are
+currently only propagated in $x$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Another geometry restriction for using the SEM is that it is highly recommended
+that the inflow boundary be planar; this restriction will almost certainly be a
+permanent requirement even if the constant-$x$ restriction is removed.
+%
+The algorithm that interpolates the SEM profile onto the inflow boundary points
+uses the wall distance and wall normal to rotate and interpolate the profile.
+%
+The wall distance part of this algorithm could potentially cause problems with a
+non-planar inflow boundary.
+%
+For example, imagine an inflow boundary that is highly convex from the interior
+domain.
+%
+The wall distance for the boundary points will be larger than expected, so the
+interpolated SEM profile might not be correct.
+%
+Again, this is a recommendation, so it might work, but there will probably be
+some inaccuracies or unexpected consequences.
+
+%###############################################################################
+
+\subsubsubsection{Efficiency of SEM}[SEC:SEM:implementation:efficiency]
+
+Because the eddies are propagated linearly through the SEM box, as soon as a new
+eddy is created, it can be determined which face points will be affected by the
+eddy.
+%
+In a crude implementation of the SEM algorithm, the fluctuating velocities at
+each boundary point are computed using an outer loop over each boundary point
+and an inner loop over each eddy to evaluate each eddy's contribution to the
+fluctuations at the current boundary point.
+
+%###############################################################################
+
+\subsubsubsection{Parallel Details}[SEC:SEM:implementation:parallel]
+
+The SEM was chosen because it is simple and efficient, and its point-based
+formulation allows for it to be used in parallel.
+%
+However, care needs to be taken if the cells on the SEM boundary are split
+across multiple partitions in order to prevent significant communication or
+synchronization between the grid partitions sharing the inflow boundary.
+%
+Each synthetic eddy has a zone of influence, and any SEM boundary face point
+within this zone must include the contribution of this random eddy into its
+summation of all eddies affecting the face point.
+%
+\Fref{FIG:SEM:ParallelSEM} shows a possible example of the zone of influence of
+a synthetic eddy affecting face points of cells from different partitions.
+%
+\begin{figure}[tb]
+  \centering
+  \insertimage[width=0.75\textwidth]{tikz/sem_partition_boundary}
+ %\input{tikz/sem_partition_boundary}
+  \caption{SEM box spanning multiple partitions.}
+  \label{FIG:SEM:ParallelSEM}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Every time an eddy leaves the virtual box, a new eddy, with a random intensity,
+is created at a random location on the leading face of the box.
+%
+These two random operations are dependent on a random number generator which is
+initialized at the beginning of the simulation using a random seed that is
+consistent across all partitions.
+%
+However, the consistency across all partitions of the random generation of
+synthetic eddies will quickly breakdown if each partition only accounts for
+eddies that affect its own cells.
+%
+Therefore, all partitions must maintain a common database of all the synthetic
+eddies including the randomness of all eddies that are regenerated at the
+leading face of the virtual SEM box.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+When computing the velocity fluctuations at each face point due to the eddies
+influencing a given point, looping through the many thousands of eddies to find the
+dozens or so that could actually influence the face point at a given time
+becomes computationally expensive across thousands of face points on the SEM
+boundary.
+%
+While all partitions must maintain their own consistent global database of all
+the synthetic eddies in the simulation, each partition must maintain secondary
+localized databases for each face point on the partition for just those eddies
+whose zone of influence might affect the face point.
+%
+Since these eddies are constantly being regenerated at a random location after
+propagating through the SEM box, each of these secondary localized databases
+have to be constantly updated.
+%
+By using these secondary localized databases, each face point loops through only
+those eddies that can have a possible influence on the face point when computing
+the SEM velocity fluctuation, thus significantly improving the parallel
+efficiency of the SEM method.
+%
+In testing this parallel implementation of the SEM method, we were able to use
+hundreds of thousands of synthetic eddies across thousands of MPI processes with
+minimal computational cost to the overall simulation.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Tracking and communicating the interaction between thousands of eddies
+and thousands of face points can quickly become computationally expensive.
+%
+Therefore, the parallel SEM implementation in GFR is designed for both
+accuracy and efficiency.
+%
+When an inflow boundary is split across multiple partitions,
+communication costs are eliminated by having each one store and track a
+copy of the same virtual SEM volume, eddies, and random seed.
+%
+Because the eddies are convected in a uniform direction,
+as each new eddy is created one can project it onto the
+physical inflow boundary and know which face point(s) it will
+eventually influence.
+%
+So, to reduce the search time between eddies and face points that
+must be done every time step, each face point tracks its own
+secondary database of eddies that may affect it.
+%
+%Eddies need only be added\slash removed from the secondary database only
+%when they enter\slash exit the virtual volume.
+%
+In testing this parallel implementation of the SEM method,
+hundreds of thousands of synthetic eddies were used
+across thousands of MPI processes with minimal computational cost
+to the overall simulation.
+
+%===============================================================================
+
+Note that even though the synthetic eddy method is designed to
+replicate the provided inflow profile, it still takes some distance
+downstream before the unsteady inflow develops into realistic turbulence.
+
+
+%###############################################################################
+%###############################################################################
+%###############################################################################
+%###############################################################################
+%###############################################################################
+%
+%\begin{figure}[!hp]
+%  \centering
+%    \insertimage[width=0.95\textwidth]{sem/sem_box_with_profile}
+%    \caption[Creating the SEM box on the inflow plane.]{A virtual box of height
+%    \hSEM is constructed such that it straddles the inflow plane starting at the
+%    wall. This is shown as the green box in this figure.\\[\capParSep]
+%    %
+%    During the pre-processor, the wall distances for all boundary points on the
+%    SEM boundary are computed. These wall distances are sorted to separate those
+%    $\leq\hSEM$ from those $>\hSEM$.  A new subsonic inflow boundary condition
+%    is created from the flow conditions specified by \inptext{BC\_Input} and
+%    all boundary points outside the SEM profile are moved to this new boundary
+%    condition. This ensures that 1) the minimum number of boundary points are
+%    contained within the SEM boundary condition, and 2) the subsonic inflow
+%    outside the SEM is a not overprescribed allowing for characteristic
+%    information to both enter and leave the computational domain through the
+%    boundary.\\[\capParSep]
+%    %
+%    It is best to make sure that the flow conditions specified in
+%    \inptext{BC\_Input} for an SEM boundary condition are consistent with the
+%    flow conditions at the top of the SEM profile. Stability issues can occur
+%    if there is a mismatch between the SEM profile and the corresponding
+%    subsonic inflow boundary condition.\\[\capParSep]
+%    %
+%    The profile data in the SEM profile file is not required to only contain the
+%    boundary layer part of the flow. The profile is allowed to contain as much
+%    of the main freestream flow as desired. There can be some inefficiencies
+%    from including some of the freestream flow in the SEM profile. The height of
+%    the SEM box is based on the height of the SEM profile, \hSEM; and the number
+%    of synthetic eddies is based on the volume of the SEM box, \vSEM; therefore,
+%    including parts of the freestream flow will increase the number of synthetic
+%    eddies in the SEM box. In the freestream, the turbulent stresses are
+%    generally near-zero.  When the SEM algorithm computes a random fluctuation
+%    for a boundary point in the freestream section, the correlation converting
+%    this to a physical fluctuation will result in a non-fluctuating velocity
+%    profile since the turbulence is zero. All of this is to say that the
+%    freestream parts of the SEM profile will waste computational resources
+%    trying to compute velocity fluctuations where there are no fluctuations.}
+%    \label{FIG:SEM:AddedBox}
+%\end{figure}
+%
+%%-------------------------------------------------------------------------------
+%
+%\begin{figure}[!hp]
+%  \setlength{\imageheight}{0.35\textheight}
+%  \centering
+%  \insertimage[height=\imageheight]{sem/sem_all_eddies}
+%  \captionsetup{singlelinecheck=off}
+%  \caption[All eddies and their individual zones of influence.]{This figure is
+%  illustrating a group of eddies (red and blue curly arrows) in the vicinity of
+%  a face point (large black dot) on an SEM inflow plane. The view is looking
+%  downstream with the axial flow, so each eddy is moving into the page. Each of
+%  the large black circles is centered around one of the eddies, and the circle
+%  represents the ``zone of influence'' for the eddy.\\[\capParSep]
+%  %
+%  Each eddy has a ``zone of influence'' distance based on the input \lSEM that
+%  extends equally in each coordinate direction.}
+%  \label{FIG:SEM:ZoI:All}
+%\end{figure}
+%
+%%-------------------------------------------------------------------------------
+%
+%\begin{figure}[!hp]
+%  \setlength{\mpheight}{0.49\textheight}
+%  \setlength{\mpwidth}{1.0\textwidth}
+%  \setlength{\imagewidth}{0.45\textwidth}
+%  \centering
+%  \begin{minipage}[c][\mpheight]{\mpwidth}
+%    \centering
+%    \null
+%    \subfig{\imagewidth}{
+%      \insertimage[width=\imagewidth]{sem/sem_my_eddies_0}
+%      \caption{Eddies that will contribute to the SEM fluctuations for this face
+%               point.}
+%      \label{FIG:SEM:ZoI:Separated:mine0}
+%    }
+%    \hfill
+%    \subfig{\imagewidth}{
+%      \insertimage[width=\imagewidth]{sem/sem_ignored_eddies_0}
+%      \caption{Eddies that will not contribute to the SEM fluctuations for this
+%               face point.}
+%      \label{FIG:SEM:ZoI:Separated:igrnored0}
+%    }
+%    \null
+%  \end{minipage}
+%  \caption[Separating out eddies that will not influence face point.]{
+%    For a given face point, the eddies with the SEM box can be separated into
+%    those that will contribute to the SEM fluctuations at the face point and
+%    those that do not contribute.\\[\capParSep]
+%    %
+%    During the preprocessor phase, after the SEM box is created and populated
+%    with synthetic eddies, each face point on the SEM inflow plane will loop
+%    through the eddies and collect all the eddies whose zone of influence could
+%    potentially include the face point at any time as the eddy propagates
+%    through the SEM box. Figure (a) shows all of the eddies that will influence
+%    the face point, whereas figure (b) shows all of the eddies that will not
+%    influence the face point.}
+%  \label{FIG:SEM:ZoI:Separated0}
+%\end{figure}
+%
+%%-------------------------------------------------------------------------------
+%
+%\begin{figure}[!hp]
+%  \setlength{\imageheight}{0.35\textheight}
+%  \centering
+%  \insertimage[height=\imageheight]{sem/zone_of_influence}
+%  \caption[Zone of influence point-of-view for face point.]{When computing the
+%  velocity fluctuations at each face point due to the eddies influencing a given
+%  point, looping through may thousands of eddies to find the dozens or so that
+%  could actually influence the face point at a given time becomes
+%  computationally expensive across thousands of face points on the SEM
+%  boundary.\\[\capParSep]
+%  %
+%  To improve the efficiency of this operation, a localized linked-list database
+%  is created for each face point that contains a list of just those eddies whose
+%  zone of influence might affect the respective face point. Since these eddies
+%  are constantly being regenerated at a random location after propagating
+%  through the SEM box, each of these linked-lists is constantly being updated.
+%  By using these localized linked-lists, each face point loops through only
+%  those eddies that can have a possible influence on the face point when
+%  computing the SEM velocity fluctuations, thus significantly improving the
+%  efficiency of the SEM method.}
+%  \label{FIG:SEM:ZoI:FacePoint}
+%\end{figure}
+
+%-------------------------------------------------------------------------------
+
+%###############################################################################
+%TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP
+%TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP
+%TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP
+%TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP
+%TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP
+%###############################################################################
+\clearpage
+%###############################################################################
+%TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP
+%TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP
+%TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP
+%TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP
+%TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP
+%###############################################################################
+
+
+
+
+
+
+
+
+
+

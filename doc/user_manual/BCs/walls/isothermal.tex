@@ -1,0 +1,58 @@
+\subsubsection{Isothermal Viscous\slash No-Slip Wall}
+\label{SEC:BC:Wall:Isothermal}
+
+The isothermal viscous\slash no-slip wall boundary condition enforces a
+prescribed wall velocity and temperature at the wall boundary surface.
+%
+The isothermal no-slip wall boundary condition is very similar to the adiabatic
+no-slip wall in \sref{SEC:BC:Wall:Adiabatic}, with the only difference between
+them being how the wall temperature and temperature gradients are set.
+%
+Therefore, the remainder of this section only provides details for what is done
+differently from the adiabatic wall boundary condition.
+%
+Particularly, all of the details in \sref{SEC:BC:Wall:Adiabatic} on how the
+prescribed wall velocity is determined are exactly the same for isothermal
+walls.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The backbone of the isothermal wall boundary condition is prescribing a fixed
+wall temperature for a solid boundary surface.
+%
+The prescribed wall temperature for the boundary condition, $T_\subBC$, is
+specified using the input
+%\BCinptext{Wall\_Temp}.
+\BCinpBC[nmlBC::BCInput/WallTemp]{Wall\_Temp}.
+%
+For the rest of the thermodynamic gas properties, pressure is taken from the
+interior, and then the ideal gas law is used to compute the density at the wall,
+resulting in the following right state variables:
+%
+\begin{alignat*}{1}
+  T_\subR & = T_\subBC \\
+  p_\subR & = p_\subL \\
+  \rho_\subR & = \frac{p_\subR}{\rgas T_\subR}
+\end{alignat*}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Finally, unlike for adiabatic walls, the isothermal wall temperature gradient is
+just copied from the interior,
+%
+\begin{equation*}
+  \nabla T_\subR = \nabla T_\subL
+\end{equation*}
+%
+Since this is also done for the gradients of all of the other variables, the
+right gradient states for the isothermal wall are just the standard
+\quoterm{flow-through} gradient boundary condition from
+\eref{EQ:BC:FlowThroughGradient} used by most boundary conditions.
+
+\devNotes{If default flow conditions are found for an isothermal wall, it will
+use the \inptext{ovar\_mod} variable \inptext{iso\_wall\_temp} to set the wall
+temperature to 300 K. This probably needs to be changed to an error+abort. This
+dev-note is also in \sref{SEC:BC:Specify:FullState}.}
+
+%###############################################################################
+

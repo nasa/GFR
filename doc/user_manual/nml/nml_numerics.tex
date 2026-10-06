@@ -1,0 +1,476 @@
+\subsection{nml\_numerics}
+\label{SEC:nml_numerics}
+\inp*[nmlNumerics]{}[nml\_numerics][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify parameters for the numerical method.
+
+\begin{nmlblocklst}[
+,label={LST:nml_numerics}
+,caption={Namelist nml\_numerics.}
+]
+&nml_numerics
+  All_Orders                      = -3
+  Solution_Order                  =  3
+  Projection_Order                = -3
+  Quadrature_Order                = -3
+  Error_Order                     = -3
+  All_Points                      = -1
+  Loc_Solution_Pts                =  1
+  Loc_Flux_Pts                    =  1
+  Loc_Quadrature_Pts              =  1
+  Loc_Error_Pts                   =  1
+  Loc_Triangle_Pts                =  1
+  Loc_Tetrahedra_Pts              =  1
+  Invs_Flux_Method                =  1
+  Visc_Flux_Method                =  2
+  Visc_Variables_To_Ave           =  1
+  Combine_Common_Flux_Projections =  0
+  Correction_Function             =  1
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+\begin{nmldescitem}
+All_Orders = -3
+\end{nmldescitem}
+\inp*[nmlNumerics::AllOrders]{}[All\_Orders][]
+
+\begin{nmldescbody}
+If $>0$, sets
+\inp[nmlNumerics::SolutionOrder]{Solution\_Order},
+\inp[nmlNumerics::ProjectionOrder]{Projection\_Order}, and
+\inp[nmlNumerics::QuadratureOrder]{Quadrature\_Order}
+all to this value.
+
+\NOTE
+This overrides the values given for these three input parameters.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Solution_Order = 3
+\end{nmldescitem}
+\inp*[nmlNumerics::SolutionOrder]{}[Solution\_Order][]
+
+\begin{nmldescbody}
+Specifies the degree of the polynomial space, \p{S}, to use for the 
+solution. 
+% 
+The order-of-accuracy is approximately \p[+1]{S}.
+
+\NOTE
+If $\inp[nmlNumerics::AllOrders]{All\_Orders} > 0$, then
+that value will override this input.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Projection_Order = -3
+\end{nmldescitem}
+\inp*[nmlNumerics::ProjectionOrder]{}[Projection\_Order][]
+
+\begin{nmldescbody}
+Specifies the degree of the polynomial space, \p{P}, to project the residual
+onto when using over-integration by residual projection.
+%
+The residual will be computed as a polynomial of degree \p{S} and projected down
+to a polynomial of degree \p{P}. This can potentially improve stability if
+aliasing errors are suspected of destabilizing a simulation. 
+%
+If $\inptext{Projection\_Order} \leq 0$,
+this will be set to the same value as \inptext{Solution\_Order}.
+
+\NOTE
+If $\inp[nmlNumerics::AllOrders]{All\_Orders} > 0$, then
+that value will override this input.
+ 
+\NOTE
+This is only used when
+$0<\inptext{Projection\_Order}<\inptext{Solution\_Order}$,
+and using this means the order-of-accuracy of the simulation is
+now approximately \p[+1]{P} instead of \p[+1]{S}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Quadrature_Order = -3
+\end{nmldescitem}
+\inp*[nmlNumerics::QuadratureOrder]{}[Quadrature\_Order][]
+
+\begin{nmldescbody}
+Specifies the degree of the quadrature polynomial space, \p{Q}, to use when
+using over-integration by over-sampling at the quadrature points.
+%
+If $\inptext{Quadrature\_Order} \leq 0$,
+this will be set to the same value as \inptext{Solution\_Order}.
+
+Certain operations during a given residual evaluation
+(\forexample evaluating the common\slash upwind interface fluxes)
+produce either polynomials that are not within the solution polynomial space
+(\forexample of degree greater than the solution order)
+or functions that are not polynomials at all (\forexample pressure).
+%
+By setting
+  $\inptext{Quadrature\_Order} > \inptext{Solution\_Order}$,
+these functions will be over-sampled at the quadrature points to produce
+approximations of these functions as polynomials of degree \p{Q},
+which are in turn projected down to polynomials of degree \p{S}
+before adding their respective contribution to the residual.
+%
+This polynomial representation of degree \p{S} is generally more
+accurate than directly evaluating the function at the
+\p{S} polynomial points, and
+can potentially improve stability if aliasing errors are suspected
+of destabilizing a simulation.
+%
+See \sref{SEC:Aliasing} for an example of how \key{aliasing error}[=] arises
+and the process of using over-integration by over-sampling at the
+quadrature points.
+
+\NOTE
+If $\inp[nmlNumerics::AllOrders]{All\_Orders} > 0$, then
+that value will have first priority.
+ 
+\NOTE
+If $\inp[nmlNumerics::SolutionOrder]{Solution\_Order} > 
+\inptext{Quadrature\_Order}$, then \inptext{Quadrature\_Order}
+will be set to \inptext{Solution\_Order}.
+ 
+\NOTE
+This quadrature option is only used when
+  \inptext{Quadrature\_Order} $>$ \inptext{Solution\_Order}
+or
+  \inp[nmlNumerics::LocQuadraturePts]{Loc\_Quadrature\_Pts} $\neq$
+  \inp[nmlNumerics::LocSolutionPts]{Loc\_Solution\_Pts},
+otherwise the quadrature is evaluated directly at the solution points
+without the need for projection.
+% 
+In all cases,
+$\inptext{Quadrature\_Order} \geq \inptext{Solution\_Order}$
+because using a lower quadrature order provides poor results.
+% 
+Unlike over-integration by residual projection,
+the order-of-accuracy of the simulation remains \p[+1]{S}.
+
+\NOTE
+This quadrature option has not been working since the viscous and
+unstructured capability was added to the code.
+It should be fixed in an upcoming version.
+
+\IDEA{
+Perhaps \sref{SEC:Numerics} needs a detailed discussion of the
+difference between over-integration by residual projection
+and the over-integration by over-sampling at the quadrature points
+used here?
+}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Error_Order = -3
+\end{nmldescitem}
+\inp*[nmlNumerics::ErrorOrder]{}[Error\_Order][]
+
+\begin{nmldescbody}
+Specifies the degree of the polynomial space to use when computing
+integrated error quantities, \forexample the $L^2$-norm of the residual.
+%
+If
+$\inptext{Error\_Order} < \inptext{Solution\_Order}$,
+this will be set to the same value as \inptext{Solution\_Order}.
+
+\NOTE
+This input is only used when
+  $\inptext{Error\_Order} > \inptext{Solution\_Order}$
+or
+  $\inp[nmlNumerics::LocErrorPts]{Loc\_Error\_Pts} \neq
+   \inp[nmlNumerics::LocSolutionPts]{Loc\_Solution\_Pts}$.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+All_Points = -1
+\end{nmldescitem}
+\inp*[nmlNumerics::AllPoints]{}[All\_Points][]
+
+\begin{nmldescbody}
+Valid values for this input are the same as those specified in
+\inp[nmlNumerics::LocSolutionPts]{Loc\_Solution\_Pts}.
+%
+If set to one of those values, this will set
+\inp[nmlNumerics::LocSolutionPts]{Loc\_Solution\_Pts},
+\inp[nmlNumerics::LocFluxPts]{Loc\_Flux\_Pts}, and
+\inp[nmlNumerics::LocQuadraturePts]{Loc\_Quadrature\_Pts}
+all to this value;
+otherwise, this input will be ignored and the three mentioned input parameters
+are unchanged.
+%
+
+\NOTE
+This will override the values given for the three mentioned input
+parameters set to a valid value.
+%
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Loc_Solution_Pts = 1
+\end{nmldescitem}
+\inp*[nmlNumerics::LocSolutionPts]{}[Loc\_Solution\_Pts][]
+
+\begin{nmldescbody}
+Specifies the location of the 1D \key{solution points}[points!solution]
+that are used in tensor products to create higher dimensional sets of
+solution points (used for edge, quad, pyramid, prism, and hex cell geometries):
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  0 & \key{Equidistant points}[points!equidistant] (not recommended) \\
+  1 & \key{Legendre-Gauss (Gauss) points}[points!Legendre-Gauss (Gauss)] (recommended) \\ 
+  2 & \key{Legendre-Gauss-Lobatto (Lobatto) points}[points!Legendre-Gauss-Lobatto (Lobatto)]
+\end{tabular}
+\\
+See \fref{FIG:1D_Points} in \sref{SEC:Intro:Solution_Points}
+to better understand the differences in these point locations.
+
+\NOTE
+
+For structured elements (quadrilaterals and hexahedra),
+a tensor product of these 1D solution points is used.
+
+For pyramid elements, a special tensor product of these solution points
+is used. The 1D solution point locations are used to space the points
+vertically from the pyramid base to the peak. At each of these vertical
+locations, a 2D tensor product of solution points is used, with the base
+being a tensor product of degree \PO, the next vertical location \PO[-1],
+with the peak being \PO[0] or a single point.
+
+For prism elements, a tensor product of these 1D solution points and the
+specified triangle points is used. 
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Loc_Flux_Pts = 1
+\end{nmldescitem}
+\inp*[nmlNumerics::LocFluxPts]{}[Loc\_Flux\_Pts][]
+
+\begin{nmldescbody}
+Specifies the location of the flux points for edge and quadrilateral faces.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  0 & \key{Equidistant points}[points!equidistant] (not recommended) \\
+  1 & \key{Legendre-Gauss (Gauss) points}[points!Legendre-Gauss (Gauss)] (recommended) \\ 
+  2 & \key{Legendre-Gauss-Lobatto (Lobatto) points}[points!Legendre-Gauss-Lobatto (Lobatto)]
+\end{tabular}
+\\
+For triangle faces, \inp[nmlNumerics::LocTrianglePts]{Loc\_Triangle\_Pts}
+is used for the flux points.
+
+%It is generally recommended to set the location of the flux points to the same
+%as the solution points.
+%
+%If using Legendre-Gauss-Lobatto solution points, using Legendre-Gauss flux
+%points could potentially reduce aliasing instabilities at interfaces.
+
+\NOTE
+Using different types of points for the solution and flux points is untested;
+therefore, it is recommended to use the input \inptext{All\_Points} to use the
+same set of points for solution, flux, and quadrature points.
+%
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Loc_Quadrature_Pts = 1
+\end{nmldescitem}
+\inp*[nmlNumerics::LocQuadraturePts]{}[Loc\_Quadrature\_Pts][]
+
+\begin{nmldescbody}
+Specifies the location of the \key{quadrature points}[points!quadrature]
+used for over-integration by over-sampling at the quadrature points.
+This input is treated identically to
+\inp[nmlNumerics::LocSolutionPts]{Loc\_Solution\_Pts} except it uses
+\inp[nmlNumerics::QuadratureOrder]{Quadrature\_Order}
+to determine the number of quadrature points for each geometry type.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Loc_Error_Pts = 1
+\end{nmldescitem}
+\inp*[nmlNumerics::LocErrorPts]{}[Loc\_Error\_Pts][]
+
+\begin{nmldescbody}
+Specifies the location of the error points used for computing integrated
+error quantities. This input is treated identically to
+\inp[nmlNumerics::LocSolutionPts]{Loc\_Solution\_Pts} except it uses
+\inp[nmlNumerics::ErrorOrder]{Error\_Order}
+to determine the number of error points for each geometry type.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Loc_Triangle_Pts = 1
+\end{nmldescitem}
+\inp*[nmlNumerics::LocTrianglePts]{}[Loc\_Triangle\_Pts][]
+
+\begin{nmldescbody}
+Specifies the location of the solution points used for triangles.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  -2 & Hesthaven-Warburton $\alpha$-optimized points\cite{Hesthaven_2010} \\
+   0 & Equally spaced points (not recommended) \\
+   1 & Williams-Shunn points\cite{Williams_2013} (recommended) \\
+   2 & Barycentric Lobatto points
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Loc_Tetrahedra_Pts = 1
+\end{nmldescitem}
+\inp*[nmlNumerics::LocTetrahedraPts]{}[Loc\_Tetrahedra\_Pts][]
+
+\begin{nmldescbody}
+Specifies the location of the solution points used for tetrahedra.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  -2 & Hesthaven-Warburton $\alpha$-optimized points\cite{Hesthaven_2010} \\
+   0 & Equally spaced points (not recommended)\\
+   1 & Shunn-Ham points\cite{Shunn_2012} (recommended) \\
+   2 & Barycentric Lobatto points \\
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Invs_Flux_Method = 1
+\end{nmldescitem}
+\inp*[nmlNumerics::InvsFluxMethod]{}[Invs\_Flux\_Method][]
+
+\begin{nmldescbody}
+Specifies the approximate Riemann solver used to compute the common inviscid
+fluxes at the interfaces.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Roe flux\cite{Roe_1981} with entropy fix\cite{Huynh_1995} \\
+    2 & HLLC flux\cite{Toro_1994} \\
+    3 & LDFSS flux\cite{Edwards_1997} \\
+    4 & Rotated-Roe-HLL flux\cite{Nishikawa_2008} (2D and 3D only) \\
+    5 & AUSM+ flux\cite{Liou_1996} \\
+    6 & Rusanov flux\cite{Rusanov_1961}
+\end{tabular}\\
+%
+\NOTE
+Only the Roe flux with entropy fix or the Rusanov flux are supported
+when using a rotating reference frame. If any other option is selected
+with a rotating reference frame, the inviscid flux method will be reset to
+the Roe flux.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Visc_Flux_Method = 2
+\end{nmldescitem}
+\inp*[nmlNumerics::ViscFluxMethod]{}[Visc\_Flux\_Method][]
+
+\begin{nmldescbody}
+Specifies the method used to compute the common viscous fluxes at the
+interfaces.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  1 & Bassi-Rebay 1 (BR1)\cite{Bassi_1997} (high chances of stability issues) \\
+  2 & Bassi-Rebay 2 (BR2)\cite{Bassi_2005} \\
+  3 & Local DG (LDG)\cite{Cockburn_1998} (smaller CFL limit than BR2)
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Visc_Variables_To_Ave = 1
+\end{nmldescitem}
+\inp*[nmlNumerics::ViscVariablesToAve]{}[Visc\_Variables\_To\_Ave][]
+
+\begin{nmldescbody}
+Determines which variables are averaged to the interfaces when computing the
+common viscous fluxes.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  1 & Average the interface fluxes. Compute the common viscous flux by
+      averaging the left and right viscous interface fluxes which are computed
+      using the left and right interface solutions and gradients. \\
+  2 & Average the interface solutions and gradients. Compute common solutions
+      and gradients by averaging the left and right interface solutions and
+      gradients, and then use the common interface values to compute the common
+      viscous flux.
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+%##%\FINALFIX{\newpage}
+\begin{nmldescitem}
+Combine_Common_Flux_Projections = 0
+\end{nmldescitem}
+\inp*[nmlNumerics::CombineCommonFluxProjections]{}[Combine\_Common\_Flux\_Projections][]
+
+\begin{nmldescbody}
+% Specifies if the common flux projections are combined when using
+Specifies if the \key[key:CommonFluxValue]{common flux}[common flux value] projections
+are combined when using over-integration by over-sampling at the quadrature points.
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  0 & All projections of the over-sampled common fluxes are performed
+      separately. \\
+  1 & The projections of the over-sampled interior-face common fluxes are
+      performed separately from the projection of the over-sampled boundary-face
+      common fluxes.\\
+  2 & All of the over-sampled common fluxes are computed and combined before
+      projecting.
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Correction_Function = 1
+\end{nmldescitem}
+\inp*[nmlNumerics::CorrectionFunction]{}[Correction\_Function][]
+
+\begin{nmldescbody}
+Specifies the \key[key:CorrectionFunction]{correction function}[=]
+(\sref{SEC:Intro:FR:Correction_Functions})
+to use when computing the
+\key[key:ContinuousFluxFunction]{continuous flux function}[=].
+\\
+\begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+  1 & \textsl{g}\textsubscript{DG} correction function (recovers nodal DG
+    method) \\
+  2 & \textsl{g}\textsubscript{2} correction function (only works for 1D)\\
+  3 & \textsl{g}\textsubscript{Ga} correction function (only works for 1D)
+\end{tabular}
+\end{nmldescbody}
+
+%==========================================================================
+

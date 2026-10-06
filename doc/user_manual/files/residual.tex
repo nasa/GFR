@@ -1,0 +1,28 @@
+\subsection{Residual Output}
+\label{SEC:Files:Residual_Output}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+During a run job, if the current iteration is a multiple of
+\inp[nmlOutput::ResidualInterval]{Residual\_Interval},
+convergence information for that iteration is written to the
+\file{residual.dat} file.
+%
+This file is written in Tecplot ASCII format, with columns of
+data and intuitive headers.
+%
+It contains detailed convergence information for each of the
+transport equations being solved.
+%
+The residual measures the change in a solution variable over
+the given time step and is computed as the L2 sum over all
+of the solution points.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\inp[nmlOutput::ResidualInterval]{Residual\_Interval}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

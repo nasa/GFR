@@ -1,0 +1,445 @@
+\section{Boundary Conditions}\label{SEC:BC}
+
+\begingroup
+
+\NewDocumentCommand{\smallSub}{m}{\ensuremath{\textsc{#1}}}
+\NewDocumentCommand{\subBC}{}{\smallSub{bc}}
+\NewDocumentCommand{\subL}{}{\smallSub{l}}
+\NewDocumentCommand{\subR}{}{\smallSub{r}}
+\NewDocumentCommand{\bcgroup}{m}{\textbf{#1}}
+\NewDocumentCommand{\cvVecL}{}{\cvVec[\textsc{l}]}
+\NewDocumentCommand{\cvVecR}{}{\cvVec[\textsc{r}]}
+\NewDocumentCommand{\cvVecBC}{}{\cvVec[\textsc{bc}]}
+\NewDocumentCommand{\dcnorm}{}{\ensuremath{\mathcal{B}}}
+
+\subsection{How to Specify Boundary Conditions}\label{SEC:BC:Specify}
+
+\subsubsection{Boundary Condition Values for
+               \texorpdfstring{\inptext{Set\_BC\_Value}}%
+                              {Set\_BC\_Value}}
+\label{SEC:BC:Specify:SetBCValue}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\devNotes{Need to add better error checking between input and CGNS grid file BC
+names. Mike was seeing an error when it tries to sort the BC faces simply
+because his input had \quoterm{Outlet} and the CGNS grid file had the name for
+that BC as \quoterm{Outflow}. The error occurring while sorting the BC faces
+provided ZERO indication that it had something to do with something as trivial
+as a mismatch for the BC name between the input file and CGNS grid file.}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The primary method for specifying which boundary condition to use is by
+providing a value to the input
+\BCinpBC[nmlBC::BCInput/SetBCValue][i]{Set\_BC\_Value},
+where $i$ is an integer for the current boundary condition.
+%
+The supported values and their respective physical boundary conditions
+are listed in \tref{TBL:BC:values}.
+%
+\begin{table}[h!]
+  \begin{threeparttable}
+% \caption{Types of boundary conditions available in GFR and their respective
+%          input values to use with \BCinptext{Set\_BC\_Value}.}
+  \caption{GFR boundary conditions.}
+  \label{TBL:BC:values}
+\begin{tabular}{ @{\quad} r @{\quad} p{0.7\textwidth} @{} }
+  \toprule
+  \inptext{Set\_BC\_Value} : & Type of Boundary Condition \\
+ %\\[-1.25em] seems to be almost exactly a "Fortran backspace" equivalent
+  \midrule\\[-0.75em]
+  %-----------------------------------------------------------------------------
+       & \bcgroup{Inflow boundary conditions}\\
+   1 : & General inflow
+           (\ref{SEC:BC:Inflow:General})\\
+   2 : & Subsonic inflow
+           (\ref{SEC:BC:Inflow:Subsonic})\\
+   3 : & Supersonic inflow
+           (\ref{SEC:BC:Inflow:Supersonic})\\
+   5 : & SEM (unsteady turbulent) inflow%
+           \tnote{\ensuremath{\ast}} \ %
+           (\ref{SEC:BC:Inflow:SEM})\\[0.5em]
+  %-----------------------------------------------------------------------------
+       & \bcgroup{Outflow boundary conditions}\\
+  11 : & General outflow
+           (\ref{SEC:BC:Outflow:General})\\
+  12 : & Subsonic outflow
+           (\ref{SEC:BC:Outflow:Subsonic})\\
+  13 : & Supersonic outflow
+           (\ref{SEC:BC:Outflow:Supersonic})\\[0.5em]
+  %-----------------------------------------------------------------------------
+       & \bcgroup{Farfield boundary conditions}\\
+  21 : & Characteristic \slash{} Riemann-invariant inflow\slash outflow%
+           \tnote{\ensuremath{\ast}} \ %
+           (\ref{SEC:BC:Farfield:Characteristic})\\
+  22 : & General free-flow inflow\slash outflow
+           (\ref{SEC:BC:Farfield:General})\\
+  23 : & Freestream (fixed) farfield
+           (\ref{SEC:BC:Farfield:Freestream})\\
+  24 : & Fixed farfield
+           (\ref{SEC:BC:Farfield:Fixed})\\[0.5em]
+  %-----------------------------------------------------------------------------
+       & \bcgroup{Wall boundary conditions}\\
+  50 : & Inviscid\slash slip wall
+           (\ref{SEC:BC:Wall:Slip})\\
+  52 : & Adiabatic viscous\slash no-slip wall
+           (\ref{SEC:BC:Wall:Adiabatic})\\
+  53 : & Isothermal viscous\slash no-slip wall
+           (\ref{SEC:BC:Wall:Isothermal})\\[0.5em]
+  %-----------------------------------------------------------------------------
+       & \bcgroup{Numerical boundary conditions}\\
+  80 : & Symmetry boundary
+           (\ref{SEC:BC:Numerical:Symmetry})\\
+  81 : & Periodic (translated \andor rotated) coupled boundaries
+          %(\ref{SEC:BC:Numerical:Periodic})\\
+          %(\ref{SEC:BC:Numerical:Periodic})\\[0.50em] % w/o midrule
+           (\ref{SEC:BC:Numerical:Periodic})\\[0.25em] % w/  midrule
+  %-----------------------------------------------------------------------------
+ %\midrule\\[-0.75em]
+  \midrule\\[-1.0em]
+  %-----------------------------------------------------------------------------
+      %& \multicolumn{1}{@{}>{\footnotesize}p{0.75\textwidth}}{%
+       & %\multicolumn{1}{@{}>{\small}p{0.75\textwidth}}{%
+         \bcgroup{%
+%        Other BC values used internally, just in case you encounter them.\newline
+%        Note: \inptext{Set\_BC\_Value} should \emph{NOT} be set to any of
+%        these values.
+         %
+         Other internal BC values that may be reported.\newline
+         Note: Do \underline{NOT} set \inptext{Set\_BC\_Value} to any of these
+         values.
+         } %}
+         \\
+  %-----------------------------------------------------------------------------
+  %-----------------------------------------------------------------------------
+      0 : & Not a boundary condition\\
+     99 : & Partition\slash communication boundary condition \\
+  -9998 : & Unsupported boundary condition\\
+  -9999 : & Unknown boundary condition\\
+  %-----------------------------------------------------------------------------
+  \bottomrule
+\end{tabular}
+  \begin{tablenotes}
+    \item[\ensuremath{\ast}] Not compatible with multi-component gas mixtures.
+  \end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+As shown in \sref{SEC:Intro:FR}, the FR method needs to compute a common flux
+(\ref{SEC:Intro:FR:Upwind}) at each interface flux point in order to create the
+continuous flux function
+(\ref{SEC:Intro:FR:ContinuousFlux}--\ref{SEC:Intro:FR:DerivativeFlux}) needed to
+update the solution at the end of each time step
+(\ref{SEC:Intro:FR:Time_Advancement}).
+%
+The inviscid common flux is computed using a Riemann solver (see
+\inp[nmlNumerics::InvsFluxMethod]{Invs\_Flux\_Method}) which requires as input a
+left and right state, \cvVecL{} and \cvVecR, respectively.
+%
+Furthermore, the viscous common flux requires the gradient of the left and right
+states, $\nabla \cvVecL$ and $\nabla \cvVecR$, respectively.
+%
+See section \textit{II.B.2} in \linecite{Spiegel_2016} for details on the
+discretization of the diffusion terms, and see inputs
+\inp[nmlNumerics::ViscFluxMethod]{Visc\_Flux\_Method} and
+\inp[nmlNumerics::ViscVariablesToAve]{Visc\_Variables\_To\_Ave}
+on usage options in GFR.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Due to the compact nature of FR\slash DG, each boundary condition really just
+determines how the boundary state is evaluated before computing the common flux
+function at the flux points of the respective boundary face.
+%
+Let \fupw[\textsc{i}]{} be the inviscid common flux function --- in this case
+some kind of upwind or Riemann flux function --- defined as $\fupw[\textsc{i}] =
+\fupw[\textsc{i}] \left( \cvVecL , \cvVecR \right)$.
+%
+Similarly, let \fupw[\textsc{v}]{} be the viscous common flux function defined
+as $\fupw[\textsc{v}] = \fupw[\textsc{v}] \left( \cvVecL,\cvVecR ,
+\nabla\cvVecL,\nabla\cvVecR \right)$.
+%
+For boundary faces, the left state is always from the interior cell and the
+right state is the exterior state associated with the boundary condition.
+%
+Additionally, let \cvVecBC{} represent the boundary condition state, which is
+specified in the input file for the boundary condition; \cvVecBC{} is related
+--- but not necessary equivalent --- to \cvVecR.
+%
+In general, the right state is a function of both the left\slash interior state
+and the boundary condition state, \thatis $\cvVecR = \cvVecR \left( \cvVecL ,
+\cvVecBC \right)$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Sections \ref{SEC:BC:Inflow}--\ref{SEC:BC:Numerical} will provide details for
+each boundary condition option currently available in GFR.
+%
+For each boundary condition type, this will cover what components of
+\BCinpBC[nmlBC::BCInput]{} are required \andor optional to create the
+%\hyperref[LST:nml_bc]{\bcInp{}} are required \andor optional to create the
+needed information in \cvVecBC, and how that information and the interior state,
+\cvVecL, are used to determine the right state, \cvVecR.
+%
+For most of the boundary conditions, the right gradient state is just copied
+from the interior gradient state, \thatis
+%
+\begin{equation}
+  \nabla\cvVecR=\nabla\cvVecL
+  \label{EQ:BC:FlowThroughGradient}
+\end{equation}
+%
+so this will be assumed for each boundary condition below unless otherwise
+stated.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Finally, for a given boundary condition, if both \BCinptext{Set\_BC\_Value} is
+not set and the grid file does not provide a boundary condition type, the name
+of the boundary condition --- taken from \BCinptext{Name} if provided, otherwise
+taken from the name assigned to the boundary condition in the grid file ---
+is parsed for certain keywords.
+%
+If a keyword match is found, a boundary condition will be assigned based on the
+keyword.
+%
+Details on this are provided in \sref{SEC:BC:NameMatch}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Fully Defining the Boundary Condition State}
+\label{SEC:BC:Specify:FullState}
+
+All flow-through boundary conditions (\thatis inflow and outflow) require a
+minimum set of flow conditions to be defined in the input file in order to fully
+define the boundary condition state.
+%
+There is one important detail to mention in how the boundary conditions are
+processed before continuing on about what inputs are needed to fully define the
+boundary condition state.
+%
+The first thing GFR does when processing the boundary conditions specified in
+the input file is check if any individual boundary condition contains
+all default flow conditions.
+%
+This check for default flow conditions checks all components of
+\BCinpBC[nmlBC::BCInput]{}
+\emph{except}:
+%
+\begin{InputExample}
+  \item[\BCinptext{Name}]
+  \item[\BCinptext{Set\_BC\_Value}]
+  \item[\BCinptext{Periodic\%\ldots}]
+\end{InputExample}
+%
+If an individual boundary condition is found to be set to the default flow
+conditions, the flow state for that boundary condition will be set to the
+freestream reference conditions specified through the
+\hyperref[LST:nml_reference]{nml\_reference} namelist.
+%
+If just \emph{one} of \emph{any} of the other components (or sub-components) of
+\BCinptext{} are \emph{not} set to the default value, the remainder of this
+section on fully defining the boundary condition state applies to the
+respective boundary condition.
+
+\devNotes{If default flow conditions are found for an isothermal wall, it will
+use the \texttt{ovar\_mod} variable \texttt{iso\_wall\_temp} to set the wall
+temperature to 300 K. This probably needs to be changed to an error+abort. This
+dev-note is also in \sref{SEC:BC:Wall:Isothermal}.}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+As discussed in \sref{SEC:nml_bc}, a variety of input variables are available
+to make specifying the boundary flow conditions as easy as possible.
+%
+These input flow conditions include:
+%
+\begin{multicols}{2}
+\begin{InputExample}
+  \item[{\BCinpBC[nmlBC::BCInput/Pressure]{Pressure}}]
+  \item[{\BCinpBC[nmlBC::BCInput/Temperature]{Temperature}}]
+  \item[{\BCinpBC[nmlBC::BCInput/Density]{Density}}]
+  \item[{\BCinpBC[nmlBC::BCInput/Mach]{Mach}}]
+  \item[{\BCinpBC[nmlBC::BCInput/AoAAlpha]{AoA\_Alpha}}]
+  \item[{\BCinpBC[nmlBC::BCInput/AoABeta]{AoA\_Beta}}]
+  %
+  \item[{\BCinpBC[nmlBC::BCInput/TotalPressure]{Total\_Pressure}}]
+  \item[{\BCinpBC[nmlBC::BCInput/TotalTemperature]{Total\_Temperature}}]
+  \item[{\BCinpBC[nmlBC::BCInput/TotalDensity]{Total\_Density}}]
+  \item[{\BCinpBC[nmlBC::BCInput/VelocityX]{VelocityX}}]
+  \item[{\BCinpBC[nmlBC::BCInput/VelocityY]{VelocityY}}]
+  \item[{\BCinpBC[nmlBC::BCInput/VelocityZ]{VelocityZ}}]
+\end{InputExample}
+\end{multicols}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+As a general rule, four variables are sufficient to fully define the boundary
+condition state.
+%
+If the velocity boundary condition has zero angle of attack,
+using the default value of zero for both angles of attack reduces the minimum
+number of variables to three.
+%
+After reading in the specified variables for a boundary condition, GFR will
+iterate to define the full boundary state from the specified variables.
+%
+This iteration will loop five times and use what variables have been previously
+set to define any remaining undefined state variables.
+%
+After completing the five iterations, if
+any state variables remain undefined or are inconsistent with what was specified
+in the input file, GFR will abort execution and report an error including the
+values of all the input and computed state variables to help the user fix any
+errors in the input file.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+One thing to note is that some boundary conditions may not actually need a fully
+defined boundary state to define the right state.
+%
+An example of this would be a subsonic outflow boundary condition that only
+requires the exterior static pressure to compute the right state, and most CFD
+codes will only require a single input value for this quantity.
+%
+However, at the moment, GFR will require additional information to fully define
+the boundary condition state, even though the boundary condition itself will
+completely ignore all the other state variables and only use static pressure to
+compute the right state.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+An example of a minimal set of variables to define a boundary condition
+would be:
+%
+\begin{InputExample}
+  \item[\textcolor{Green}{\checkmark{} Fully defined boundary condition}]
+  \item[\BCinptext{Mach}]
+  \item[\BCinptext{Temperature}]
+  \item[\BCinptext{Total\_Pressure}]
+\end{InputExample}
+%
+From this information, and using the default zero angle of attack, the velocity
+vector and remaining static\slash total density\slash pressure\slash temperature
+variables can be defined to fully define the boundary condition state.
+%
+The following example would not constitute a minimal set of variables to fully
+define a boundary condition:
+%
+\begin{InputExample}
+  \item[\textcolor{Red}{$\bm{\mathsf{X}}$ Incomplete boundary condition}]
+  \item[\BCinptext{Density}]
+  \item[\BCinptext{Temperature}]
+  \item[\BCinptext{Pressure}]
+\end{InputExample}
+%
+This boundary condition cannot be fully defined because no velocity condition
+can be deduced from the given quantities.
+%
+However, this would be fully defined if one of these inputs were replaced with
+their respective total\slash stagnation value, since the Mach number for the
+boundary condition could be determined from having both the static and total
+conditions.
+
+%###############################################################################
+
+\subsubsection{Situational Recommendations}
+\label{SEC:BC:Specify:Recommendations}
+
+This section includes some recommendations on which boundary conditions to use
+in certain situations.
+
+\begin{itemize}
+  %
+  \item
+    We recommend characteristic boundary conditions for
+    farfield boundaries that are generally aligned with the mean flow.
+    %
+    The next best option is the general free-flow boundary
+    condition to allow both inflow and outflow through the boundary.
+    %
+    The farfield and fixed boundary conditions should best be avoided since
+    they are essentially supersonic inflow boundary conditions, which could
+    potentially cause problems if the interior flow propagates to the farfield
+    boundary and needs to exit the computational domain.
+    %
+  \item
+    The characteristic boundary condition works fairly well as a general
+    outflow boundary condition, but is not recommended for a subsonic inflow
+    since it does not enforce total conditions.
+    %
+    Maintaining total conditions is often necessary for internal or confined
+    flow problems.
+    %
+  \item
+    If you are not entirely sure if an inflow or outflow boundary will be either
+    fully subsonic or supersonic, then use the general versions
+    of those boundary conditions since they are set up to use the \quoterm{best}
+    method of the respective boundary condition.
+    %
+    However, if you do know that it will be entirely subsonic or supersonic,
+    it is best to use that respective version of the boundary condition.
+    %
+    This will slightly reduce the computational cost of determining the boundary
+    condition states since it eliminates the need to evaluate the Mach number of
+    the flow normal to the boundary face in order to determine which boundary
+    condition to use.
+    %
+    The overall computational savings may
+    be small and only noticeable over tens of thousands of time steps.
+    %
+  \item
+    Symmetry boundary conditions should generally be avoided for LES since
+    turbulent flows are never symmetric about a plane.
+    %
+    However, a slip wall boundary condition --- which is mathematically
+    identical to a symmetry boundary conditions --- can be used for LES provided
+    its usage \quoterm{makes physical sense}.
+    %
+    As an example, the boundary conditions used for the THX3 simulations (see
+    \fref{FIG:Files:PW:THX3}) used a slip wall for the bottom boundary which
+    included all surfaces on the same plane as the flat plate behind the square
+    nozzle.
+    %
+    It might have been better to use a characteristic boundary condition to
+    allow for downward spillage of the flow at the sides of the plate, but the
+    slip walls seem to work sufficiently for this problem.%
+    %
+  \item
+    Caution should be exercised when using periodic boundary conditions in the
+    cross-stream directions for LES, since a narrow physical domain may limit
+    the size of turbulent structures.
+  %
+\end{itemize}
+
+%###############################################################################
+
+\input{BCs/name_match}
+
+%###############################################################################
+
+\input{BCs/inflow/inflow}
+
+%###############################################################################
+
+\input{BCs/outflow/outflow}
+
+%###############################################################################
+
+\input{BCs/farfield/farfield}
+
+%###############################################################################
+
+\input{BCs/walls/walls}
+
+%###############################################################################
+
+\input{BCs/numerical/numerical}
+
+%###############################################################################
+
+\endgroup
+

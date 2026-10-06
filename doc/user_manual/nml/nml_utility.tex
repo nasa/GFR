@@ -1,0 +1,182 @@
+%##%\FINALFIX{\newpage}
+\subsection{nml\_utility}
+\label{SEC:nml_utility}
+\inp*[nmlUtility]{}[nml\_utility][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to switch from solver mode to utility mode.
+%
+\NOTE
+The inputs in this block perform post-processing tasks
+without running the flow solver.
+
+\begin{nmlblocklst}[
+,label={LST:nml_utility}
+,caption={Namelist nml\_utility.}
+]
+&nml_utility
+  Convert_Restart_To_CGNS            = F
+  Delete_Converted_Restart_Files     = F
+  Restart_List_File                  = ""
+  Spatial_Ave_Restart_Channel        = F
+  Spatial_Ave_Restart_X_And_Z_Planes = F
+  Spatial_Ave_Restart_Z_Planes       = F
+/
+\end{nmlblocklst}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Convert_Restart_To_CGNS = F
+\end{nmldescitem}
+\inp*[nmlUtility::ConvertRestartToCGNS]{}[Convert\_Restart\_To\_CGNS][]
+
+\begin{nmldescbody}
+Flag used to read in a restart file and immediately write a CGNS solution
+file, bypassing the solver entirely.
+%
+This first reads the instantaneous restart file from
+\inp[nmlInitialization::RestartFile]{Restart\_File},
+computes the requested output variables from
+\inptext{nml\_output\_variables} in \sref{SEC:nml_output_variables},
+and writes them to a CGNS solution file.
+%
+Next it reads the time-averaged restart file from
+\inp[nmlTimeAve::InputTimeAveFile]{Input\_Time\_Ave\_File}, 
+and writes the accumulated data to \file{CGNS\_files/solution.\#.ta\_data.cgns}
+and the derived statistics to \file{CGNS\_files/solution.\#.time\_ave.cgns}.
+%
+Lastly, it reads the list of instantaneous restart files from
+\inp[nmlUtility::RestartListFile]{Restart\_List\_File}
+and processes each one to compute the requested output variables from
+\inptext{nml\_output\_variables} in \sref{SEC:nml_output_variables},
+and writes them to a CGNS solution file.
+%
+Finally, it will write the file \file{CGNS\_files/solution.time.cgns} to
+link all the instantaneous solution files together into a single time-history
+solution file.
+
+The option 
+\inp[nmlUtility::DeleteConvertedRestartFiles]{Delete\_Converted\_Restart\_Files}
+controls whether the restart files are deleted after the CGNS output
+is complete.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Delete_Converted_Restart_Files = F
+\end{nmldescitem}
+\inp*[nmlUtility::DeleteConvertedRestartFiles]{}[Delete\_Converted\_Restart\_Files][]
+
+\begin{nmldescbody}
+Specifies whether to delete each restart file from
+\inp[nmlUtility::RestartListFile]{Restart\_List\_File}
+after it has been processed by
+\inp[nmlUtility::ConvertRestartToCGNS]{Convert\_Restart\_To\_CGNS}.
+%
+This can be used to minimized disk space usage.
+%
+The
+\inp[nmlInitialization::RestartFile]{Restart\_File} and
+\inp[nmlTimeAve::InputTimeAveFile]{Input\_Time\_Ave\_File}
+will \emph{not} be deleted after conversion to CGNS.
+
+\noindent\myTextColor[red]{\textbf{WARNING:} } This will permanently delete
+these files from the file system.
+\end{nmldescbody}
+
+
+%==========================================================================
+
+\begin{nmldescitem}
+Restart_List_File = ""
+\end{nmldescitem}
+\inp*[nmlUtility::RestartListFile]{}[Restart\_List\_File][]
+
+\begin{nmldescbody}
+File path to a simple ASCII file that contains a list of file paths to
+existing instantaneous restart files for use with
+\inp[nmlUtility::ConvertRestartToCGNS]{Convert\_Restart\_To\_CGNS}.
+%
+Each line of the list file should contain the name of a restart file.
+%
+If the text on a line does not give a valid path to an existing file, it will
+ignore the line and continue with the next line.
+%
+See also
+\inp[nmlUtility::DeleteConvertedRestartFiles]{Delete\_Converted\_Restart\_Files}.
+\end{nmldescbody}
+
+%==========================================================================
+
+%##%\FINALFIX{\newpage}
+\begin{nmldescitem}
+Spatial_Ave_Restart_Channel = F
+\end{nmldescitem}
+\inp*[nmlUtility::SpatialAveRestartChannel]{}[Spatial\_Ave\_Restart\_Channel][]
+
+\begin{nmldescbody}
+This is essentially a specialized version of
+\inp[nmlUtility::SpatialAveRestartXAndZPlanes]{Spatial\_Ave\_Restart\_X\_And\_Z\_Planes}
+for the channel flow problem
+where the 1D $y$ profile is normalized by the channel half-height.
+%
+It is used to post-process the time-averaged restart file
+(\inp[nmlTimeAve::InputTimeAveFile]{Input\_Time\_Ave\_File}).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Spatial_Ave_Restart_X_And_Z_Planes = F
+\end{nmldescitem}
+\inp*[nmlUtility::SpatialAveRestartXAndZPlanes]{}[Spatial\_Ave\_Restart\_X\_And\_Z\_Planes][]
+
+\begin{nmldescbody}
+Utility to read the time-averaged restart file
+(\inp[nmlTimeAve::InputTimeAveFile]{Input\_Time\_Ave\_File})
+and spatially average in both the $x$ and $z$ coordinates.
+%
+This option first produces the $z$-averaged output from
+\\%  Prevent next word from entering right margin.
+\inp[nmlUtility::SpatialAveRestartZPlanes]{Spatial\_Ave\_Restart\_Z\_Planes},
+then additionally averages in the $x$-direction
+and outputs a Tecplot ASCII data file containing
+a 1D line with the $y$ grid coordinates and the
+$x$-$z$-averaged flow variables
+(\forexample a hex mesh formed from a $y$ grid line by extruding
+in the $x$ direction and then the $z$ direction).
+
+\NOTE
+This only works for simple cases like channel flows or flat plates
+where the $y$-spacing is the same for every $x$-$z$ coordinate pair.
+
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Spatial_Ave_Restart_Z_Planes = F
+\end{nmldescitem}
+\inp*[nmlUtility::SpatialAveRestartZPlanes]{}[Spatial\_Ave\_Restart\_Z\_Planes][]
+
+\begin{nmldescbody}
+Utility to read the time-averaged restart file
+(\inp[nmlTimeAve::InputTimeAveFile]{Input\_Time\_Ave\_File})
+and spatially average in the $z$ coordinates.
+%
+The output will be a Tecplot ASCII data file containing
+a 2D plane with the $x$-$y$ grid coordinates and the
+$z$-averaged flow variables.
+
+\NOTE
+This only works for simple cases like channel flows or flat plates
+where the 2D $x$-$y$ grids are identical for all $z$-planes
+(\forexample a structured or unstructured 2D planar $x$-$y$ grid
+that is extruded in the $z$ direction).
+
+\end{nmldescbody}
+
+%==========================================================================
+

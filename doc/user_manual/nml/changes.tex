@@ -1,0 +1,1358 @@
+\subsection{Changes from Prior Version}
+\label{SEC:nml_Changes}
+
+Many new features have been added since the prior version, including:
+\begin{itemize}
+\item
+Mixed unstructured elements are now fully functional, \sref{SEC:Element_Types}.
+\item
+Rotating reference frame, \sref{SEC:Ref_Frame}.
+\item
+A number of new time stepping methods, \sref{SEC:Time}.
+\item
+  Unsteady turbulent inflow via SEM, \sref{SEC:SEM}.
+\item
+The Multidimensional Limiting Process (MLP).
+%The Multidimensional Limiting Process (MLP), \sref{SEC:Limiting}.
+\item
+The \inp[nmlLimiter::Thermofix/Method]{Thermofix\%Method}
+to prevent negative density, temperature, or pressure.
+\item
+Test cases for:
+\begin{itemize}
+\item
+3D Taylor-Couette flow
+% (\sref{SEC:Testcases:TaylorCouetteFlow})
+\item
+3D channel flow and annular pipe channel flow
+% (\sref{SEC:Testcases:ChannelFlow})
+\item
+1D density pulse advection (\sref{SEC:Testcases:DensityPulse})
+\item
+1D Sod shock tube          (\sref{SEC:Testcases:Sod})
+\item
+1D Shu-Osher problem       (\sref{SEC:Testcases:ShuOsher})
+\end{itemize}
+\end{itemize}
+
+
+One of the most noticeable changes is the renaming and reorganization of the
+user input.
+%
+The code will attempt to convert an older input file to the current format.
+%
+However, should you need to manually convert an older input file,
+the table below provides a mapping between the old and new inputs.
+
+\noindent\NOTE An \inptext{*} means an equivalent input does not exist in the old namelist.
+
+
+% This table maps version 1 to version 2 namelist format.
+
+% This rule is used to manually determine column widths.
+% \colsep    =  6pt  Pads on L+R.
+% \parindent = 15pt
+{% beg scope for rule
+\newcommand{\myrule}{%
+  \rule       {   6pt}{1.0pt}% PadL
+  \rule       {   5pt}{1.0ex}%
+  \rule[1.0ex]{   6pt}{1.0pt}% PadR
+  \rule       {   6pt}{1.0pt}% PadL
+  \rule       {   5pt}{1.0ex}%
+  \rule[1.0ex]{   6pt}{1.0pt}% PadR
+  \rule       {   6pt}{1.0pt}% PadL
+  \rule       {2.80in}{1.0ex}%
+  \rule[1.0ex]{   6pt}{1.0pt}% PadR
+  \rule       {   6pt}{1.0pt}% PadL
+  \rule       {   5pt}{1.0ex}%
+  \rule[1.0ex]{   6pt}{1.0pt}% PadR
+  \rule       {   6pt}{1.0pt}% PadL
+  \rule       {2.30in}{1.0ex}%
+  \rule[1.0ex]{   6pt}{1.0pt}% PadR
+}
+%\noindent\myrule
+}% end scope for rule
+
+%\begin{table}[ht]
+  \begin{center}
+    {\normalsize % begin font size
+    % \tabcolsep =  6pt ~= 0.0833in Pads on L+R.
+    % \parindent = 15pt ~= 0.2083in
+    \newlength{\lenS}
+    \newlength{\lenA}
+    \newlength{\lenB}
+    \newlength{\lenC}
+    \newlength{\lenD}
+    \newlength{\lenE}
+    \newlength{\lenF}
+    \newlength{\lenG}
+    \newlength{\lenH}
+    \setlength{\lenS}{6pt}
+    \setlength{\lenA}{\parindent}
+    \setlength{\lenB}{\parindent}
+    \setlength{\lenC}{2.80in}
+    \setlength{\lenD}{\parindent}
+    \setlength{\lenE}{\parindent}
+    \setlength{\lenG}{\lenC+\lenD}
+    \setlength{\lenH}{\lenG+\lenE}
+    \setlength{\lenF}{\textwidth-\lenA-\lenB-\lenC-\lenD-\lenE-5\lenS}
+   %\setlength{\lenF}{\textwidth-\lenA-\lenB-\lenC-\lenD-\lenE}
+    \begin{longtable}{ p{\lenA} p{\lenB} p{\lenC} p{\lenD} p{\lenE} p{\lenF} }
+%   \begin{longtable}{|p{\lenA}|p{\lenB}|p{\lenC}|p{\lenD}|p{\lenE}|p{\lenF}|}
+      \hline
+       \multicolumn{3}{l}{Old Namelist}
+    &  \multicolumn{2}{l}{New Namelist}
+    \\
+       &  \multicolumn{2}{l}{Old Variable}
+       && \multicolumn{2}{l}{New Variable}
+       \\
+       && \multicolumn{2}{l}{Description}
+       &  
+       \\
+      \hline
+      \endhead
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_version}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{*}}
+       && \multicolumn{2}{l}{\inp[nmlVersion::NamelistVersion]{Namelist\_Version}}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_grid}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Grid\_Scaling\_Factor}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::GridScalingFactor]{Same}[Grid\_Scaling\_Factor]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Grid\_Format}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::GridFormat]{Same}[Grid\_Format]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Gridfile}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::GridFile]{Grid\_File}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Plot3d\_Cutfile}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::Plot3dCutfile]{Same}[Plot3d\_Cutfile]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Plot3d\_BCSfile}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::Plot3dBCSfile]{Same}[Plot3d\_BCSfile]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Plot3d\_I\_Stride}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::Plot3dStrideI]{Plot3d\_Stride\_I}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Plot3d\_J\_Stride}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::Plot3dStrideJ]{Plot3d\_Stride\_J}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Plot3d\_K\_Stride}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::Plot3dStrideK]{Plot3d\_Stride\_K}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Plot3d\_All\_Strides}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::Plot3dStrideAll]{Plot3d\_Stride\_All}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Plot3d\_Agglomerate\_Order}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::Plot3dAgglomerateOrder]{Same}[Plot3d\_Agglomerate\_Order]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Correct\_CGNS\_Grid\_Points}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::CorrectCGNSGridPoints]{Same}[Correct\_CGNS\_Grid\_Points]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Flame\_Speed\_Test\_DoF}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Pulse\_Test\_DoF}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Shu\_Osher\_Test\_DoF}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Sod\_Test\_DoF}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{VortexGrid\_DoF}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::InternalGridDoF]{Internal\_Grid\_DoF}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Internal\_Grid\_Order}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::InternalGridOrder]{Same}[Internal\_Grid\_Order]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Metis\_Option}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::MetisOption]{Same}[Metis\_Option]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Geom\_Wts(1)\%Tria}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::GeomWts/Tria]{Same}[Geom\_Wts(:)\%Tria]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Geom\_Wts(1)\%Quad}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::GeomWts/Quad]{Same}[Geom\_Wts(:)\%Quad]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Geom\_Wts(1)\%Tetr}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::GeomWts/Tetr]{Same}[Geom\_Wts(:)\%Tetr]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Geom\_Wts(1)\%Pyra}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::GeomWts/Pyra]{Same}[Geom\_Wts(:)\%Pyra]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Geom\_Wts(1)\%Pris}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::GeomWts/Pris]{Same}[Geom\_Wts(:)\%Pris]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Geom\_Wts(1)\%Hexa}}
+       && \multicolumn{2}{l}{\inp[nmlGrid::GeomWts/Hexa]{Same}[Geom\_Wts(:)\%Hexa]}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_reference}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Machref}}
+       && \multicolumn{2}{l}{\inp[nmlReference::Mach]{Mach}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Reyref}}
+       && \multicolumn{2}{l}{\inp[nmlReference::Reynolds]{Reynolds}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Gam}}
+       && \multicolumn{2}{l}{\inp[nmlReference::Gamma]{Gamma}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Rhoref}}
+       && \multicolumn{2}{l}{\inp[nmlReference::Density]{Density}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Tref}}
+       && \multicolumn{2}{l}{\inp[nmlReference::Temperature]{Temperature}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Pref}}
+       && \multicolumn{2}{l}{\inp[nmlReference::Pressure]{Pressure}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Rgasref}}
+       && \multicolumn{2}{l}{\inp[nmlReference::GasConstant]{Gas\_Constant}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Alpha\_AoAref}}
+       && \multicolumn{2}{l}{\inp[nmlReference::AoAAlpha]{AoA\_Alpha}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Beta\_AoAref}}
+       && \multicolumn{2}{l}{\inp[nmlReference::AoABeta]{AoA\_Beta}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Pr}}
+       && \multicolumn{2}{l}{\inp[nmlReference::Prandtl]{Prandtl}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Schmidt\_Lam}}
+       && \multicolumn{2}{l}{\inp[nmlReference::Schmidt]{Schmidt}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Suth\_Muref}}
+       && \multicolumn{2}{l}{\inp[nmlReference::SuthMuref]{Same}[Suth\_Muref]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Suth\_Tref}}
+       && \multicolumn{2}{l}{\inp[nmlReference::SuthTref]{Same}[Suth\_Tref]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Suth\_Sref}}
+       && \multicolumn{2}{l}{\inp[nmlReference::SuthSref]{Same}[Suth\_Sref]}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_physics}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Governing\_Equations}}
+       && \multicolumn{2}{l}{\inp[nmlPhysics::GoverningEquations]{Same}[Governing\_Equations]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Moving\_Ref\_Frame\%Rotation(1:3)}}
+       && \multicolumn{2}{l}{\inp[nmlPhysics::MovingRefFrame/Rotation]{Same}[Moving\_Ref\_Frame\%Rotation]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Moving\_Ref\_Frame\%Translation(1:3)}}
+       && \multicolumn{2}{l}{\inp[nmlPhysics::MovingRefFrame/Translation]{Same}[Moving\_Ref\_Frame\%Translation]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Moving\_Ref\_Frame\%Spinup\%Iter}}
+       && \multicolumn{2}{l}{\inp[nmlPhysics::MovingRefFrame/Spinup/Iter]{Same}[Moving\_Ref\_Frame\%Spinup\%Iter]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Moving\_Ref\_Frame\%Spinup\%Tstar}}
+       && \multicolumn{2}{l}{\inp[nmlPhysics::MovingRefFrame/Spinup/Tstar]{Same}[Moving\_Ref\_Frame\%Spinup\%Tstar]}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_initialization}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Itestcase}}
+       && \multicolumn{2}{l}{\inp[nmlInitialization::Initialization]{Initialization}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Jet\_Init\_Func}}
+       && \multicolumn{2}{l}{\inp[nmlInitialization::JetInitFunc]{Same}[Jet\_Init\_Func]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Load\_Restart\_File}}
+       && \multicolumn{2}{l}{\inp[nmlInitialization::LoadRestartFile]{Same}[Load\_Restart\_File]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Restart\_File}}
+       && \multicolumn{2}{l}{\inp[nmlInitialization::RestartFile]{Same}[Restart\_File]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Initial\_Solution\_File}}
+       && \multicolumn{2}{l}{\inp[nmlInitialization::InitialSolutionFile]{Solution\_File}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Initial\_Solution\_Format}}
+       && \multicolumn{2}{l}{\inp[nmlInitialization::InitialSolutionFormat]{Solution\_Format}}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_timestep}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Runge\_Kutta\_Scheme}}
+       && \multicolumn{2}{l}{\inp[nmlTimestep::RungeKuttaScheme]{Same}[Runge\_Kutta\_Scheme]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Minimum\_Timesteps}}
+       && \multicolumn{2}{l}{\inp[nmlTimestep::NumTimestepsMin]{Num\_Timesteps\_Min}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Num\_Timesteps}}
+       && \multicolumn{2}{l}{\inp[nmlTimestep::NumTimesteps]{Same}[Num\_Timesteps]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Final\_Time}}
+       && \multicolumn{2}{l}{\inp[nmlTimestep::FinalTime]{Same}[Final\_Time]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Timestep\_Type}}
+       && \multicolumn{2}{l}{\inp[nmlTimestep::TimestepType]{Same}[Timestep\_Type]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Constant\_Dt}}
+       && \multicolumn{2}{l}{\inp[nmlTimestep::Timestep]{Timestep}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{CFL}}
+       && \multicolumn{2}{l}{\inp[nmlTimestep::CFL]{Same}[CFL]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{CFL\_Beg}}
+       && \multicolumn{2}{l}{\inp[nmlTimestep::CFLRampingBeg]{CFL\_Ramping\_Beg}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{CFL\_End}}
+       && \multicolumn{2}{l}{\inp[nmlTimestep::CFLRampingEnd]{CFL\_Ramping\_End}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{CFL\_Cycles}}
+       && \multicolumn{2}{l}{\inp[nmlTimestep::CFLRampingIterations]{CFL\_Ramping\_Iterations}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{CFL\_Start\_Iter}}
+       && \multicolumn{2}{l}{\inp[nmlTimestep::CFLRampingStartIter]{CFL\_Ramping\_Start\_Iter}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Convergence\_Order\_Abs\_Res}}
+       && \multicolumn{2}{l}{\inp[nmlTimestep::ConvergenceOrderAbsRes]{Same}[Convergence\_Order\_Abs\_Res]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Convergence\_Order\_Max\_Res}}
+       && \multicolumn{2}{l}{\inp[nmlTimestep::ConvergenceOrderMaxRes]{Same}[Convergence\_Order\_Max\_Res]}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_bc}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Walls\_Are\_Exact}}
+       && \multicolumn{2}{l}{\inp[nmlBC::WallsAreExact]{Same}[Walls\_Are\_Exact]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Sub\_Inflow\_Method}}
+       && \multicolumn{2}{l}{\inp[nmlBC::SubInflowMethod]{Same}[Sub\_Inflow\_Method]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Use\_BC\_Conflicts}}
+       && \multicolumn{2}{l}{\inp[nmlBC::UseBCConflicts]{Same}[Use\_BC\_Conflicts]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{BC\_Input(1)}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput]{}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Name}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Name]{Same}[Name]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Set\_BC\_Value}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/SetBCValue]{Same}[Set\_BC\_Value]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%T\_Static}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Temperature]{\%Temperature}[Temperature][]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%P\_Static}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Pressure]{\%Pressure}[Pressure][]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Rho\_Static}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Density]{\%Density}[Density][]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Mach}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Mach]{Same}[Mach]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Vx}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/VelocityX]{\%VelocityX}[VelocityX][]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Vy}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/VelocityY]{\%VelocityY}[VelocityY][]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Vz}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/VelocityZ]{\%VelocityZ}[VelocityZ][]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%T\_Total}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/TotalTemperature]{\%Total\_Temperature}[Total\_Temperature][]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%P\_Total}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/TotalPressure]{\%Total\_Pressure}[Total\_Pressure][]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Rho\_Total}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/TotalDensity]{\%Total\_Density}[Total\_Density][]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Alpha\_AoA}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/AoAAlpha]{\%AoA\_Alpha}[AoA\_Alpha][]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Beta\_AoA}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/AoABeta]{\%AoA\_Beta}[AoA\_Beta][]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Wall\_Temp}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/WallTemp]{Same}[Wall\_Temp]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Rotation\_Rate(1:3)}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/RotationRate]{Same}[Rotation\_Rate]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Is\_Specified\_In\_MRF}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/IsSpecifiedInMRF]{Same}[Is\_Specified\_In\_MRF]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Mass\_Frac(1:7)}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/MassFrac]{Same}[Mass\_Frac]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Species\_Name(1:7)}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/SpeciesName]{Same}[Species\_Name]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Relax\%Value}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Relax/Value]{Same}[Relax\%Value]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Relax\%Time}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Relax/Time]{Same}[Relax\%Time]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Relax\%Iter}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Relax/Iter]{Same}[Relax\%Iter]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%SEM\%Profile\_File}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/SEM/ProfileFile]{Same}[SEM\%Profile\_File]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%SEM\%Is\_Cylindrical}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/SEM/IsCylindrical]{Same}[SEM\%Is\_Cylindrical]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%SEM\%Length\_Scale}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/SEM/LengthScale]{Same}[SEM\%Length\_Scale]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%SEM\%Convective\_Velocity}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/SEM/ConvectiveVelocity]{Same}[SEM\%Convective\_Velocity]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%SEM\%Profile\_Height}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/SEM/ProfileHeight]{Same}[SEM\%Profile\_Height]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%SEM\%Sub\_In\_BC\_Grp}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/SEM/SubInBCGrp]{Same}[SEM\%Sub\_In\_BC\_Grp]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%SEM\%Sub\_In\_BC\_Idx}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/SEM/SubInBCIdx]{Same}[SEM\%Sub\_In\_BC\_Idx]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Periodic\%Matching\_BC\_Name}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Periodic/MatchingBCName]{Same}[Periodic\%Matching\_BC\_Name]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Periodic\%Matching\_BC\_Idx}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Periodic/MatchingBCIdx]{Same}[Periodic\%Matching\_BC\_Idx]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Periodic\%RotationCenter(1:3)}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Periodic/RotationCenter]{Same}[Periodic\%RotationCenter]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Periodic\%RotationAngle(1:3)}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Periodic/RotationAngle]{Same}[Periodic\%RotationAngle]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Periodic\%RotationAxis(1:4)}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Periodic/RotationAxis]{Same}[Periodic\%RotationAxis]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{\%Periodic\%Translation(1:3)}}
+       && \multicolumn{2}{l}{\inpBC[nmlBC::BCInput/Periodic/Translation]{Same}[Periodic\%Translation]}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_numerics}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{All\_Orders}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::AllOrders]{Same}[All\_Orders]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Solution\_Order}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::SolutionOrder]{Same}[Solution\_Order]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Projection\_Order}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::ProjectionOrder]{Same}[Projection\_Order]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Quadrature\_Order}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::QuadratureOrder]{Same}[Quadrature\_Order]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Error\_Order}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::ErrorOrder]{Same}[Error\_Order]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{All\_Points}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::AllPoints]{Same}[All\_Points]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Loc\_Solution\_Pts}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::LocSolutionPts]{Same}[Loc\_Solution\_Pts]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Loc\_Flux\_Pts}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::LocFluxPts]{Same}[Loc\_Flux\_Pts]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Loc\_Quadrature\_Pts}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::LocQuadraturePts]{Same}[Loc\_Quadrature\_Pts]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Loc\_Error\_Pts}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::LocErrorPts]{Same}[Loc\_Error\_Pts]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Loc\_Triangle\_Pts}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::LocTrianglePts]{Same}[Loc\_Triangle\_Pts]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Loc\_Tetrahedra\_Pts}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::LocTetrahedraPts]{Same}[Loc\_Tetrahedra\_Pts]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Invs\_Flux\_Method}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::InvsFluxMethod]{Same}[Invs\_Flux\_Method]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Visc\_Flux\_Method}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::ViscFluxMethod]{Same}[Visc\_Flux\_Method]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Visc\_Variables\_To\_Ave}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::ViscVariablesToAve]{Same}[Visc\_Variables\_To\_Ave]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Combine\_Common\_Flux\_Projections}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::CombineCommonFluxProjections]{Same}[Combine\_Common\_Flux\_Projections]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Correction\_Function}}
+       && \multicolumn{2}{l}{\inp[nmlNumerics::CorrectionFunction]{Same}[Correction\_Function]}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_limiter}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Filtering\_Interval}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::GlobalFilterInterval]{Global\_Filter\_Interval}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Filter\_Option}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::GlobalFilterOption]{Global\_Filter\_Option}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Filter\_Order}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::GlobalFilterOrder]{Global\_Filter\_Order}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Filter\_Alpha}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::GlobalFilterAlpha]{Global\_Filter\_Alpha}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Filter\_Etac}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::GlobalFilterEtac]{Global\_Filter\_Etac}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiting\_Interval}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::LocalLimiterInterval]{Local\_Limiter\_Interval}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiter\_Option}}
+       \\* %%% Note: \\* prevents pagebreak.
+       && \multicolumn{4}{p{5.0in}}{%
+          The old \inptext{Limiter\_Option} input controlled
+          both the marker and limiter.
+          \inp[nmlLimiter::LocalLimiterOption]{Local\_Limiter\_Option}
+          now controls only the limiter, and
+          \inp[nmlLimiter::MarkerOption]{Marker\_Option}
+          now controls the marker.
+          Both are shown below.
+          }
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiter\_Option}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::LocalLimiterOption]{Local\_Limiter\_Option}}
+       \\* %%% Note: \\* prevents pagebreak.
+      %&& \multicolumn{2}{p{\lenG}}{This input has been split into
+      %   \inp[nmlLimiter::MarkerOption]{Marker\_Option}
+      %   and
+      %   \inp[nmlLimiter::LocalLimiterOption]{Local\_Limiter\_Option}.
+      %   }
+      %&&
+      %\\
+      %&& \multicolumn{3}{p{\lenH}}{This input has been split into
+      %   \inp[nmlLimiter::MarkerOption]{Marker\_Option}
+      %   and
+      %   \inp[nmlLimiter::LocalLimiterOption]{Local\_Limiter\_Option}.
+      %   }
+      %&
+      %\\
+      %&& This input has been split into
+      %   \inp[nmlLimiter::MarkerOption]{Marker\_Option}
+      %   and
+      %   \inp[nmlLimiter::LocalLimiterOption]{Local\_Limiter\_Option}.
+      %   &&&
+      %\\
+       && \multicolumn{2}{l}{
+          \begin{tabular}[t]{rl}
+            -2 & Jump Marker + Scaled Projection \\
+            -1 & Res. Marker + Scaled Projection \\
+             0 & None \\
+             1 & Res. Marker + {\small\inptext{Limiter\_Filter\_Option}} \\
+               & if ( {\small\inptext{Limiter\_Filter\_Option}} == 0 ) then \\
+               & \quad use Recursive Projection \\
+             2 & Jump Marker + {\small\inptext{Limiter\_Filter\_Option}} \\
+             3 & MLP  Marker + MLP limiter \\
+          \end{tabular}
+          }
+       &  \multicolumn{2}{l}{
+          \begin{tabular}[t]{rl}
+            0 & None \\
+            1 & Filtering \\
+            2 & Scaled Filtering \\
+            3 & MLP \\
+            9001 & Recursive Projection \\
+            9002 & Scaled    Projection
+          \end{tabular}
+          }
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiter\_Option}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::MarkerOption]{Marker\_Option}}
+       \\* %%% Note: \\* prevents pagebreak.
+       && \multicolumn{2}{l}{See description above.}
+       &  \multicolumn{2}{l}{
+          \begin{tabular}[t]{rl}
+              0 & Default based on \\
+                & {\small\inptext{Local\_Limiter\_Option}} \\
+              1 & Resolution marker \\
+              2 & Jump       marker \\
+              3 & MLP        marker
+          \end{tabular}
+          }
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiter\_Use\_Dynamic\_Filter}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::LocalLimiterOption]{Local\_Limiter\_Option}}
+       \\
+       && \multicolumn{4}{l}{Input value has a different meaning.
+                             Dynamic filtering now called scaled filtering.}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiter\_Filter\_Order}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::LocalFilterOrder]{Local\_Filter\_Order}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiter\_Filter\_Alpha}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::LocalFilterAlpha]{Local\_Filter\_Alpha}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiter\_Filter\_Etac}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::LocalFilterEtac]{Local\_Filter\_Etac}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{*}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::SpongeFilterInterval]{Sponge\_Filter\_Interval}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Use\_Sponge\_Filter}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::SpongeFilterOption]{Sponge\_Filter\_Option}}
+       \\* %%% Note: \\* prevents pagebreak.
+%      && \multicolumn{4}{l}{Input value has changed from logical to integer.}
+%      \\
+       && \begin{tabular}[t]{ll}
+            F & Off \\
+            T & On
+          \end{tabular}
+       &&  \multicolumn{2}{l}{
+           \begin{tabular}[t]{ll}
+             0 & Off \\
+             1 & On
+           \end{tabular}
+           }
+       \\
+       &  \multicolumn{2}{l}{\inptext{Sponge\_Filter\_Order}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::SpongeFilterOrder]{Same}[Sponge\_Filter\_Order]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Sponge\_Filter\_Alpha}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::SpongeFilterAlpha]{Same}[Sponge\_Filter\_Alpha]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Sponge\_Filter\_Etac}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::SpongeFilterEtac]{Same}[Sponge\_Filter\_Etac]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Sponge\_Beyond\_X}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::SpongeFilterXStart]{Sponge\_Filter\_X\_Start}}
+       \\
+%%% Moved Marker_Option under Limiter_Option above.
+%      &  \multicolumn{2}{l}{\inptext{*}}
+%      && \multicolumn{2}{l}{\inp[nmlLimiter::MarkerOption]{Marker\_Option}}
+%      \\
+%      &&
+%      && \multicolumn{2}{l}{
+%         \begin{tabular}[t]{rl}
+%             0 & Default based on {\small\inptext{Local\_Limiter\_Option}} \\
+%             1 & Resolution marker \\
+%             2 & Jump       marker \\
+%             3 & MLP        marker
+%         \end{tabular}
+%         }
+%      \\
+       &  \multicolumn{2}{l}{\inptext{Resolution\_Marker\_Variable}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::MarkerVariable]{Marker\_Variable}}
+       \\* %%% Note: \\* prevents pagebreak.
+%      && \multicolumn{4}{l}{Input value has a different meaning.}
+%      \\
+       && \begin{tabular}[t]{rl}
+              0 & All conserved variables \\
+            1:5 & Specific conserved variable
+          \end{tabular}
+       && \multicolumn{2}{l}{
+          \begin{tabular}[t]{rl}
+             -2 & Ducros (velocity divergence) \\
+             -1 & Pressure \\
+              0 & Default based on {\small\inptext{Marker\_Option}} \\
+            1:5 & Specific conserved variable \\
+              6 & All conserved variables
+          \end{tabular}
+          }
+       \\
+       &  \multicolumn{2}{l}{\inptext{Jump\_Marker\_Variable}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::MarkerVariable]{Marker\_Variable}}
+       \\* %%% Note: \\* prevents pagebreak.
+%      && \multicolumn{4}{l}{Input value has a different meaning.}
+%      \\
+       && \begin{tabular}[t]{rl}
+              0 & Pressure \\
+            1:5 & Specific conserved variable
+          \end{tabular}
+       && \multicolumn{2}{l}{
+          \begin{tabular}[t]{rl}
+             -2 & Ducros (velocity divergence) \\
+             -1 & Pressure \\
+              0 & Default based on {\small\inptext{Marker\_Option}} \\
+            1:5 & Specific conserved variable \\
+              6 & All conserved variables
+          \end{tabular}
+          }
+       \\
+%      \multicolumn{6}{l}{\phantom{blank line}} \\
+%      \multicolumn{6}{l}{\phantom{blank line}} \\
+%      \multicolumn{6}{l}{\phantom{blank line}} \\
+%      \multicolumn{6}{l}{\phantom{blank line}} \\
+       &  \multicolumn{2}{l}{\inptext{MLP\_Marker\_Variable}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::MarkerVariable]{Marker\_Variable}}
+       \\* %%% Note: \\* prevents pagebreak.
+%      && \multicolumn{4}{l}{Input value has a different meaning.}
+%      \\
+       && \begin{tabular}[t]{rl}
+              0 & Density \\
+            1:5 & Specific conserved variable
+          \end{tabular}
+       && \multicolumn{2}{l}{
+          \begin{tabular}[t]{rl}
+             -2 & Ducros (velocity divergence) \\
+             -1 & Pressure \\
+              0 & Default based on {\small\inptext{Marker\_Option}} \\
+            1:5 & Specific conserved variable \\
+              6 & All conserved variables
+          \end{tabular}
+          }
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiter\_Marker\_Min}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::MarkerMin]{Marker\_Min}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiter\_Marker\_Max}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::MarkerMax]{Marker\_Max}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiter\_Marker\_Dpsi}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::MarkerDpsi]{Marker\_Dpsi}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiting\_Interval\_Output}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::MarkerStoredInterval]{Marker\_Stored\_Interval}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Thermofix\%Method}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::Thermofix/Method]{Same}[Thermofix\%Method]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Thermofix\%Iterations}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::Thermofix/Iterations]{Same}[Thermofix\%Iterations]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Thermofix\%Check\_Cells}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::Thermofix/CheckCells]{Same}[Thermofix\%Check\_Cells]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Thermofix\%Check\_Faces}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::Thermofix/CheckFaces]{Same}[Thermofix\%Check\_Faces]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Thermofix\%Check\_Nodes}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::Thermofix/CheckNodes]{Same}[Thermofix\%Check\_Nodes]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Thermofix\%Verbose}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::Thermofix/Verbose]{Same}[Thermofix\%Verbose]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Thermofix\%Scale\_Factor}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::Thermofix/ScaleFactor]{Same}[Thermofix\%Scale\_Factor]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Thermofix\%Min\_Pressure}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::Thermofix/MinPressure]{Same}[Thermofix\%MinPressure]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Thermofix\%Min\_Temperature}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::Thermofix/MinTemperature]{Same}[Thermofix\%Min\_Temperature]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Thermofix\%Min\_Density}}
+       && \multicolumn{2}{l}{\inp[nmlLimiter::Thermofix/MinDensity]{Same}[Thermofix\%Min\_Density]}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_time\_ave}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Output\_Time\_Averaging}}
+       && \multicolumn{2}{l}{\inp[nmlTimeAve::ComputeTimeAveraging]{Compute\_Time\_Averaging}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Num\_Saved\_Time\_Ave\_Restarts}}
+       && \multicolumn{2}{l}{\inp[nmlTimeAve::NumSavedTimeAveRestarts]{Same}[Num\_Saved\_Time\_Ave\_Restarts]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Time\_Ave\_File}}
+       && \multicolumn{2}{l}{\inp[nmlTimeAve::InputTimeAveFile]{Input\_Time\_Ave\_File}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Time\_Ave\_Vel\_Is\_Axisymm}}
+       && \multicolumn{2}{l}{\inp[nmlTimeAve::TimeAveVelIsAxisymm]{Same}[Time\_Ave\_Vel\_Is\_Axisymm]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Start\_Averaging\_Timestep}}
+       && \multicolumn{2}{l}{\inp[nmlTimeAve::StartAveragingTimestep]{Same}[Start\_Averaging\_Timestep]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Start\_Averaging\_Tstar}}
+       && \multicolumn{2}{l}{\inp[nmlTimeAve::StartAveragingTstar]{Same}[Start\_Averaging\_Tstar]}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_output}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Time\_Scaling\_Factor}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::TimeScalingFactor]{Same}[Time\_Scaling\_Factor]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Restart\_Interval}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::RestartInterval]{Same}[Restart\_Interval]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Restart\_Frequency}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::RestartFrequency]{Same}[Restart\_Frequency]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Restart\_Output\_Uses\_Host\_Roots}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::RestartOutputUsesHostRoots]{Same}[Restart\_Output\_Uses\_Host\_Roots]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Completely\_Disable\_Restart\_Output}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::RestartOutputDisabled]{Restart\_Output\_Disabled}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Iter\_Out\_Interval}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::DisplayInterval]{Display\_Interval}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Results\_Interval}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::ResidualInterval]{Residual\_Interval}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Summary\_File}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::OutputSummaryFile]{Same}[Output\_Summary\_File]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Dir}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::OutputDir]{Same}[Output\_Dir]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Interval}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::OutputInterval]{Same}[Output\_Interval]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Frequency}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::OutputFrequency]{Same}[Output\_Frequency]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Order}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::OutputOrder]{Same}[Output\_Order]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Dmat\_Grad\_Temp\_Order}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::DmatGradTempOrder]{Same}[Dmat\_Grad\_Temp\_Order]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Loc\_Output\_Pts}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::LocOutputPts]{Same}[Loc\_Output\_Pts]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{CGNS\_High\_Order\_Output}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::CGNSHighOrderOutput]{Same}[CGNS\_High\_Order\_Output]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{CGNS\_Mixed\_Output}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::CGNSMixedOutput]{Same}[CGNS\_Mixed\_Output]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Completely\_Disable\_CGNS}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::CGNSOutputDisabled]{CGNS\_Output\_Disabled}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Probes\_Collection\_Interval}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::ProbesCollectionInterval]{same}[Probes\_Collection\_Interval]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Probes\_Write\_Interval}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::ProbesWriteInterval]{same}[Probes\_Write\_Interval]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Point\_Probes}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::PointProbes]{same}[Point\_Probes]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Rake\_Probes}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::RakeProbes]{same}[Rake\_Probes]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Profile\_IO\_All}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::ProfileIOAll]{Same}[Profile\_IO\_All]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Profile\_IO\_Restart}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::ProfileIORestart]{Same}[Profile\_IO\_Restart]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Profile\_IO\_CGNS}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::ProfileIOCGNS]{Same}[Profile\_IO\_CGNS]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Profile\_IO\_CGNS\_Subs}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::ProfileIOCGNSSubs]{Same}[Profile\_IO\_CGNS\_Subs]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Lustre\_Stripe\_Count}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::LustreStripeCount]{Same}[Lustre\_Stripe\_Count]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Lustre\_Stripe\_Size}}
+       && \multicolumn{2}{l}{\inp[nmlOutput::LustreStripeSize]{Same}[Lustre\_Stripe\_Size]}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_output\_variables}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Output\_Conserved\_Variables}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::ConservedVariables]{Conserved\_Variables}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Momentum}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::Momentum]{Momentum}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Vorticity}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::Vorticity]{Vorticity}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Cylindrical\_Velocity}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::CylindricalVelocity]{Cylindrical\_Velocity}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Cylindrical\_Coordinates}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::CylindricalCoordinates]{Cylindrical\_Coordinates}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Relative\_Velocity}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::RelativeVelocity]{Relative\_Velocity}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Relative\_Conditions}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::RelativeConditions]{Relative\_Conditions}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Thermo\_Variables}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::ThermoVariables]{Thermo\_Variables}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Temperature}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::Temperature]{Temperature}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Gradients}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::Gradients]{Gradients}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Transport\_Variables}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::TransportVariables]{Transport\_Variables}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Stagnation\_Variables}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::StagnationVariables]{Stagnation\_Variables}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Stagnation\_Pressure}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::StagnationPressure]{Stagnation\_Pressure}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Stagnation\_Temperature}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::StagnationTemperature]{Stagnation\_Temperature}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Marker\_Variables}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::MarkerVariables]{Marker\_Variables}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Qcriterion}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::Qcriterion]{Qcriterion}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Species\_Mass\_Fractions}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::SpeciesMassFraction]{Species\_Mass\_Fraction}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Species\_Density}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::SpeciesDensity]{Species\_Density}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Species\_Mole\_Fractions}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::SpeciesMoleFraction]{Species\_Mole\_Fraction}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Extra\_Species\_Variables}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::ExtraSpeciesVariables]{Extra\_Species\_Variables}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Debug\_Species\_Variables}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::DebugSpeciesVariables]{Debug\_Species\_Variables}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Grdnt\_Species\_Variables}}
+       && \multicolumn{2}{l}{\inp[nmlOutputVariables::GrdntSpeciesVariables]{Grdnt\_Species\_Variables}}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_sem}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Use\_SEM\_Profile\_For\_Initialization}}
+       && \multicolumn{2}{l}{\inp[nmlSEM::UseProfileForInitialization]{Use\_Profile\_For\_Initialization}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{SEM\_Use\_Random\_Seed\_From\_Restart}}
+       && \multicolumn{2}{l}{\inp[nmlSEM::UseRandomSeedFromRestart]{Use\_Random\_Seed\_From\_Restart}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{SEM\_Eddy\_Volume\_Is\_Spherical}}
+       && \multicolumn{2}{l}{\inp[nmlSEM::UseSphericalEddyVolume]{Use\_Spherical\_Eddy\_Volume}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{SEM\_Include\_Thermo\_Fluctuations}}
+       && \multicolumn{2}{l}{\inp[nmlSEM::IncludeThermoFluctuations]{Include\_Thermo\_Fluctuations}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{SEM\_Box\_Num\_Eddies\_Multiplier}}
+       && \multicolumn{2}{l}{\inp[nmlSEM::BoxNumEddiesMultiplier]{Box\_Num\_Eddies\_Multiplier}}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_chemistry}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Disable\_Chemical\_Reactions}}
+       && \multicolumn{2}{l}{\inp[nmlChemistry::DisableChemicalReactions]{Same}[Disable\_Chemical\_Reactions]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Semi\_Implicit\_Chemistry}}
+       && \multicolumn{2}{l}{\inp[nmlChemistry::SemiImplicitChemistry]{Same}[Semi\_Implicit\_Chemistry]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Ignition\_Method}}
+       && \multicolumn{2}{l}{\inp[nmlChemistry::IgnitionMethod]{Same}[Ignition\_Method]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Ignition\_Start\_Timestep}}
+       && \multicolumn{2}{l}{\inp[nmlChemistry::IgnitionStartTimestep]{Same}[Ignition\_Start\_Timestep]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Ignition\_Duration}}
+       && \multicolumn{2}{l}{\inp[nmlChemistry::IgnitionDuration]{Same}[Ignition\_Duration]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Ignition\_Prod2Reac\_L2\_Ratio\_Goal}}
+       && \multicolumn{2}{l}{\inp[nmlChemistry::IgnitionProd2ReacL2RatioGoal]{Same}[Ignition\_Prod2Reac\_L2\_Ratio\_Goal]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Ignition\_Max\_Temperature}}
+       && \multicolumn{2}{l}{\inp[nmlChemistry::IgnitionMaxTemperature]{Same}[Ignition\_Max\_Temperature]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Ignition\_Spark\_Cap}}
+       && \multicolumn{2}{l}{\inp[nmlChemistry::IgnitionSparkCap]{Same}[Ignition\_Spark\_Cap]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Ignition\_Source\_Magnitude}}
+       && \multicolumn{2}{l}{\inp[nmlChemistry::IgnitionSourceMagnitude]{Same}[Ignition\_Source\_Magnitude]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Ignition\_Source\_Radius}}
+       && \multicolumn{2}{l}{\inp[nmlChemistry::IgnitionSourceRadius]{Same}[Ignition\_Source\_Radius]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Ignition\_Source\_Location}}
+       && \multicolumn{2}{l}{\inp[nmlChemistry::IgnitionSourceLocation]{Same}[Ignition\_Source\_Location]}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_testcase\_channel}}
+    \\
+       &  \multicolumn{2}{l}{\inptext{Pipe\_Channel\_Angle}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseChannel::GridAnnulusAngle]{Grid\_Annulus\_Angle}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Channel\_Grid\_Ave\_Xplus}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseChannel::GridAveXplus]{Grid\_Ave\_Xplus}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Channel\_Grid\_Ave\_Zplus}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseChannel::GridAveZplus]{Grid\_Ave\_Zplus}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Channel\_Grid\_Ave\_Yplus}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseChannel::GridAveYplus]{Grid\_Ave\_Yplus}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Channel\_Grid\_Yplus\_Wall}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseChannel::GridYplusWall]{Grid\_Yplus\_Wall}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Channel\_Yplus\_Of\_One}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseChannel::GridYplusOfOne]{Grid\_Yplus\_Of\_One}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Channel\_Body\_Force}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseChannel::BodyForce]{Body\_Force}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Channel\_Nondim\_Output\_Coord}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseChannel::NondimOutputCoord]{Nondim\_Output\_Coord}}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_testcase\_pulse}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Pulse\_Test\_Form}}
+       && \multicolumn{2}{l}{\inp[nmlTestcasePulse::Form]{Form}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Pulse\_Test\_Form\_Dim}}
+       && \multicolumn{2}{l}{\inp[nmlTestcasePulse::FormDim]{Form\_Dim}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Pulse\_Test\_Length}}
+       && \multicolumn{2}{l}{\inp[nmlTestcasePulse::Length]{Length}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Pulse\_Test\_Center}}
+       && \multicolumn{2}{l}{\inp[nmlTestcasePulse::Center]{Center}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Pulse\_Test\_Width}}
+       && \multicolumn{2}{l}{\inp[nmlTestcasePulse::Width]{Width}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Pulse\_Test\_Gap}}
+       && \multicolumn{2}{l}{\inp[nmlTestcasePulse::Gap]{Gap}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Pulse\_Test\_Repeat}}
+       && \multicolumn{2}{l}{\inp[nmlTestcasePulse::Repeat]{Repeat}}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_testcase\_sod}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Sod\_Test\_Right\_Vector}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseSod::RightVector]{Right\_Vector}}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_testcase\_tcf}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Tcf\_Inner\_Radius}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseTCF::InnerRadius]{Inner\_Radius}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Tcf\_Inner\_Wall\_Spacing}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseTCF::InnerWallSpacing]{Inner\_Wall\_Spacing}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Tcf\_Outer\_Radius}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseTCF::OuterRadius]{Outer\_Radius}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Tcf\_Outer\_Wall\_Spacing}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseTCF::OuterWallSpacing]{Outer\_Wall\_Spacing}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Tcf\_Aspect\_Ratio}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseTCF::AspectRatio]{Aspect\_Ratio}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Tcf\_Axial\_Cells}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseTCF::AxialCells]{Axial\_Cells}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Tcf\_Radial\_Cells}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseTCF::RadialCells]{Radial\_Cells}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Tcf\_Azimuthal\_Cells}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseTCF::AzimuthalCells]{Azimuthal\_Cells}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Tcf\_Theta\_Shift}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseTCF::ThetaShift]{Theta\_Shift}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Tcf\_Periodic\_Sectors}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseTCF::PeriodicSectors]{Periodic\_Sectors}}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_testcase\_vortex}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Vortex\_Bigr}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseVortex::VortexBigr]{Same}[Vortex\_Bigr]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Vortex\_Biggam}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseVortex::VortexBiggam]{Same}[Vortex\_Biggam]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{VortexGrid\_Lref}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseVortex::GridLref]{Grid\_Lref}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{VortexGrid\_Random\_Perturb}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseVortex::GridRandomPerturb]{Grid\_Random\_Perturb}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{VortexGrid\_Perturb\_Percent}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseVortex::GridPerturbPercent]{Grid\_Perturb\_Percent}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{VortexGrid\_Hex\_To\_Pyramids}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseVortex::GridHexToPyramids]{Grid\_Hex\_To\_Pyramids}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{VortexGrid\_Is\_3d}}
+       && \multicolumn{2}{l}{\inp[nmlTestcaseVortex::GridIs3d]{Grid\_Is\_3d}}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_interpolation}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Grid\_Scaling\_Factor}}
+       && \multicolumn{2}{l}{\inp[nmlInterpolation::InterptoGridScalingFactor]{Same}[Interpto\_Grid\_Scaling\_Factor]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Grid\_Format}}
+       && \multicolumn{2}{l}{\inp[nmlInterpolation::InterptoGridFormat]{Same}[Interpto\_Grid\_Format]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Gridfile}}
+       && \multicolumn{2}{l}{\inp[nmlInterpolation::InterptoGridFile]{Interpto\_Grid\_File}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Plot3d\_Cutfile}}
+       && \multicolumn{2}{l}{\inp[nmlInterpolation::InterptoPlot3dCutfile]{Same}[Interpto\_Plot3d\_Cutfile]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Plot3d\_BCSfile}}
+       && \multicolumn{2}{l}{\inp[nmlInterpolation::InterptoPlot3dBCSfile]{Same}[Interpto\_Plot3d\_BCSfile]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Plot3d\_I\_Stride}}
+       && \multicolumn{2}{l}{\inp[nmlInterpolation::InterptoPlot3dStrideI]{Interpto\_Plot3d\_Stride\_I}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Plot3d\_J\_Stride}}
+       && \multicolumn{2}{l}{\inp[nmlInterpolation::InterptoPlot3dStrideJ]{Interpto\_Plot3d\_Stride\_J}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Plot3d\_K\_Stride}}
+       && \multicolumn{2}{l}{\inp[nmlInterpolation::InterptoPlot3dStrideK]{Interpto\_Plot3d\_Stride\_K}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Plot3d\_All\_Strides}}
+       && \multicolumn{2}{l}{\inp[nmlInterpolation::InterptoPlot3dStrideAll]{Interpto\_Plot3d\_Stride\_All}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Plot3d\_Agglomerate\_Order}}
+       && \multicolumn{2}{l}{\inp[nmlInterpolation::InterptoPlot3dAgglomerateOrder]{Same}[Interpto\_Plot3d\_Agglomerate\_Order]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Solution\_Order}}
+       && \multicolumn{2}{l}{\inp[nmlInterpolation::InterptoSolutionOrder]{Same}[Interpto\_Solution\_Order]}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_utility}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Convert\_Restart\_To\_CGNS}}
+       && \multicolumn{2}{l}{\inp[nmlUtility::ConvertRestartToCGNS]{Same}[Convert\_Restart\_To\_CGNS]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Delete\_Converted\_Restart\_Files}}
+       && \multicolumn{2}{l}{\inp[nmlUtility::DeleteConvertedRestartFiles]{Same}[Delete\_Converted\_Restart\_Files]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Restart\_List\_File}}
+       && \multicolumn{2}{l}{\inp[nmlUtility::RestartListFile]{Same}[Restart\_List\_File]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Channel\_Spatial\_Ave\_Restart}}
+       && \multicolumn{2}{l}{\inp[nmlUtility::SpatialAveRestartChannel]{Spatial\_Ave\_Restart\_Channel}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Spatial\_Ave\_Restart\_X\_And\_Z\_Planes}}
+       && \multicolumn{2}{l}{\inp[nmlUtility::SpatialAveRestartXAndZPlanes]{Same}[Spatial\_Ave\_Restart\_X\_And\_Z\_Planes]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Spatial\_Ave\_Restart\_Z\_Planes}}
+       && \multicolumn{2}{l}{\inp[nmlUtility::SpatialAveRestartZPlanes]{Same}[Spatial\_Ave\_Restart\_Z\_Planes]}
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_debug}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Output\_Limiter\_Statistics}}
+       && \multicolumn{2}{l}{\inp[nmlDebug::OutputLimiterStatistics]{Same}[Output\_Limiter\_Statistics]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Filter\_Diagonals}}
+       && \multicolumn{2}{l}{\inp[nmlDebug::OutputFilterDiagonals]{Same}[Output\_Filter\_Diagonals]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Plot3d\_To\_Tecplot}}
+       && \multicolumn{2}{l}{\inp[nmlDebug::OutputPlot3dToTecplot]{Same}[Output\_Plot3d\_To\_Tecplot]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Bface\_Array}}
+       && \multicolumn{2}{l}{\inp[nmlDebug::OutputBfaceArray]{Same}[Output\_Bface\_Array]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Dump\_Memory\_Usage}}
+       && \multicolumn{2}{l}{\inp[nmlDebug::DumpMemoryUsage]{Same}[Dump\_Memory\_Usage]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Check\_Flux\_Point\_Coordinates}}
+       && \multicolumn{2}{l}{\inp[nmlDebug::CheckFluxPointCoordinates]{Same}[Check\_Flux\_Point\_Coordinates]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Force\_Nd\_Subroutines}}
+       && \multicolumn{2}{l}{\inp[nmlDebug::ForceNdSubroutines]{Same}[Force\_Nd\_Subroutines]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Conv\_Temp}}
+       && \multicolumn{2}{l}{\inp[nmlDebug::NewtonConvergenceGoal]{Newton\_Convergence\_Goal}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Chemistry\_Sub\_Iterations}}
+       && \multicolumn{2}{l}{\inp[nmlDebug::ChemistrySubIterations]{Same}[Chemistry\_Sub\_Iterations]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Traceback\_Unconverged\_Newton\_Temps}}
+       && \multicolumn{2}{l}{\inp[nmlDebug::TracebackUnconvergedNewtonTemps]{Same}[Traceback\_Unconverged\_Newton\_Temps]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Ignore\_Thermo\_Newton\_Warnings}}
+       && \multicolumn{2}{l}{\inp[nmlDebug::IgnoreThermoNewtonWarnings]{Same}[Ignore\_Thermo\_Newton\_Warnings]}
+       \\[0.5em]
+       \multicolumn{5}{l}{
+       The variables below have been removed from the input namelist.
+       }
+       \\
+%==========================================================================
+       \multicolumn{3}{l}{\&input}
+    &  \multicolumn{2}{l}{\&\texttt{nml\_removed}}
+    \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Parametric\_Agglomeration}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_All\_Orders}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Projection\_Order}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Quadrature\_Order}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Output\_Order}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpto\_Error\_Order}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Prt}}
+       && \multicolumn{2}{l}{\texttt{Prandtl\_Turb}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Schmidt\_Turb}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Tinref}}
+       && \multicolumn{2}{l}{\texttt{Turb\_Intensity}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Tvrref}}
+       && \multicolumn{2}{l}{\texttt{Turb\_Viscosity}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Turbulence\_Model}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Newton\_Rlx}}
+       && \multicolumn{2}{l}{\texttt{Newton\_Relax}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Use\_Improved\_SEM\_Normalization}}
+       && \multicolumn{2}{l}{\texttt{Use\_Improved\_Initialization}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Average\_SEM\_Inflow\_Plane}}
+       && \multicolumn{2}{l}{\texttt{Average\_Inflow\_Plane}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{MMS\_Opt}}
+       && \multicolumn{2}{l}{\texttt{Option}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{MMS\_Init}}
+       && \multicolumn{2}{l}{\texttt{Initialization}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{MMS\_Output\_Solution}}
+       && \multicolumn{2}{l}{\texttt{Output\_Solution}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Loc\_Init\_Pts}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Use\_Old\_Restart\_Format}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{CFL\_Reduction\_For\_Nan\_Restart}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Use\_Unrolled\_Dot\_Products}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Flux\_Divergence}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Pyramid\_Filter\_Option}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Ideal\_Total\_Temperature}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limit\_Total\_Temperature}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Filter\_Eps}}
+       && \multicolumn{2}{l}{\texttt{Global\_Filter\_Eps}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiter\_Filter\_Eps}}
+       && \multicolumn{2}{l}{\texttt{Local\_Filter\_Eps}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiter\_Marker\_C1}}
+       && \multicolumn{2}{l}{\texttt{Marker\_C1}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Limiter\_Marker\_C2}}
+       && \multicolumn{2}{l}{\texttt{Marker\_C2}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Eperk\_CFL}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Disable\_Header\_Rewrites}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{CGNS\_Use\_Queue}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Use\_Async\_For\_Error}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Output\_Bnd\_Profiles}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Channel\_Init\_File}}
+       && \multicolumn{2}{l}{\texttt{Init\_File}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Time\_Average\_Restart\_Files}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Postproc\_Debug\_Grid}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Dump\_Fluxes}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Channel\_Rake\_Save\_Interval}}
+       && \multicolumn{2}{l}{\texttt{Rake\_Save\_Interval}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Track\_Limiter\_Filter\_Dissipation}}
+       && \multicolumn{2}{l}{\texttt{Local\_Filter\_Dissipation}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Continuous\_Output}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Interpolate\_Before\_Output\_Variable}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Num\_Rk\_Stages}}
+       && \multicolumn{2}{l}{\texttt{Runge\_Kutta\_Stages}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Geom\_Wts(1)\%Edge}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Geom\_Wts(1)\%Face\_Tria}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Geom\_Wts(1)\%Face\_Quad}}
+       && \multicolumn{2}{l}{Same}
+       \\
+      \hline
+    \end{longtable}
+    }%end font size
+  \end{center}
+%\end{table}

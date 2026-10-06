@@ -1,0 +1,948 @@
+\section{Introduction}
+\label{SEC:Intro}
+
+Accurate and efficient numerical methods for the simulation of complex
+fluid flows are needed to reduce the design and development costs
+of aerodynamic vehicles and aeropropulsion systems.
+%
+One of the fundamental challenges is prediction of the turbulent motion
+within the flow and its effect on the overall motion of the fluid.
+%
+Scale-resolving methods such as
+large-eddy simulation (LES) and
+direct numerical simulation (DNS)
+offer great promise in predicting turbulence.
+%
+However, due to the high Reynolds numbers involved
+and resulting small turbulent scales,
+very fine spatial and temporal resolution is necessary.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For these simulations, the required cell count and computational cost
+of traditional second-order numerical schemes quickly become prohibitive.
+%
+High-order numerical schemes can overcome this limitation.
+However, such schemes have historically only been found in structured grid
+methods with large stencils.
+%
+These methods have numerous drawbacks, such as:
+difficulty in generating structured grids for complex configurations,
+high sensitivity to grid quality,
+complex boundary condition implementation due to the wide stencils, and
+poor scalability for parallel computing.
+%
+These drawbacks severely limit the applicability of such methods to
+complex aeropropulsion configurations.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The flux reconstruction (FR) method provides a simple, efficient, and
+easy-to-implement method for solving the Navier-Stokes equations on
+unstructured grids and is accurate to an arbitrary order.
+%
+By employing the high-order FR method with LES
+on unstructured grids, limitations related to structured grid generation,
+grid resolution, and computational efficiency can be overcome.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Flux Reconstruction}
+\label{SEC:Intro:FR}
+
+The \key*{flux reconstruction}[Flux Reconstruction Method] method
+%, sometimes referred to as the Correction Procedure via Reconstruction (CPR),
+is a simple and efficient framework for high-order numerical schemes
+of conservation laws.
+%
+It uses a set of polynomial basis-functions to represent the solution's
+conserved variables within each computational cell or element of the
+fluid domain.
+This polynomial is used to compute the flux of the flow through the cell.
+Corrections are applied at each cell face to ensure conservation.
+%
+The general FR framework can be used to express various other methods
+such as discontinuous Galerkin (DG), spectral difference, and
+spectral element methods.
+%
+However, the specific FR implementation in GFR is most comparable to
+nodal DG methods.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Theoretical development of the flux reconstruction method can be
+found in \linecite{Huynh_2007,Huynh_2009,Huynh_2011,Huynh_2014}.
+%
+Details of the FR implementation in GFR and validation of the code are discussed in
+\linecite{Spiegel_2015,Spiegel_2015b,Spiegel_2016}.
+%
+The interested reader is directed there for full details of the method.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{1D Example}
+\label{SEC:Intro:FR:1D_Example}
+
+In order to provide the user with a basic understanding of how the
+FR method works, we will consider the one-dimensional advection
+equation:
+\begin{align}
+  \label{EQN:1D_Advection}
+  u_t + f_x =& 0
+&       u   =& u(x,t)
+&       f   =& f(u)
+\end{align}
+where the subscripts $x$ and $t$ denote partial differentiation
+with respect to space and time, respectively.
+The flux $f$ is a (potentially nonlinear) function of the conserved
+solution variable(s) stored in $u$.
+%
+The volume of the simulation domain is divided into an arbitrary
+number of nonoverlapping cells, and a mapping function,
+  $ r = \chi (x) $,
+is used to transform each cell from physical space to a common
+reference space\slash element.
+%
+With $r$ denoting the local coordinate variable that varies on the
+reference element
+  $ \stdelem = [-1,1] $,
+the inverse function
+  $ x = \chi^{-1} (r) $
+similarly maps the reference element back to physical space.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The fundamental steps in the FR method can briefly
+be summarized as follows:
+\newline
+\newlength{\lenColA}
+\newlength{\lenColB}
+\setlength{\lenColA}{0.5\textwidth}
+\setlength{\lenColB}{0.5\textwidth}
+\begin{minipage}{\lenColA}
+\begin{enumerate}
+\item[1.]
+Represent the solution within each element as a polynomial of degree $\PO$
+defined by $\PO+1$ solution points.
+The solution may be discontinuous across cell interfaces,
+even in the absence of shocks.
+\end{enumerate}
+\end{minipage}%
+\begin{minipage}{\lenColB}
+  \insertimage[width=\textwidth]{Intro/Intro_Step1}
+\end{minipage}%
+\\
+\begin{minipage}{\lenColA}
+\begin{enumerate}
+\item[2.]
+Compute the \key[key:DiscontinuousFluxFunction]{discontinuous flux function}[=]
+at the quadrature points.
+For this example, assume those are the same as the solution points.
+\end{enumerate}
+\end{minipage}%
+\begin{minipage}{\lenColB}
+  \insertimage[width=\textwidth]{Intro/Intro_Step2}
+\end{minipage}%
+\\
+\begin{minipage}{\lenColA}
+\begin{enumerate}
+\item[3.]
+Compute a \key[key:CommonFluxValue]{common flux value}[=]
+at the interfaces between cells using the solutions from the left and right
+cells, $\left(u_L,u_R\right)$.
+\end{enumerate}
+\end{minipage}%
+\begin{minipage}{\lenColB}
+  \insertimage[width=\textwidth]{Intro/Intro_Step3}
+\end{minipage}%
+\\
+\begin{minipage}{\lenColA}
+\begin{enumerate}
+\item[4.]
+At each edge of the element, compute the difference between the
+\key[key:DiscontinuousFluxFunction]{discontinuous flux function}[=]
+and the interface \key[key:CommonFluxValue]{common flux value}[=].
+These are the left\slash right flux jumps.
+\end{enumerate}
+\end{minipage}%
+\begin{minipage}{\lenColB}
+  \insertimage[width=\textwidth]{Intro/Intro_Step4}
+\end{minipage}%
+\\
+\begin{minipage}{\lenColA}
+\begin{enumerate}
+\item[5.]
+Use the left\slash right flux jumps from the previous step to scale the
+\key[key:CorrectionFunction]{correction functions}[correction function] of
+degree $\PO+1$; the scaled correction functions take the value of the flux
+jump at the respective left\slash right cell boundary while leaving the
+opposite cell boundary unchanged.
+%
+Combining the two scaled correction functions results in the corrected flux
+function, which is a polynomial of degree $\PO+1$, takes the value of the flux
+jumps at their respective boundaries, and approximates the zero function in
+between. 
+%
+Note, however, that the correction functions generally have non-zero values at
+the interior points.
+\end{enumerate}
+\end{minipage}%
+\begin{minipage}{\lenColB}
+  \insertimage[width=\textwidth]{Intro/Intro_Step5}
+\end{minipage}%
+\\
+\begin{minipage}{\lenColA}
+\begin{enumerate}
+\item[6.]
+Add the \key[key:CorrectionFunction]{corrected flux function}[correction function]
+to  the \key[key:DiscontinuousFluxFunction]{discontinuous flux function}[=]
+to create a \key[key:ContinuousFluxFunction]{continuous flux function}[=]
+of degree $\PO+1$ that passes through the
+\key[key:CommonFluxValue]{common flux values}[common flux value].
+%
+Note that the flux at the interior solution points is also adjusted
+slightly to smoothly accommodate this change.
+\end{enumerate}
+\end{minipage}%
+\begin{minipage}{\lenColB}
+  \insertimage[width=\textwidth]{Intro/Intro_Step6}
+\end{minipage}%
+\\
+\begin{enumerate}
+\item[7.]
+Compute the spatial
+\key[key:ContinuousFluxFunctionDerivative]%&
+    {derivative of the continuous flux function}%&
+    [continuous flux function!derivative].
+\item[8.]
+Use the derivative of the continuous flux function to advance the
+solution $u$ to the next time level.
+\end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For the interested reader, we elaborate on each of these steps
+in the sections that follow.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Solution Polynomial}
+\label{SEC:Intro:FR:Polynomial}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+At a given time $t$, the exact solution to equation \eref{EQN:1D_Advection} is
+approximated locally within each cell as a polynomial of degree \PO.
+%
+In some instances we will use \p{\textsc{s}} to further clarify that this is the degree
+of the solution polynomial.
+%
+This polynomial approximation provides a smooth variation of the solution within
+each cell.
+%
+However, the polynomials between adjacent cells are generally discontinuous
+across cell interfaces even in the absence of shocks.
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+One way to represent the degree $\PO$ solution polynomial is using a
+\key*{modal form}[polynomial!modal form]
+\begin{align}
+  \label{EQN:Modal_Form}
+       u (r) =& \sum_{n=1}^{N_p} \uModal[n] (t) \psi_n (r)
+& \psi_n (r) =& r^{n-1}
+\end{align}
+where there are $N_p=\PO+1$ modes and $\uModal[n]$ for $n=1,2,...,N_p$
+represents the amplitude coefficients of the constant, linear, quadratic,
+etc. polynomial modes.
+%
+\Fref{FIG:Polynomial_Form_Modal} illustrates the modal decomposition
+of a third-order polynomial, $\PO[3]$. Note that the various polynomial modes
+are symmetric\slash antisymmetric across the cell.
+%
+Each mode, other than the constant mode, has the following characteristics:
+(1) its integral across the cell is zero, meaning it does not contribute
+to the average value within the cell,
+(2) the value in the center of the cell is zero, and
+(3) the value at the edge of the cell is directly related to the modal
+coefficient.
+%
+%All modes other than the constant mode
+%are zero at the center of the cell, and
+%the value at the edge of the cell is directly related to the modal coefficient.
+%
+One can clearly visualize the individual modes, but visualizing the
+solution at a point requires adding the contributions of all of the modes.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{figure}
+  \begin{centering}
+    \begin{subfigure}{3.0in}
+      \insertimage[width=\textwidth]{Poly_Form/Poly_Form_Modal}
+      \caption{Modal Representation.}
+      \label{FIG:Polynomial_Form_Modal}
+    \end{subfigure}%
+    \begin{subfigure}{3.0in}
+      \insertimage[width=\textwidth]{Poly_Form/Poly_Form_Nodal}
+      \caption{Nodal Representation.}
+      \label{FIG:Polynomial_Form_Nodal}
+    \end{subfigure}
+    \caption{Modal and nodal representation of a $\PO[3]$ polynomial.}
+    \label{FIG:Polynomial_Form}
+  \end{centering}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Another way to represent the solution is using a
+\key*{nodal form}[polynomial!nodal form]
+where the degree $\PO$ polynomial is defined by $N_p=\PO+1$ solution points.
+\begin{align}
+  \label{EQN:Nodal_Form}
+       u (r) =& \sum_{n=1}^{N_p} \uNodal[n] (t) l_n (r)
+&    l_n (r) =& \prod_{\substack{ i=1 \\ i \neq n }}^{N_p}
+                \frac{r-\xi_i}{\xi_n-\xi_i}
+\end{align}
+The coordinate values of these solution points on \stdelem{} are given by
+$\xi_n$ for $n=1,2,...,N_p$.
+%
+For GFR, Gauss points are recommended.
+%
+These are symmetrically, but not uniformly, distributed across the
+interior of the cell and do not lie on the edge of the cell.
+%
+The \key*{Lagrange polynomial}[polynomial!Lagrange] $l_n$ is of degree $\PO$
+and smoothly interpolates between the $\PO+1$ nodal points, taking the value
+1 at $\xi_n$ and zero at all other points $\xi_{i \neq n}$.
+The solution value at each nodal point is given by $u_n=u(\xi_n)$
+and is used to scale the amplitude of the corresponding Lagrange
+polynomial $l_n$.
+%
+\Fref{FIG:Polynomial_Form_Nodal} illustrates the nodal decomposition
+of the same $\PO[3]$ polynomial shown previously. One can quickly identify
+the solution value at any nodal point, but visualizing the solution
+at any other location requires adding all the contributions together.
+In this form, one also cannot easily identify the various modes.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The \key{modal}[polynomial!modal form]
+and \key{nodal}[polynomial!nodal form] forms each have their advantages.
+For example, applying a filter to remove high-frequency noise
+is most readily done using the modal form.
+However, setting boundary conditions at specific locations can
+be easier in nodal form.
+GFR's internal representation uses the nodal form, and when
+necessary switches to modal form through the use of a
+Vandermonde matrix ${\cal V}$.
+%
+\begin{gather}
+  \uModal[] = \vand{}^{-1} \uNodal[]
+\end{gather}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+After one (explicit Euler) timestep of size $\Delta t$ is applied to
+\eref{EQN:1D_Advection}, the solution at the new time level is given by
+\begin{gather}
+  u^{\text{new}} (x)
+= u              (x)
+- \Delta t \frac{\partial}{\partial x} \Bigl[ f(x) \Bigr]
+\end{gather}
+In order for $u^\text{new}$ to be of the same polynomial order $\PO$ as $u$, 
+the flux function $f$ must be one order higher.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Since each $\uNodal[n]$ is simply a coefficient in \eref{EQN:Nodal_Form},
+the derivative of this polynomial is just a linear combination of the
+derivatives of the Lagrange polynomials.
+%
+\begin{gather}
+  \label{EQN:Spatial_Derivative}
+  \frac{d}{dr} u(r) = u_r(r)
+                    = \sum_{n=1}^{N_P} \uNodal[n] \left[ \frac{d}{dr} l_n(r)
+                                                  \right]
+\end{gather}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Discontinuous Flux Function}%
+\label{SEC:Intro:FR:DiscontinuousFlux}%
+\key*[key:DiscontinuousFluxFunction]{}[discontinuous flux function]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Using the nodal solution polynomial, we can evaluate the flux function at
+each solution point, \thatis
+$\fD[n] = \flxfun(\uNodal[n])$,
+to obtain a polynomial of order $\PO$.
+%
+The superscript $D$ is used to identify it as the \emph{discontinuous} flux
+function because the resulting function only uses information inside a given
+cell and does not account for interaction with data from the neighboring cells.
+%
+Since we know the value of the discontinuous flux at each solution point in a
+cell, we can compute its derivative using \eref{EQN:Spatial_Derivative}.
+%
+However, if we employ the derivative of $\fD{}$ to evaluate $f_x$, we obtain
+erroneous solutions since such a derivative does not include the interaction
+of data across cell interfaces.
+%
+Therefore, we need to construct a so-called \emph{continuous} flux function,
+denoted by $\fC(r)$, which accounts for this interaction between adjacent cells
+and approximates the discontinuous flux function in some sense,
+to which we can then calculate its derivative.
+%
+The continuous flux function is obtained by adding a correction
+to $\fD$, the discontinuous one.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Interface Common Flux Values}
+\label{SEC:Intro:FR:Upwind}%
+\key*[key:CommonFluxValue]{}[common flux value]
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+One of the principles of a conservative scheme for steady-state flow
+is that the flux leaving one cell should be the same as that entering
+the next cell.
+%
+This is not the case for the discontinuous flux described above.
+%
+We therefore need to compute a common interface flux value that will be
+used by the two adjacent cells.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+At each cell interface, let $\uLeft{}$ and $\uRight{}$
+be the values taken on by the solution polynomials to its left and right,
+respectively.
+%
+An upwind flux value that is common for the two adjacent cells, denoted by
+$\fupw = \fupw (\uLeft,\uRight)$,
+can then be defined via the flow direction.
+%
+Here, for the case of the Euler or Navier-Stokes equations, we use
+Roe’s flux\cite{Roe_1981} with an entropy fix\cite{Huynh_1995}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Left\slash Right Flux Jumps}
+\label{SEC:Intro:FR:FluxJumps}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Let \fupwL{} denote the common upwind flux at the `left boundary' of the cell
+and \fupwR{} denote the common upwind flux at the `right boundary' of the cell.
+%
+There is a discrepancy between the value of the discontinuous flux function
+evaluated at the left and right boundaries of the cell and the desired
+common upwind flux values.
+%
+We denote these left\slash right flux jumps as
+$\fluxjumpL{} = \fupwL{} - \fD\pvp[-1]$ and
+$\fluxjumpR{} = \fupwR{} - \fD\pvp[ 1]$.
+
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Correction Functions}
+\label{SEC:Intro:FR:Correction_Functions}%
+\key*[key:CorrectionFunction]{}[correction function]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Our goal is to construct a continuous flux function, $\fC(r)$, as a polynomial
+of degree $\PO+1$ by requiring that it takes on the common upwind flux values
+at the two cell interfaces, and it approximates $\fD$ within the interior of
+the cell via the $\PO-1$ remaining constraint conditions for the polynomial.
+%
+However, instead of defining \fC{} directly, we define $\G=\fC-\fD$, which
+represents the \emph{corrected flux function} that must be added to
+the \key[key:DiscontinuousFluxFunction]{discontinuous flux function}[=] $\fD$
+in order to obtain
+the \key[key:ContinuousFluxFunction]{continuous flux function}[=] $\fC$.
+
+ 
+At the two interfaces, $r=\pm{}1$, the function $\G$ takes the following
+values which are the flux jumps described previously.
+%
+\begin{gather}
+  \G\pvp[-1] = \fC\pvp[-1] - \fD\pvp[-1]
+             = \fupwL      - \fD\pvp[-1] = \fluxjumpL{} \\
+  \G\pvp[+1] = \fC\pvp[+1] - \fD\pvp[+1]
+             = \fupwR      - \fD\pvp[+1] = \fluxjumpR{}
+\end{gather}
+%
+Therefore, $\G\pvp[r]$ has prescribed left and right interface values,
+is of degree $\PO+1$, and approximates zero within the interior of the cell.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+There are many ways one could prescribe how the correction approximates
+the zero function, and different choices result in different
+numerical schemes with different stability characteristics.
+%
+Further discussion regarding the choices in correction functions can be found
+in \linecite{Huynh_2007,Vincent_2011,Castonguay_2012,Vincent_2015}.
+%
+The GFR code uses \key{Radau polynomials}[polynomial!Radau]
+as the correction functions.
+%
+This choice has been shown to recover a nodal discontinuous Galerkin (DG)
+method.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We separate the prescription of the jump at the left interface from that of
+the right.
+%
+This separation plays a critical role in the approach.
+%
+\begin{align}
+   \G\pvp[r] =& \GL\pvp[r]   +  \GR\pvp[r] &
+  \GL\pvp[r] =& \fluxjumpL{} \, \gL\pvp[r] &
+  \GR\pvp[r] =& \fluxjumpR{} \, \gR\pvp[r]
+\end{align}
+%
+Let \gL{} be the \key{\emph{correction function}}[correction function]
+for the left interface of the reference element defined by
+%
+\begin{equation}
+  \gL\pvp[-1] = 1, \qquad
+  \gL\pvp[ 1] = 0
+\end{equation}
+%
+It is a polynomial of degree $\PO+1$ approximating the zero function in
+some sense.
+%
+We always choose \gR{} by reflection: $\gR\pvp[\rv]=\gL\pvp[-\rv]$.
+%
+As a result, it is also a polynomial of degree $\PO+1$ with
+boundary values of
+%
+\begin{equation}
+  \gR\pvp[-1] = 0, \qquad
+  \gR\pvp[ 1] = 1
+\end{equation}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In GFR, the left\slash right correction function of order $\PO+1$ is computed
+using the right\slash left Radau polynomial of that same order.
+%
+Details of the Radau polynomial may be found in \aref{SEC:RadauPoly}.
+%
+\Fref{FIG:RadauPoly} illustrates the shape of different orders of the
+Radau polynomial.
+%
+The value at one side is always zero, and the value at the other side
+is always one.
+%
+The number of times the polynomial equals zero on \stdelem{} is equal to the
+order of the polynomial.
+%
+This choice results in a correction that approximates the zero function
+in a least-squares sense, and the resulting method is equivalent to a
+nodal discontinuous Galerkin (DG) scheme.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{figure}
+  \begin{centering}
+    \begin{subfigure}{3.0in}
+      \insertimage[width=\textwidth]{Intro/RadauLeft}
+      \caption{Left Radau Polynomial}
+      \label{FIG:LeftRadauPoly}
+    \end{subfigure}%
+    \begin{subfigure}{3.0in}
+      \insertimage[width=\textwidth]{Intro/RadauRight}
+      \caption{Right Radau Polynomial}
+      \label{FIG:RightRadauPoly}
+    \end{subfigure}
+    \caption{Left and Right \key{Radau polynomials}[polynomial!Radau].}
+    \label{FIG:RadauPoly}
+  \end{centering}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Continuous Flux Function}
+\label{SEC:Intro:FR:ContinuousFlux}%
+\key*[key:ContinuousFluxFunction]{}[continuous flux function]
+
+
+The \emph{continuous flux function} may now be computed by adding
+the \key[key:CorrectionFunction]{correction function}[=] to
+the \key[key:DiscontinuousFluxFunction]{discontinuous flux function}[=].
+\begin{align}
+  \fC =& \fD + \G \\
+      =& \fD + \GL + \GR \\
+      =& \fD + \fluxjumpL{} \, \gL + \fluxjumpR{} \, \gR
+\end{align}
+
+As will become apparent in the following two steps,
+it is not necessary to explicitly compute the values of the
+continuous flux function.
+%
+We need only know how it is composed so that we can compute its derivative.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Derivative of the Continuous Flux Function}%
+\label{SEC:Intro:FR:DerivativeFlux}
+\key*[key:ContinuousFluxFunctionDerivative]{}%&
+     [continuous flux function!derivative]
+
+The derivative of the continuous flux function is given by:
+%
+\begin{align}
+     \frac{\partial \fC}{\partial r}
+  =& \frac{\partial \fD}{\partial r}
+  +  \fluxjumpL{} \, \gL' + \fluxjumpR{} \, \gR'
+\end{align}
+%
+where $\partial \fD/\partial r$ can be computed in a manner similar to
+\eref{EQN:Spatial_Derivative} and expressions for $\gL'$ and $\gR'$
+follow from the derivatives of the Radau polynomials found in
+\aref{SEC:RadauPoly}.
+%
+The inverse mapping function $\chi^{-1}$ can then be used to transform
+the derivative from reference space ($r$) to physical space ($x$),
+and that value for $\partial F/\partial x$ can be used to approximate
+$\partial f/\partial x$ at each solution point within the grid cell.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Time Advancement}
+\label{SEC:Intro:FR:Time_Advancement}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+After one (explicit Euler) timestep of size $\Delta t$ is applied to
+\eref{EQN:1D_Advection}, the solution at each point $n$ at the new time level
+is given by
+\begin{gather}
+  u_n^{\text{new}} (x)
+= u_n              (x)
+- \Delta t \left. \frac{\partial}{\partial x} \Bigl[ F(x) \Bigr]
+           \right|_n
+\end{gather}
+%
+More advanced time stepping algorithms work similarly.
+%
+Further details on time-stepping in GFR can be found in \sref{SEC:Time}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Solution Points}
+\label{SEC:Intro:Solution_Points}
+\key*{}[points!solution]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+As discussed in \sref{SEC:Intro:FR:Polynomial}, the solution within each
+element is represented by a polynomial of order $\PO$ defined by values
+at $\PO[+1]$ solution points.
+%
+\key{Equally-spaced (equidistant)}[points!equidistant],
+\key{Lobatto}[points!Legendre-Gauss-Lobatto (Lobatto)], or
+\key{Gauss}[points!Legendre-Gauss (Gauss)] points may be used.
+%
+\Fref{FIG:1D_Points} illustrates the distribution of these points
+within a standard element in one dimension.
+%
+In each case, the distribution of points within the reference element
+is symmetric about the center of the cell.
+%
+Equidistant points include points on both boundaries of the cell
+and uniform spacing is used for the interior points.
+%
+Lobatto points also include points on both boundaries of the cell,
+but the interior spacing is non-uniform and biased toward the
+boundaries of the cell.
+%
+Gauss points are distributed purely within the interior of the cell,
+and are also biased toward both boundaries of the cell.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{figure}
+  \begin{centering}
+    \begin{subfigure}{2.0in}
+      \insertimage[width=\textwidth]{Intro/1D_Points_Equal}
+      \caption{\key*{Equidistant points}[points!equidistant].}
+      \label{FIG:1D_Points_Equal}
+    \end{subfigure}%
+    \begin{subfigure}{2.0in}
+      \insertimage[width=\textwidth]{Intro/1D_Points_Lobatto}
+      \caption{\key*{Lobatto points}[points!Legendre-Gauss-Lobatto (Lobatto)].}
+      \label{FIG:1D_Points_Lobatto}
+    \end{subfigure}%
+    \begin{subfigure}{2.0in}
+      \insertimage[width=\textwidth]{Intro/1D_Points_Gauss}
+      \caption{\key*{Gauss points}[points!Legendre-Gauss (Gauss)].}
+      \label{FIG:1D_Points_Gauss}
+    \end{subfigure}
+    \caption{1D solution point distributions vs polynomial order,
+             $\PO[1]-\PO[4]$.}
+    \label{FIG:1D_Points}
+  \end{centering}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{figure}
+  \begin{centering}
+    \begin{subfigure}{1.5in}
+      \insertimage[width=\textwidth]{Triangle_Pts/Triangle_Gauss_P1}
+      \caption{\PO[1]}
+      \label{FIG:Triangle_Gauss_P1}
+    \end{subfigure}%
+    \begin{subfigure}{1.5in}
+      \insertimage[width=\textwidth]{Triangle_Pts/Triangle_Gauss_P2}
+      \caption{\PO[2]}
+      \label{FIG:Triangle_Gauss_P2}
+    \end{subfigure}%
+    \begin{subfigure}{1.5in}
+      \insertimage[width=\textwidth]{Triangle_Pts/Triangle_Gauss_P3}
+      \caption{\PO[3]}
+      \label{FIG:Triangle_Gauss_P3}
+    \end{subfigure}
+    \begin{subfigure}{1.5in}
+      \insertimage[width=\textwidth]{Triangle_Pts/Triangle_Gauss_P4}
+      \caption{\PO[4]}
+      \label{FIG:Triangle_Gauss_P4}
+    \end{subfigure}
+    \caption{2D triangle \quoterm{Gauss} solution point distributions vs
+             polynomial order, $\PO[1]-\PO[4]$.}
+    \label{FIG:2D_Triangle_GaussPoints}
+  \end{centering}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Gauss points are generally preferred over Lobatto because the numerical
+quadrature associated with Gauss points has a slightly higher degree of
+accuracy than that for Lobatto points.
+%
+Equidistant points should not be used in the FR method due to quadrature
+stability issues; they should only be used for post-processing\slash
+visualization purposes.
+%
+\Fref{FIG:2D_Triangle_GaussPoints} illustrates the distribution of
+\quoterm{Gauss} points within a 2D triangle element.
+%
+A tensor product is used to distribute solution points within 2D quadrilaterals,
+which is simply a 1D distribution in each direction.
+%
+Similarly, a 3D prism and 3D hexahedron use a 1D distribution in the
+third direction.
+%
+The distribution in a 3D tetrahedron and 3D pyramid are somewhat similar
+to the 2D triangle, but are difficult to visualize on a printed page.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\SeeAlso{
+\begin{tabular}[t]{lll}
+  \inp[nmlNumerics::AllOrders]{All\_Orders}
+& \inp[nmlNumerics::AllPoints]{All\_Points}
+& \inp[nmlNumerics::LocTrianglePts]{Loc\_Triangle\_Pts}
+\\
+  \inp[nmlNumerics::SolutionOrder]{Solution\_Order}
+& \inp[nmlNumerics::LocSolutionPts]{Loc\_Solution\_Pts}
+& \inp[nmlNumerics::LocTetrahedraPts]{Loc\_Tetrahedra\_Pts}
+\\
+  \inp[nmlNumerics::ProjectionOrder]{Projection\_Order}
+& \inp[nmlNumerics::LocFluxPts]{Loc\_Flux\_Pts}
+\\
+  \inp[nmlNumerics::QuadratureOrder]{Quadrature\_Order}
+& \inp[nmlNumerics::LocQuadraturePts]{Loc\_Quadrature\_Pts}
+\\
+  \inp[nmlNumerics::ErrorOrder]{Error\_Order}
+& \inp[nmlNumerics::LocErrorPts]{Loc\_Error\_Pts}
+%
+\end{tabular}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Quadrature Points}
+\label{SEC:Intro:Quadrature_Points}
+\key*{}[points!quadrature]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Instead of directly evaluating the nonlinear flux at the solution points,
+it can be more accurate to evaluate the flux using a higher quadrature order
+(\thatis a higher order polynomial and its corresponding points)
+and then projecting that onto a polynomial of the same order as the solution.
+%
+\Sref{SEC:Aliasing} provides a more detailed explanation of this
+aliasing error and the steps involved in using quadrature points.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Output Points}
+\label{SEC:Intro:Output_Points}
+\key*{}[points!output]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+GFR allows the user to output the solution at a different set of points
+(i.e., \key{equidistant}[points!equidistant]) for visualization.
+%
+The reason for this is that since
+\key{Gauss points}[points!Legendre-Gauss (Gauss)] do not extend to the
+boundaries of cells, many visualization tools will render the result
+with a small gap between each cell.
+
+\IDEA{
+Include 2D contour plot using output points at Gauss points and equidistant.
+}
+
+\SeeAlso{
+\inp[nmlNumerics::AllOrders]{All\_Orders},
+\inp[nmlOutput::OutputOrder]{Output\_Order},
+\inp[nmlOutput::LocOutputPts]{Loc\_Output\_Pts}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\subsection{H-Refinement vs \PO-Refinement}
+\subsection{Solution Accuracy and Grid Refinement}
+\label{SEC:Intro:HP_Refinement}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%In discussing H- versus \PO-refinement, one needs an objective measure of
+%computational cost.
+%
+We start by introducing the term
+\key*{degree-of-freedom (DoF)}[degree-of-freedom (DoF)] which is simply a
+location at which we are solving the governing equations.
+%
+Note, some refer to a DoF as an individual equation being solved at a point, so
+an individual solution point would contain 5 DoF for the 3D Euler\slash
+Navier-Stokes equations; here we refer to a DoF as the solution point itself.
+%
+For traditional finite-difference and finite-volume methods, the governing
+equations are solved at each grid node (or cell for cell-based methods), so the
+total DoF is just the total number of nodes (or cells) in the grid.
+%
+Within the context of high-order finite-\slash spectral-element methods, a
+single grid cell will solve the governing equations on a set of solution nodes
+(or modes for modal methods) which we refer to as solution points.
+%
+Each of these solution points is a DoF in a simulation, and the total number of
+solution points in a cell depends on the element type and the polynomial order
+of the solution (\sref{SEC:Element_Types} provides more detail on the DoF for each
+element type).
+%
+Assuming ideal parallel scaling with minimal communication costs, the
+computational cost of a simulation is proportional to the total DoF within the
+entire computational domain.
+%
+With finite-difference, finite-volume, and spectral-element methods being so
+vastly different, the fairest way to compare the computational costs of the
+different methods is only between simulations containing similar numbers of
+total DoF.
+
+%\FIXME{
+%\begin{enumerate}
+%\item
+%Is DoF really an accurate measure of total computational cost,
+%or only a measure of (ie, matrix multiply) operation count?
+%\item
+%Does DoF account for reduced operation count of sparse quad\slash hex
+%matrices?
+%\item
+%How do h\slash p effects on timestep effect cost, and do they scale differently?
+%\end{enumerate}
+%}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%H-refinement refers to modifying the physical mesh to better
+%resolve flow features.
+%%
+%For a uniform 1D mesh, this spacing is often denoted as $h=\Delta x$,
+%and thus the name.
+%%
+%For complex 3D cases with nonuniform element types \andor grid spacing,
+%this refinement is often done by halving the edge length of each
+%element and creating additional sub-elements.
+%
+%In high-order CFD, \PO-refinement refers to increasing the order $\PO$
+%of the solution polynomial used within each element, without changing
+%the physical mesh.
+%%
+%In many cases, \PO-refinement can achieve higher accuracy with fewer
+%degrees of freedom and therefore at a lower computational cost.
+%%
+%Another benefit is that it does not require any remeshing.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The computational mesh plays a critical role in any scale-resolving simulation
+(SRS), as the grid will filter out the scales of turbulent structures smaller
+than the grid resolution.
+%
+As such, it is important to understand the effect that refinement---grid ($h$),
+order ($p$), or combination thereof ($h/p$)---will have on any given simulation.
+%
+For finite-difference and finite-volume methods, $h$-refinement is only possible
+by changing the number of grid nodes\slash cells.
+%
+True $p$-refinement is only possible by increasing the order of accuracy while
+keeping the grid resolution constant, \forexample comparing \nth{2}- and
+\nth{4}-order finite-difference schemes on the same structured grid.
+%
+For spectral-element methods like FR, increasing $\PO$ on the same grid
+results in $h/p$-refinement because the number of DoF in each cell also
+increases with \PO.
+%
+Therefore, in the context of FR, $p$-refinement requires decreasing the grid
+resolution such that the total DoF across all grid cells is equivalent between
+different values of \PO.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Achieving quality wall-resolved LES (WRLES) results can be a tricky and time
+consuming process that is highly dependent on the grid quality and numerical set
+up.
+%
+WRLES generally requires high-resolution meshes for both accuracy and stability,
+so much so that the maximum stable time step can be multiple orders of magnitude
+smaller compared to RANS.
+%
+One of the major benefits of spectral-element methods is that the order of the
+method can be increased while simultaneously decreasing the size of the grid to
+maintain a certain level of accuracy of a simulation.
+%
+Decreasing the size of the grid will generally increase the size of the smallest
+grid cells which will directly increase the maximum allowable stable time step;
+however, increasing \PO{} also reduces the maximum allowable stable time step
+since the time step scales as $1/\PO^2$. 
+%
+Furthermore, increasing \PO{} can introduce numerical instabilities that require
+added numerical dissipation to prevent the simulation from diverging.
+%
+Consequently, this numerical dissipation will also damp out the smallest
+turbulent scales within a simulation unless the dissipation can be precisely
+targeted to only the areas within the solution where it is absolutely needed.
+%
+Ultimately, there is a back and forth required with grid and numerical setups to
+find an optimal combination to achieve accuracy goals within the computational
+time available for a set of simulations.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

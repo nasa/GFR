@@ -1,0 +1,802 @@
+\subsection{nml\_output\_variables}
+\label{SEC:nml_output_variables}
+\inp*[nmlOutputVariables]{}[nml\_output\_variables][]
+
+This \hyperref[SEC:User_Input]{namelist block}
+is used to specify which variables to output
+to the CGNS files.
+
+\begin{nmlblocklst}[
+,label={LST:nml_output_variables}
+,caption={Namelist nml\_output\_variables.}
+]
+&nml_output_variables
+  Conserved_Variables            = F
+  Momentum                       = F
+  Vorticity                      = F
+  Cylindrical_Velocity           = F
+  Cylindrical_Coordinates        = F
+  Relative_Velocity              = F
+  Relative_Conditions            = F
+  Thermo_Variables               = F
+  Temperature                    = F
+  Gradients                      = F
+  Density_Gradient               = F
+  Density_Gradient_Magnitude     = F
+  Pressure_Gradient              = F
+  Pressure_Gradient_Magnitude    = F
+  Pressure_Dmat_Gradient         = F
+  Temperature_Gradient           = F
+  Temperature_Gradient_Magnitude = F
+  Temperature_Dmat_Gradient      = F
+  Schlieren                      = F
+  Modified_Schlieren             = F
+  Transport_Variables            = F
+  Stagnation_Variables           = F
+  Stagnation_Pressure            = F
+  Stagnation_Temperature         = F
+  Marker_Variables               = F
+  Qcriterion                     = F
+  Grid_Details                   = F
+  Local_Timestep                 = F
+  Species_Mass_Fraction          = T
+  Species_Density                = F
+  Species_Mole_Fraction          = F
+  Extra_Species_Variables        = F
+  Debug_Species_Variables        = F
+  Grdnt_Species_Variables        = F
+  Local_Filter_Dissipation       = F
+  CellAve_Density                = F
+  Exact_Density                  = F
+  Exact_Pressure                 = F
+/
+\end{nmlblocklst}
+
+%% For future reference:
+%%   The default output variable list is in
+%%   subroutine get_cgns_sol_variables of write_cgns_mod.f90.
+
+\FINALFIX{\newpage}
+The following variables are automatically output to the CGNS files:
+\\
+  \ov{Density},
+  \ov{VelocityX},
+  \ov{VelocityY},
+  \ov{VelocityZ},
+  \ov{Pressure}, and
+  \ov{Mach}.
+
+\vspace{1.0ex}
+\noindent\textbf{NOTES:}\\
+\begin{itemize}
+  \item
+    The grid coordinates are output in the \key[key:GridUnits]{grid units}
+    of the input grid file.  For example, say your grid file has dimensions of
+    inches. You will need to include the input
+    $\inp[nmlGrid::GridScalingFactor]{Grid\_Scaling\_Factor}=0.0254$ to convert
+    the grid file to meters for it to be used correctly in the solver. However,
+    this conversion will be undone when creating the CGNS solution files, which
+    will contain coordinate dimensions of inches just like the grid file.
+  \item
+    All variables are output in SI units (except for the coordinate variables as
+    discussed in the previous bullet).
+  \item
+    Due to the first two bullets, if using post-processing software to compute
+    integrated quantities, care needs to be taken to ensure the coordinate
+    variables and variable(s) being integrated are in compatible units.
+  \item
+    In the following descriptions, any vector quantities that are output for 1D
+    and 2D cases will exclude vector components from higher spatial dimensions.
+    For example, \ov{VelocityY} and \ov{VelocityZ} will not be included for a 1D
+    flow, and for a gradient variable from a 2D simulation, the
+    \ov{[VariableName]GradientZ} variables would not be included.
+  \item
+    If multiple inputs add the same variable to the list of output variables,
+    only one instance of the variable will be written, \thatis any duplicates in
+    the list of output variables will be removed.
+  \item
+    The names of the variables written to the CGNS solution files attempt to
+    follow the variable naming conventions of the CGNS standard, \forexample the
+    $x$-coordinate variable will have the name \ov{CoordinateX} instead of just
+    \quoterm{\textsf{X}}.
+\end{itemize}
+
+\devNotes{
+CHANGECODE:
+Default variables can not be disabled.
+Instead of a hard-coded default list, consider adding individual options
+to the namelist above with defaults:
+\\\indent\raggedright
+  \inptext{Density = T},
+  \inptext{Velocity = T},
+  \inptext{Pressure = T}, and
+  \inptext{Mach = T}
+}
+%==========================================================================
+
+\begin{nmldescitem}
+Conserved_Variables = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::ConservedVariables]{}[Conserved\_Variables][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variables to the CGNS solution files:
+\\
+  \ov{Density},
+  \ov{MomentumX},
+  \ov{MomentumY},
+  \ov{MomentumZ}, and
+  \ov{EnergyStagnationDensity} (\thatis $\rho e_t$).
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Momentum = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::Momentum]{}[Momentum][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variables to the CGNS solution files:
+\\
+  \ov{MomentumX},
+  \ov{MomentumY}, and
+  \ov{MomentumZ}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Vorticity = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::Vorticity]{}[Vorticity][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variables to the CGNS solution files:
+\\\raggedright
+  \ov{VorticityX},
+  \ov{VorticityY},
+  \ov{VorticityZ},
+  \ov{VorticityMagnitude},
+  \ov{DivergenceOfVelocity},
+  \ov{StrainRateMagnitude},
+  \ov{Qcriterion}, and
+  \ov{Qcriterion\_Positive}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Cylindrical_Velocity = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::CylindricalVelocity]{}[Cylindrical\_Velocity][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variables to the CGNS solution files:
+\\
+  \ov{VelocityR} and
+  \ov{VelocityTheta}.
+\\
+If either
+\inp[nmlOutputVariables::RelativeVelocity]{Relative\_Velocity} or
+\inp[nmlOutputVariables::RelativeConditions]{Relative\_Conditions}
+is also true, then
+the following variables will also be added to the CGNS solution files:
+\\
+  \ov{RelativeVelocityR} and
+  \ov{RelativeVelocityTheta}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Cylindrical_Coordinates = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::CylindricalCoordinates]{}[Cylindrical\_Coordinates][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variables to the CGNS \emph{grid} file:
+\\
+  \ov{CoordinateAxial},
+  \ov{CoordinateR}, and
+  \ov{CoordinateTheta}.
+\\
+This will also automatically set 
+\inp[nmlOutputVariables::CylindricalVelocity]{Cylindrical\_Velocity} to true.
+
+\noindent\NOTE
+The axial coordinate direction will be set to the $x$-axis, \thatis
+$\ov{CoordinateAxial}=\ov{CoordinateX}$, unless:
+  \begin{itemize}
+    \item 
+      $\inp[nmlReference::AoAAlpha]{AoA\_Alpha}=\pm90$\textdegree{} and
+      $\inp[nmlReference::AoABeta]{AoA\_Beta}=0$\textdegree{}:
+      $\quad\Rightarrow\quad \ov{CoordinateAxial}=\ov{CoordinateY}$
+    \item 
+      $\inptext{AoA\_Alpha}=0$\textdegree{} and
+      $\inptext{AoA\_Beta}=\pm90$\textdegree{}:
+      $\quad\Rightarrow\quad \ov{CoordinateAxial}=\ov{CoordinateZ}$
+  \end{itemize}
+The other two cylindrical coordinate variables are determined by the axial
+direction and the right-hand rule.
+
+\noindent\NOTE
+These variables will only be written to the CGNS grid file. These variables will
+be added to each of the solution files by using CGNS links.
+\end{nmldescbody}
+
+%==========================================================================
+
+%\FINALFIX{\newpage}
+\begin{nmldescitem}
+Relative_Velocity = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::RelativeVelocity]{}[Relative\_Velocity][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variables to the CGNS solution files:
+\\
+  \ov{RelativeVelocityX},
+  \ov{RelativeVelocityY}, and
+  \ov{RelativeVelocityZ}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Relative_Conditions = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::RelativeConditions]{}[Relative\_Conditions][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variables to the CGNS solution files:
+\\
+  \ov{RelativeVelocityX},
+  \ov{RelativeVelocityY},
+  \ov{RelativeVelocityZ},
+\\
+  \ov{RelativeMomentumX},
+  \ov{RelativeMomentumY},
+  \ov{RelativeMomentumZ}, and
+  \ov{RelativeMach}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Thermo_Variables = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::ThermoVariables]{}[Thermo\_Variables][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variables to the CGNS solution files:
+\\
+  \ov{Pressure},
+  \ov{Temperature},
+  \ov{Enthalpy},
+  \ov{SpecificHeatPressure} (\thatis $c_p$), and
+  \ov{Entropy}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Temperature = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::Temperature]{}[Temperature][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variable to the CGNS solution files:
+  \ov{Temperature}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Gradients = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::Gradients]{}[Gradients][]
+
+\begin{nmldescbody}
+Setting this to true will also include in the CGNS solution file the
+directional gradient components for any of the following variables that are
+also set to be included in the CGNS solution file:
+  \ov{Density},
+  \ov{Velocity},
+  \ov{EnergyStagnationDensity},
+  \ov{Temperature},
+  \ov{Momentum},
+  \ov{MassFraction}, and
+  \ov{SpeciesDensity}.
+
+The name of the gradient variables will be the name of the
+non-gradient variable with
+  \ov{GradientX}, \ov{GradientY}, and \ov{GradientZ}
+appended on to the variable name,
+\forexample
+\\
+  \ov{MomentumYGradientZ}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Density_Gradient = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::DensityGradient]{}[Density\_Gradient][]
+
+\begin{nmldescbody}
+Setting this to true will add the directional gradient components of density
+to the CGNS solution files, with the names of the variables being
+\ov{DensityGradientX}, \ov{DensityGradientY}, and \ov{DensityGradientZ}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Density_Gradient_Magnitude = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::DensityGradientMagnitude]{}[Density\_Gradient\_Magnitude][]
+
+\begin{nmldescbody}
+Setting this to true will add the magnitude of the density gradient
+to the CGNS solution files under the variable name \ov{GradDensityMagnitude}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Pressure_Gradient = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::PressureGradient]{}[Pressure\_Gradient][]
+
+\begin{nmldescbody}
+Setting this to true will add the directional gradient components of pressure
+to the CGNS solution files, with the names of the variables being
+\ov{PressureGradientX}, \ov{PressureGradientY}, and \ov{PressureGradientZ}.
+
+\noindent\NOTE
+This will use the chain rule to compute a pressure gradient that is consistent
+with the gradients of the conserved variables.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Pressure_Gradient_Magnitude = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::PressureGradientMagnitude]{}[Pressure\_Gradient\_Magnitude][]
+
+\begin{nmldescbody}
+Setting this to true will add the magnitude of the pressure gradient
+to the CGNS solution files under the variable name \ov{GradPresMagnitude}.
+
+\noindent\NOTE
+This will use the chain rule to compute a pressure gradient that is consistent
+with the gradients of the conserved variables.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Pressure_Dmat_Gradient = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::PressureDmatGradient]{}[Pressure\_Dmat\_Gradient][]
+
+\begin{nmldescbody}
+Setting this to true will use the derivative matrices to compute the gradient
+of the pressure and add the resulting directional gradient components and the
+gradient magnitude to the CGNS solution files, with the names of the variables
+being \ov{PressureDmatrixX}, \ov{PressureDmatrixY}, \ov{PressureDmatrixZ}, and
+\ov{PressureDmatrixMagnitude}.
+
+\noindent\NOTE
+The pressure field in a cell is not in the solution polynomial space, so the
+resulting pressure gradients will most likely contain some amount of aliasing
+errors since derivative matrices are only exact for a function within the
+solution polynomial space.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Temperature_Gradient = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::TemperatureGradient]{}[Temperature\_Gradient][]
+
+\begin{nmldescbody}
+Setting this to true will add the directional gradient components of temperature
+to the CGNS solution files, with the names of the variables being
+\ov{TemperatureGradientX}, \ov{TemperatureGradientY}, and \ov{TemperatureGradientZ}.
+
+\noindent\NOTE
+This will use the chain rule to compute a temperature gradient that is consistent
+with the gradients of the conserved variables.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Temperature_Gradient_Magnitude = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::TemperatureGradientMagnitude]{}[Temperature\_Gradient\_Magnitude][]
+
+\begin{nmldescbody}
+Setting this to true will add the magnitude of the temperature gradient
+to the CGNS solution files under the variable name \ov{GradTempMagnitude}.
+
+\noindent\NOTE
+This will use the chain rule to compute a temperature gradient that is consistent
+with the gradients of the conserved variables.
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Temperature_Dmat_Gradient = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::TemperatureDmatGradient]{}[Temperature\_Dmat\_Gradient][]
+
+\begin{nmldescbody}
+Setting this to true will use the derivative matrices to compute the gradient of
+the temperature and add the resulting directional gradient components and the
+gradient magnitude to the CGNS solution files, with the names of the variables
+being \ov{TemperatureDmatrixX}, \ov{TemperatureDmatrixY},
+\ov{TemperatureDmatrixZ}, and \ov{TemperatureDmatrixMagnitude}.
+
+\noindent\NOTE
+The temperature field in a cell is not in the solution polynomial space, so the
+resulting temperature gradients will most likely contain some amount of aliasing
+errors since derivative matrices are only exact for a function within the
+solution polynomial space.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Schlieren = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::Schlieren]{}[Schlieren][]
+
+\begin{nmldescbody}
+Setting this to true will compute a numerical Schlieren variable to include
+in the CGNS solution files under the variable name \ov{Schlieren}.
+
+\noindent\NOTE
+The numerical Schlieren is simply the magnitude of the density gradient, \thatis
+$\nabla\rho$.
+%
+This is not to be confused with what is sometimes referred to as
+``shadowgraph'' which is the Laplacian of density, \thatis $\nabla^2\rho$.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Modified_Schlieren = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::ModifiedSchlieren]{}[Modified\_Schlieren][]
+
+\begin{nmldescbody}
+Setting this to true will add the variable \ov{ModifiedSchlieren} to the
+CGNS solution files, which is a $\log_{10}$ scaling of the numerical Schlieren
+variable, \thatis $\log_{10}\left(1+\nabla\rho\right)$ where the offset by $1$
+is simply to avoid $\log_{10}(0)$ when the density gradient is $0$.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Transport_Variables = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::TransportVariables]{}[Transport\_Variables][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variables to the CGNS solution files:
+  \ov{ViscosityMolecular} and
+  \ov{ThermalConductivity}.
+\\
+If using a multi-component gas mixture and
+\inp[nmlOutputVariables::ExtraSpeciesVariables]{Extra\_Species\_Variables}
+is also true, then the variable
+  \ov{Prandtl}
+giving the mixture Prandtl number will also be included in the
+CGNS solution file.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Stagnation_Variables = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::StagnationVariables]{}[Stagnation\_Variables][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variables to the CGNS solution files:
+  \ov{PressureStagnation},
+  \ov{TemperatureStagnation}, and
+  \ov{EnthalpyStagnation}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Stagnation_Pressure = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::StagnationPressure]{}[Stagnation\_Pressure][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variable to the CGNS solution files:
+  \ov{PressureStagnation}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Stagnation_Temperature = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::StagnationTemperature]{}[Stagnation\_Temperature][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variable to the CGNS solution files:
+  \ov{TemperatureStagnation}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Marker_Variables = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::MarkerVariables]{}[Marker\_Variables][]
+
+\begin{nmldescbody}
+If using \inp[nmlLimiter::MarkerOption]{Marker\_Option},
+the following variables will be added to the CGNS solution files:
+\\
+%\begin{tabular}{ @{\quad} c @{ \quad } p{0.85\linewidth} @{} }
+\begin{tabular}{ @{\quad} c l l l @{} }
+  \inptext{Marker\_Option} & \quad & \multicolumn{2}{c}{Output Variables} \\
+  \cline{1-1}                         \cline{3-4}
+  1 && \texttt{Resolution\_Marker}& \texttt{Scaled\_Resolution\_Marker} \\
+  2 && \texttt{Jump\_Marker}      & \texttt{Scaled\_Jump\_Marker} \\
+  3 && \texttt{MLP\_Marker}       & \texttt{Scaled\_MLP\_Marker}
+\end{tabular}
+\\
+The variable specified by
+  \inp[nmlLimiter::MarkerVariable]{Marker\_Variable}
+will also be output.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Qcriterion = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::Qcriterion]{}[Qcriterion][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variables to the CGNS solution files:
+\\
+  \ov{Qcriterion} and
+  \ov{Qcriterion\_Positive}.
+
+For the variable \ov{Qcriterion}, the computed Q-criterion is
+normalized then rescaled such that the average Q-criterion is 0.0,
+and the values $\pm 1$ respectively represent $\pm 1/100$ of a
+standard deviation from the average.
+%
+The variable \ov{Qcriterion\_Positive} contains the true values
+of the Q-criterion, but only the positive parts, with the
+negative parts set to zero.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Grid_Details = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::GridDetails]{}[Grid\_Details][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variables to the CGNS solution files:
+\\
+  \ov{Partition},
+  \ov{CellVolume}, and
+  \ov{CellLengthScale}.
+
+The variable \ov{Partition} will contain the partition ID for each grid cell.
+%
+The variable \ov{CellVolume} will contain the area or volume of each grid
+cell depending on whether the grid is 2D or 3D, respectively.
+%
+The variable \ov{CellLengthScale} will contain an approximate length scale for
+each grid cell which is computed as either the square-root of the cell area
+for a 2D grid or the cube-root of the cell volume for a 3D grid.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Local_Timestep = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::LocalTimestep]{}[Local\_Timestep][]
+
+\begin{nmldescbody}
+Setting this to true adds the following variables to the CGNS solution files:
+\\
+  \ov{LocalTimestep} and
+  \ov{LocalTimestep\_Scaled}.
+
+The variable \ov{LocalTimestep} will contain the physical time step size
+computed for each grid cell, whereas the variable \ov{LocalTimestep\_Scaled}
+will contain that same value normalized by the minimum time step size across
+all grid cells.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Species_Mass_Fraction = T
+\end{nmldescitem}
+\inp*[nmlOutputVariables::SpeciesMassFraction]{}[Species\_Mass\_Fraction][]
+
+\begin{nmldescbody}
+If using a multi-component gas mixture, setting this to true adds the
+mass fractions for each of the gas species to the CGNS solution files.
+%
+The variable name will be \ov{MassFraction} with the species' chemical
+formula appended to the end, \forexample \ov{MassFractionH2O}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Species_Density = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::SpeciesDensity]{}[Species\_Density][]
+
+\begin{nmldescbody}
+If using a multi-component gas mixture, setting this to true adds the
+individual density for each of the gas species to the CGNS solution files.
+%
+The variable name will be \ov{SpeciesDensity} with the species' chemical
+formula appended to the end, \forexample \ov{SpeciesDensityH2O}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Species_Mole_Fraction = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::SpeciesMoleFraction]{}[Species\_Mole\_Fraction][]
+
+\begin{nmldescbody}
+If using a multi-component gas mixture, setting this to true adds the
+mole fractions for each of the gas species to the CGNS solution files.
+%
+The variable name will be \ov{MoleFraction} with the species' chemical
+formula appended to the end, \forexample \ov{MoleFractionH2O}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Extra_Species_Variables = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::ExtraSpeciesVariables]{}[Extra\_Species\_Variables][]
+
+\begin{nmldescbody}
+If using a multi-component gas mixture, setting this to true adds the
+following variables to the CGNS solution files:
+\\\raggedright
+  \ov{SpeciesDensity},
+  \ov{Enthalpy},
+  \ov{StagnationEnthalpy},
+  \ov{SpecificHeatRatio} (\thatis mixture $\gamma$),
+  \ov{SpecificHeatPressure} (\thatis mixture $c_p$),
+  \ov{IdealGasConstant} (\thatis mixture $R_{\mathrm{gas}}$),
+  \ov{MomentumX},
+  \ov{MomentumY},
+  \ov{MomentumZ},
+  \ov{EnergyStagnationDensity},
+  \ov{PressureStagnation}, and
+  \ov{TemperatureStagnation}.
+
+Each gas component will have its own \ov{SpeciesDensity} variable
+with its respective chemical formula appended to the end,
+\forexample \ov{SpeciesDensityCO2}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Debug_Species_Variables = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::DebugSpeciesVariables]{}[Debug\_Species\_Variables][]
+
+\begin{nmldescbody}
+If using a multi-component gas mixture, setting this to true will output the
+individual contribution of each species to various mixture thermodynamic
+properties, \forexample enthalpy, $c_p$, etc.
+
+\NOTE
+These variables are intended to aid developers in debugging the
+thermodynamic properties of gas mixtures.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Grdnt_Species_Variables = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::GrdntSpeciesVariables]{}[Grdnt\_Species\_Variables][]
+
+\begin{nmldescbody}
+If using a multi-component gas mixture, this is essentially the same as
+\inp[nmlOutputVariables::Gradients]{Gradients}, but it also outputs
+the gradients of the species mass fractions and densities.
+\end{nmldescbody}
+
+%==========================================================================
+
+%\AddEntry[nmlOutputVariables::LocalFilterDissipation]{nml\_output\_Variables}{Local\_Filter\_Dissipation}
+
+\begin{nmldescitem}
+Local_Filter_Dissipation = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::LocalFilterDissipation]{}[Local\_Filter\_Dissipation][]
+
+\begin{nmldescbody}
+This output can be used to assess filter dissipation.
+%\vspace*{0.5em}%
+%\FIXME{
+%\begin{enumerate}
+%\item
+%What do these variables represent? Units?
+%\item
+%Proof this description and verify the option is coded.
+%\end{enumerate}
+%}
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+CellAve_Density = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::CellAveDensity]{}[CellAve\_Density][]
+
+\begin{nmldescbody}
+Setting this to true computes the cell average of the instantaneous density
+polynomial to include in the CGNS solution files under the variable name
+\ov{CellAveDensity}.
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Exact_Density = F
+Exact_Pressure = F
+\end{nmldescitem}
+\inp*[nmlOutputVariables::ExactDensity]{}[Exact\_Density][]
+\inp*[nmlOutputVariables::ExactPressure]{}[Exact\_Pressure][]
+
+\begin{nmldescbody}
+For cases that have an analytical solution, the exact density and pressure
+can be computed at the output points and written to the solution file
+for direct comparison with the numerical solution.
+%
+Cases that support this output include the following:
+\\
+\begin{tabular}{cl}
+  \inp[nmlInitialization::Initialization]{Initialization} & Description \\
+  23 & 1D Sod shock tube \\
+  26 & 1D Jiang-Shu density pulse test
+\end{tabular}
+\end{nmldescbody}
+
+
+

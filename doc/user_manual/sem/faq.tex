@@ -1,0 +1,154 @@
+\subsubsection{SEM Frequently Asked Questions}\label{SEC:SEM:FAQ}
+
+\begin{QandA}
+%
+  \item[Limitations on the physical inflow boundary: must it be planar?]
+    Yes, the inflow boundary must be planar. The algorithm that interpolates the
+    SEM profile onto the inflow boundary points uses wall distance and the wall
+    normal to rotate and interpolate the profile. The wall distance part would
+    cause problems with a non-planar face.
+%
+  \item[Limitations on the physical inflow boundary: must it be constant-$x$?]
+    Yes. In its current form, the SEM can only be used on a constant-$x$ inflow
+    boundary. One reason for this is that the synthetic eddies are only
+    propagated in $x$. 
+%
+  \item[Can the SEM be used to add freestream turbulence to a \quoterm{farfield}
+    subsonic inflow boundary, \thatis one that is not adjacent to a wall
+    boundary?]
+    No, not at the moment. The SEM initialization algorithm is dependent on
+    finding the nearest wall boundary point for each each inflow boundary point.
+    This is used to compute wall distance and get the wall normal at the wall
+    point, which are both used to interpolate and rotate the SEM profile data to
+    get the imposed flow profile at the inflow point. Attempting to use the SEM
+    in this way would almost certainly cause either a crash via segmentation
+    fault or (if it somehow got past the initialization) a badly imposed
+    flow profile at the inflow. We are hoping to add this capability to the SEM
+    in the near future.
+%
+  \item[Is the virtual volume extruded normal to the physical inflow boundary or
+    along some velocity vector (based on inflow profile)?]
+    Neither. It takes the min\slash max of each coordinate direction over all
+    the boundary points on the inflow plane and respectively subtracts\slash
+    adds the SEM length scale to each value to get the extents of the virtual
+    box.
+%
+  \item[Are the eddies convected normal to the physical inflow boundary or along
+    some velocity vector (based on inflow profile)?]
+    The eddies are currently convected in only the $x$ direction.
+%
+  \item[Is the sensory distance between an eddy and face point done in 3D (as a
+    sensory spherical volume) or 2D (within the physical inflow plane)?]
+    A tent function is used to get a contribution in each direction,
+    then all three contributions are multiplied together to get a total
+    fluctuating value. There is an input to treat the sensory distance of each
+    eddy as a sphere,
+   %\\% Prevent next word from entering right margin.
+    \inp[nmlSEM::UseSphericalEddyVolume]{Use\_Spherical\_Eddy\_Volume},
+    but this only affects how the eddy volume factors in to computing the total
+    number of eddies within an individual SEM box and has no effect when
+    computing the contribution of each eddy to the velocity fluctuations for the
+    boundary condition.
+%
+  \item[What characteristic information feeds upstream?]
+    The SEM does not use any information from the interior to set the boundary
+    states.
+    %
+    However, as discussed in \sref{SEC:SEM:usage:subsonic}, any points on an
+    SEM inflow boundary that are outside of the provided boundary layer profile
+    are automatically separated into a standard subsonic inflow boundary
+    that does permit outgoing characteristic information.
+%
+  \item[For subsonic flow, does SEM overprescribe the flow conditions?]
+    Yes, the SEM ends up prescribing all flow variables for the boundary state
+    and does not use the interior state at all. This ultimately results in a
+    \quoterm{supersonic} or \quoterm{fixed} inflow type boundary condition.
+    However, this seems to cause little to no numerical issues, so we just tend
+    to ignore this and take the win.
+%
+  \item[Should the entire inflow boundary be prescribed SEM or only some
+    portion?]
+    It does not really matter. The parts of the inflow boundary outside the SEM
+    profile height will be separated out to a new BC. If you prescribe the
+    entire inflow boundary as SEM, it will result in two BC's: one for the SEM
+    and one for a subsonic inflow BC for those faces outside the SEM profile
+    height. Manually separating out the SEM and non-SEM parts of the inflow
+    boundary will result in three BC's: the same two as before plus one for the
+    manually separated out boundary faces. The difference in computational cost
+    between these two should be negligible. 
+%
+  \item[Is more than one SEM permitted?]
+    Yes, multiple SEM boundaries can be specified. It is possible, but unlikely,
+    that the virtual boxes of two or more SEM BC's overlap slightly, but each
+    SEM and its corresponding set of boundary faces are completely
+    self-contained, meaning there is no influence from a different SEM.
+%
+  \item[How are corner flows handled?]
+    The distance variable in the SEM profile is height off the wall. The nearest
+    wall point for each face point is found, and the SEM profile is interpolated
+    to that face point using the normal at the wall point with the help of
+    rotation transformation matrices to orient the flow velocities and stresses
+    relative to the wall. For an inflow boundary containing a corner where two
+    walls meet, this interpolation results in a sort of pinch-point of the flow
+    profiles at the corner. This may not be the best 2D profile to specify at
+    the inflow, but it seems to result in a reasonable corner flow by the time
+    the unsteadiness transitions into a physical turbulent boundary layer.
+%
+  \item[How much streamwise distance is required to achieve realistic
+    turbulence?]
+    If using an SEM convective velocity and length scale within the recommended
+    values provided in \sref{SEC:SEM:usage:recommendations}, it could take
+    anywhere from 10-15 \lBC to develop realistic turbulence statistics in line
+    with the SEM profile, with 12 \lBC being a good starting estimate.
+%
+  \item[If the inflow profile represents the desired goal at some reference
+    station, but the inflow boundary must be placed upstream for realistic
+    turbulence to develop, should the profile height be scaled to account for
+    boundary layer growth by the time it reaches the reference station?]
+    The height of the boundary layer once it has achieved realistic turbulence
+    should be reasonably close to the SEM profile height. Therefore, based on
+    the previous question, the inflow boundary should be placed 12-15 \lBC
+    upstream of the location you would like the SEM profile exist in the
+    simulation flow field.
+%
+  \item[Is it best to only specify the boundary layer profile up to but not
+    beyond the boundary layer edge?]
+    Yes. By providing a profile file with data that only extends to the
+    edge of the boundary layer, more boundary points will be
+    separated out to the new subsonic inflow boundary condition. The traditional
+    subsonic inflow BC is more efficient than the SEM BC. However, the SEM BC is
+    quite efficient, so the difference between a full subsonic inflow BC and a
+    full SEM inflow BC is probably less than 10\% computational cost.
+%
+  \item[How to specify which inflow(s) use SEM and which do not?]
+    An SEM boundary is specified by setting
+    \BCinpBC[nmlBC::BCInput/SetBCValue]{Set\_BC\_Value}=5
+    in the \inp[nmlBC]{nml\_bc} namelist input block.
+%
+  \item[What input specifies the file name for the SEM profile?]
+    \BCinpBC[nmlBC::BCInput/SEM/ProfileFile]{SEM\%Profile\_File}%
+    =\texttt{"}[Path to profile file]\texttt{"}
+    in the \inp[nmlBC]{nml\_bc} namelist input block.
+%
+ %\item[How is the virtual volume constructed from the physical inflow
+ %  boundary?]
+ %  See \sref{SEC:SEM:theory:VirtualBox}
+%
+ %\item[How are turbulent fluctuations to the thermo variables ($\rho,P,T$)
+ %  handled?]
+ %  See \sref{SEC:SEM:theory:ComputeBC}.
+%
+ %\item[How does SEM handle flow beyond the extent of the provided profile?]
+ %  See \sref{SEC:SEM:usage:subsonic} and \sref{SEC:SEM:usage:example}.
+%
+  \item[Is the SEM profile 1D or 2D?]
+    The SEM profile is specified as a 1D profile as described in
+    \sref{SEC:SEM:usage:profile}.
+%
+ %\item[What is the format of the SEM profile file?]
+ %  See \sref{SEC:SEM:usage:profile:format}.
+%
+\end{QandA}
+
+%###############################################################################
+

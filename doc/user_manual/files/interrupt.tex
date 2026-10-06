@@ -1,0 +1,284 @@
+\subsection{Simulation Interrupt\slash Control Files}
+\label{SEC:Files:Interrupt}
+
+There are several temporary files that can be used to interrupt a running
+simulation to request a certain action or modify certain parameters while the
+simulation continues to run.
+%
+This is particularly useful on large HPC systems where the alternative ---
+stopping the simulation, editing the input file, then resubmitting the job to
+the system queue, and waiting for it to start --- could take days or even weeks
+for large jobs needing thousands of MPI processes.
+%
+After completion of every $N\supth$ time step, GFR checks the current run
+directory for the presence of a file with one of the following case-sensitive
+file names:
+%
+\begin{itemize}
+  \item \nameref{SEC:Files:Interrupt:Stop}
+  \item \nameref{SEC:Files:Interrupt:Adjust_CFL}
+  \item \nameref{SEC:Files:Interrupt:Start_TA}
+  \item \nameref{SEC:Files:Interrupt:Dump_Restart}
+  \item \nameref{SEC:Files:Interrupt:Dump_Solution}
+ %\item \nameref{SEC:Files:Interrupt:Start_Reactions}
+ %\item \nameref{SEC:Files:Interrupt:New_Restart}
+\end{itemize}
+%
+with the description of each of the files provided in the following subsections.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The value of $N$ depends on how GFR is compiled, and takes the following
+values:
+%
+\\[1.5ex]
+\begin{tabular}{ @{\qquad$N$ = } r @{\quad} p{0.8\linewidth} @{} }
+  1 & when compiled in Debug mode \\
+  50 & when compiled in Release\slash Production mode and \emph{disabling} code
+  that accesses the PBS environment \\
+  100 & when compiled in Release\slash Production mode and \emph{enabling} code
+  that accesses the PBS environment
+\end{tabular}
+\\[1.5ex]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+These files are temporary in that they will automatically be deleted immediately
+after each file is found, read, and processed.
+%
+This behavior is necessary because otherwise each file would continuously be
+found and processed every $N$ time steps if not deleted.
+
+%###############################################################################
+%###############################################################################
+%###############################################################################
+
+\subsubsection{STOP\_GFR}
+\label{SEC:Files:Interrupt:Stop}
+
+This interrupt file allows the user to stop the currently running simulation,
+either immediately or at a future iteration specified inside the file.
+%
+If this file is found, the first line of the file is read, and then the file is
+closed and deleted.
+%
+If the value read from the first line is an integer, this value is saved as the
+final iteration number for the running simulation.
+%
+Note that this value is treated as an \emph{aggregate} iteration number,
+\thatis it directly corresponds to the first column of the iteration data
+written to display\slash stdout.
+%
+This will cause the simulation to complete the standard shutdown sequence after
+completing the final iteration, including writing the final restart and
+solution output files.
+%
+If
+  1) the \file{STOP\_GFR} file is empty;
+  2) the read operation on the first line fails due to an invalid (\thatis
+    non-integer) quantity; or
+  3) the final iteration value read from the file is less than the current
+    iteration number;
+%
+then GFR will immediately exit the solver loop and begin the standard shutdown
+sequence.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\vspace{1.0ex}
+\noindent Using this interrupt file is as simple as running a command like
+%
+\\[1.2ex]\indent\texttt{echo 148234 > STOP\_GFR}\\[1.2ex]
+%
+%\begin{lstlisting}
+%  echo 148234 > STOP_GFR
+%\end{lstlisting}
+%
+on the command line in the simulation run directory.
+%
+This example would cause GFR to stop the simulation after completing the
+148,234\supth{} time step.
+
+%###############################################################################
+%###############################################################################
+%###############################################################################
+
+\subsubsection{ADJUST\_CFL}
+\label{SEC:Files:Interrupt:Adjust_CFL}
+
+This interrupt file allows the user to modify the current CFL schedule of a
+running simulation.
+%
+This file is assumed to contain the namelist \inptext{cfl\_adjustment} defined
+as:
+%
+\begin{nmlblocklst}[
+,label={LST:cfl_adjustment}
+,caption={Namelist cfl\_adjustment.}
+]
+&cfl_adjustment
+  CFL                    = [current simulation value]
+  CFL_Ramping_Beg        = [current simulation value]
+  CFL_Ramping_End        = [current simulation value]
+  CFL_Ramping_Iterations = [current simulation value]
+  CFL_Ramping_Start_Iter = [current simulation value]
+/
+\end{nmlblocklst}
+%
+The inputs in this namelist are identical to the respective inputs in
+\sref{SEC:nml_timestep}.
+%
+Since this file is only read after a simulation has already started, each of
+these five variables will have already been defined in the preprocessor when
+the simulation was starting.
+%
+Hence, this is why the \quoterm{default value} for each input is given as%
+\texttt{ = [current simulation value]}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+If the \file{ADJUST\_GFR} file is found, GFR will attempt to read this namelist
+from the file.
+%
+If any of these inputs are provided in the namelist, they will directly replace
+the corresponding value within the simulation.
+%
+Once the current iteration number reaches the value specified in the input
+\inp[nmlTimestep::CFLRampingStartIter]{CFL\_Ramping\_Start\_Iter},
+the CFL ramping schedule is reset so that the CFL is linearly increased from
+\inp[nmlTimestep::CFLRampingBeg]{CFL\_Ramping\_Beg} to
+\inp[nmlTimestep::CFLRampingEnd]{CFL\_Ramping\_End} between iterations
+$({\inptext{CFL\_Ramping\_Start\_Iter}}+1)$ and
+$({\inptext{CFL\_Ramping\_Start\_Iter}}+%
+\text{\inp[nmlTimestep::CFLRampingIterations]{CFL\_Ramping\_Iterations}})$.
+%
+If the value of {\inptext{CFL\_Ramping\_Start\_Iter}} read from the interrupt
+file is less than the current iteration number, the CFL ramping schedule is
+reset immediately.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Whenever the CFL ramping schedule is changed by the inputs in this file, a new
+restart file will be written just before the new schedule begins in case it is
+too aggressive and causes the simulation to fail.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+This interrupt file can be very helpful to push the limits of finding the
+largest CFL that can be used while also maintaining a stable solution.
+%
+One method to find this limit is to slowly keep pushing the CFL higher until the
+simulation fails.
+%
+In past experience, plotting the data in \file{residual.dat} from the failed
+simulation can identify an approximate iteration number where the solution began
+to diverge.
+%
+This iteration number can be used with the iteration statistics written to the
+display\slash stdout to identify the CFL value at that iteration.
+%
+From there, you should be able to run a stable simulation with a \quoterm{near
+optimal} CFL by using a CFL that is 85\%--95\% of the CFL value when the
+previous failed simulation began to diverge.
+
+%###############################################################################
+%###############################################################################
+%###############################################################################
+
+\subsubsection{START\_TIME\_AVERAGING}
+\label{SEC:Files:Interrupt:Start_TA}
+
+The simple presence of this interrupt file requests GFR to begin time averaging
+the current simulation.
+%
+If the simulation is already time averaging, this interrupt file will be deleted
+and ignored.
+%
+If the simulation is not time averaging, GFR will:
+\begin{itemize}
+  \item Begin collecting time averages of various variable quantities (see
+    \sref{SEC:Files:Time_Averaging_Output}).
+  \item Start writing time-averaged restart files
+    \file{(Restart\_files\slash out.\#.ave)} each time an instantaneous restart
+    file is written.
+  \item Start writing time-averaged solution output files
+    \file{(CGNS\_files\slash solution.time\_ave.\#.cgns)} each time an
+    instantaneous solution output file is written.
+  \item Reset the solution time written to the display\slash stdout to zero.
+    From this point on, this quantity will report the total amount of time that
+    the solution has been time averaged. Note, the actual simulation time is not
+    reset within GFR and will continue accumulating in the background.
+    Only the time quantity that is written to display is reset.
+    %
+    The iteration counter is also not reset.
+  \item Reset the maximum L2 residual quantities used to determine
+    convergence, and begin reporting the L2 residual of
+    the \emph{time-averaged mean flow} variables to the \file{residual.dat}
+    file instead of the \emph{instantaneous} variables.
+\end{itemize}
+%
+This file requires no contents, and any contents will be ignored.
+%
+Using this interrupt file is as simple as running the following command on the
+command line in the simulation run directory:
+%
+\\[1.2ex]\indent\texttt{touch START\_TIME\_AVERAGING}
+%\begin{lstlisting}
+%  touch START_TIME_AVERAGING
+%\end{lstlisting}
+
+%###############################################################################
+%###############################################################################
+%###############################################################################
+
+\subsubsection{DUMP\_RESTART}
+\label{SEC:Files:Interrupt:Dump_Restart}
+
+The simple presence of this interrupt file requests GFR to output an
+instantaneous restart file, as well as a time-averaged restart file if
+currently time-averaging.
+%
+This file requires no contents, and any contents will be ignored.
+%
+Using this interrupt file is as simple as running the following command on the
+command line in the simulation run directory:
+%
+\\[1.2ex]\indent\texttt{touch DUMP\_RESTART}
+%\begin{lstlisting}
+%  touch DUMP_RESTART
+%\end{lstlisting}
+
+%###############################################################################
+
+\subsubsection{DUMP\_SOLUTION}
+\label{SEC:Files:Interrupt:Dump_Solution}
+
+The simple presence of this interrupt file requests GFR to output an
+instantaneous solution output file, as well as a time-averaged output file if
+currently time-averaging.
+%
+This file requires no contents, and any contents will be ignored.
+%
+Using this interrupt file is as simple as running the following command on the
+command line in the simulation run directory:
+%
+\\[1.2ex]\indent\texttt{touch DUMP\_SOLUTION}
+%\begin{lstlisting}
+%  touch DUMP_SOLUTION
+%\end{lstlisting}
+
+%###############################################################################
+%###############################################################################
+%###############################################################################
+
+%\subsubsection{START\_REACTIONS}
+%\label{SEC:Files:Interrupt:Start_Reactions}
+
+%###############################################################################
+%###############################################################################
+%###############################################################################
+
+%\subsubsection{RESTART\_INTERRUPT}
+%\label{SEC:Files:Interrupt:New_Restart}
+
+%###############################################################################
+

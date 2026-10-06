@@ -1,0 +1,68 @@
+\FourSubsection{Inputs Common to All Periodic Boundaries}
+\label{SEC:BC:Numerical:Periodic:Inputs:Common}
+
+%This section discusses the inputs for specifying a pair of coupled periodic
+%boundaries that are common to all periodic boundaries whether the periodicity
+%is translational or rotational.
+%
+This section discusses inputs that can be used with both translational or
+rotational periodic boundaries.
+%
+The \inptext{Periodic} subcomponent of \BCinpBC[nmlBC::BCInput]{} is used
+to provide the information that will allow GFR to group two boundary conditions
+into a matching pair of periodic boundaries, which in this example will be
+\BCinptext[i]{} and \BCinptext[j]{}.
+%
+Both sides of a periodic pair must provide their respective information in the
+input file.
+%
+%As you will see, the information required by opposing sides is the reverse\slash
+%negative of each other, and could therefore probably be streamlined to reduce
+%redundancies.
+%%
+%However, there was intentionality in how this was set up to help aid in error
+%checking and making sure the user understands what they are doing in setting up
+%periodic boundary conditions.
+%
+As you will see, the information required by opposing sides is the reverse\slash
+negative of each other, and is used to aid error checking of the periodic
+boundary setup.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The two inputs used to define a matching periodic pair are
+%
+\begin{InputExample}
+  \item[{\BCinptext[i]{Periodic\%Matching\_BC\_Name}}]
+  \item[{\BCinptext[i]{Periodic\%Matching\_BC\_Idx}}]
+\end{InputExample}
+%
+The values for these two inputs need to provide the respective information from
+the opposing matching periodic boundary condition.
+%
+Using boundary conditions $i$ and $j$ defined at the beginning of
+\sref{SEC:BC:Numerical:Periodic}, the inputs for boundary condition $i$ would
+look like
+%
+\begin{InputExample}
+  \item[{\BCinptext[i]{Name = "Face Side A"}}]
+  \item[{\BCinptext[i]{Set\_BC\_Value = 81}}]
+  \item[{\BCinptext[i]{Periodic\%Matching\_BC\_Name = "Periodic-2"}}]
+  \item[{\BCinptext[i]{Periodic\%Matching\_BC\_Idx = }j}]
+\end{InputExample}
+%
+and the inputs for boundary condition $j$ would look like
+%
+\begin{InputExample}
+  \item[{\BCinptext[j]{Name = "Periodic-2"}}]
+  \item[{\BCinptext[j]{Set\_BC\_Value = 81}}]
+  \item[{\BCinptext[j]{Periodic\%Matching\_BC\_Name = "Face Side A"}}]
+  \item[{\BCinptext[j]{Periodic\%Matching\_BC\_Idx = }i}]
+\end{InputExample}
+%
+The remaining parts of \BCinptext{Periodic} are used to define the physical
+orientation between the pair of periodic boundaries, and will be covered in the
+next two sections.
+
+%###############################################################################
+
