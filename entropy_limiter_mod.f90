@@ -91,7 +91,7 @@ subroutine perform_entropy_limiting(nst)
   integer,     intent(in)    :: nst
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "perform_entropy_ilmiting"
+  character(len=*), parameter :: pname = "perform_entropy_limiting"
   !
   !.. Local Scalars ..
   integer       :: n,n1,n2,eq,ic,midx,ics,nn,imarker
