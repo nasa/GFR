@@ -115,6 +115,12 @@ subroutine perform_entropy_limiting(nst)
   !
 continue!
   !
+  entropy_filter_type = entropy_limiter%Option
+  !
+  ! Make sure we immediately return without doing
+  ! anything if entropy limiting is not turned on.
+  if (entropy_filter_type == ENTLIM_OPT_OFF) return
+  !
   call debug_timer(entering_procedure,pname)
   !
   ! Allocate the array storing the amount of limitng occuring
@@ -128,7 +134,6 @@ continue!
   end if
   imarker = get_marker_index(nst)
   !
-  entropy_filter_type = entropy_limiter%Option
   midx = get_marker_index(nst)
   !
   bad_cell = init_array(ncell,fals) ! F2003 AUTO-REALLOC
