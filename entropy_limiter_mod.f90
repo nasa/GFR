@@ -119,7 +119,7 @@ continue!
   !
   ! Make sure we immediately return without doing
   ! anything if entropy limiting is not turned on.
-  if (entropy_filter_type == ENTLIM_OPT_OFF) return
+  if (entropy_filter_type == ENTLIM_OPT__OFF) return
   !
   call debug_timer(entering_procedure,pname)
   !
