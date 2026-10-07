@@ -1068,7 +1068,17 @@ continue
   close (io2)
 #endif
   !
-  !
+!#define DUMP_XYZ_ARRAY
+#ifdef DUMP_XYZ_ARRAY
+  open (newunit=io,file="xyz.c-binary.dat",status="replace",action="write", &
+                   form="unformatted",access="stream",position="rewind", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,"xyz.c-binary.dat",1,__LINE__,__FILE__,ierr,error_message)
+  write (io,iostat=ierr) ((xyz(l,n),l=1,nr),n=1,n_solpts)
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,"xyz.c-binary.dat",2,__LINE__,__FILE__,ierr,error_message)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
+#endif
   !
 #ifdef DEBUG_ON
 !#define DEBUG_MRF_FREESTREAM_TCF
