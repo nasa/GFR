@@ -16,6 +16,26 @@ read from
   Gmsh (very limited support)
 files.
 %
+The format of the grid file can be explicitly specified using the input
+\inp[nmlGrid::GridFormat]{Grid\_Format}.
+%
+By default, this input will be set to \quoterm{Unknown Format}.
+%
+If a grid file is specified by the input \inp[nmlGrid::GridFile]{Grid\_File} and
+\inptext{Grid\_Format} remains the default value,
+an attempt will be made to automatically detect the format of the grid file
+using the filename extension.
+%
+If the specified grid file cannot be found, or the grid format is not explicitly
+specified by the input and cannot be determined from the filename extension, the
+code will terminate and output an error message.
+%
+See \sref{SEC:nml_grid} for further information, including the valid input
+values for \inptext{Grid\_Format} and the respective grid formats they
+represent.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 The GFR code will always assume the grid coordinates are in units of meters.
 %
 However, sometimes it can be easier or more useful to generate a grid in other
@@ -97,8 +117,11 @@ removed.
 The required number of solution points will then be inserted into the cell
 volume for the specified solution order.
 %
-The coordinates of these points are determined using linear interpolation
-between the cell vertices and the chosen Gauss or Lobatto locations.
+If the grid file contains high-order curved grid cells, the coordinates of the
+solution points within each cell will be generated using a high-order Lagrange
+interpolation from the grid points to the chosen Gauss or Lobatto points;
+otherwise, a linear interpolation between the cell vertices will be used to
+generate the solution points.
 %
 The domain is then partitioned to make efficient use of the computational
 resources available.

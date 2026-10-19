@@ -11,7 +11,7 @@ is used to specify parameters related to the grid input file.
 ]
 &nml_grid
   Grid_Scaling_Factor      =   1.0
-  Grid_Format              =  -1
+  Grid_Format              =  -99  ! Unknown
   Grid_File                =  ""
   Plot3d_Cutfile           =  ""
   Plot3d_BCSfile           =  ""
@@ -60,7 +60,7 @@ in \sref{SEC:Grid_Scaling}.
 %==========================================================================
 
 \begin{nmldescitem}
-Grid_Format = -1
+Grid_Format = -99
 \end{nmldescitem}
 \inp*[nmlGrid::GridFormat]{}[Grid\_Format][]
 
@@ -68,6 +68,9 @@ Grid_Format = -1
 Specifies the format of the input grid file.
 
 \begin{tabular}{ @{} r @{ = } p{0.85\linewidth} @{} }
+  -99 & Unknown grid format (default). An attempt will be made to automatically
+        detect the grid format from the extension of the filename specified by
+        \inptext{Grid\_File}. \\
   -1 & Internally generated grid
        (only supported with certain 
        \inp[nmlInitialization::Initialization]{Initialization} options) \\

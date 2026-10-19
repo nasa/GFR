@@ -1327,7 +1327,7 @@ continue
       !
 !{{{  ! GRID INFORMATION
       call set('Grid_Format                      ',                          &
-                grid_format                       ,Internally_Generated_Grid )
+                grid_format                       , Unknown_Format           )
       call set('Gridfile                         ',                          &
                 gridfile                          , ''                       )
       call set('Plot3d_Cutfile                   ',                          &

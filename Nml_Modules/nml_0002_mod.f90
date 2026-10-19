@@ -896,7 +896,7 @@ continue
       call set('Grid_Scaling_Factor          ',                           &
                 grid_scaling_factor           , 1.0_wp                    )
       call set('Grid_Format                  ',                           &
-                grid_format                   , Internally_Generated_Grid )
+                grid_format                   , Unknown_Format            )
       call set('Grid_File                    ',                           &
                 grid_file                     , ''                        )
       call set('Plot3d_Cutfile               ',                           &
