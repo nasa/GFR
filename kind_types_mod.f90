@@ -2681,43 +2681,12 @@ subroutine stop_gfr(iend,procedure_name,line_number,file_name, &
   !
 continue
   !
-  ! Placeholder char in error_message to be converted to newline.
-  !
-  newline_char = "$"  ! default: $ becomes newline
-  if ( present(optional_newline_char) ) newline_char = optional_newline_char
-  !
   iflag = int( iend , kind=kind(iflag) )
   !
   ! Reformat optional_message
   !
   if (present(optional_message)) then
-    !
-    if (scan(optional_message,new_line('a')) > 0) then
-      !
-      ! Optional_message already contains new line characters so just copy
-      ! it straight into output_message.
-      !
-      output_message = trim(adjustl(optional_message))
-      !
-    elseif (scan(optional_message,newline_char) > 0) then
-      !
-      ! Optional message contains a placeholder char for new_line.
-      ! Replace placeholder with new_line and copy to output_message.
-      !
-      output_message = replace_char( optional_message, &
-                                     newline_char, new_line('a') )
-      output_message = trim(adjustl(output_message))
-      !
-    else
-      !
-      ! Optional_message does NOT contain any new line characters so reformat
-      ! the string so that it is multiple lines with a max of 50 characters
-      ! per line.
-      !
-      output_message = reformat_string( optional_message )
-      !
-    end if
-    !
+    output_message = format_message(optional_message,optional_newline_char)
   end if
   !
   ! Write out the final information before stopping execution
@@ -2844,6 +2813,57 @@ end function geom_family_type_not_equal
 !
 !###############################################################################
 !
+function format_message(message,optional_newline_char) result(return_value)
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: message
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: optional_newline_char
+  !
+  !.. Function Result ..
+  character(len=:), allocatable :: return_value
+  !
+  !.. Local Scalars ..
+  character(len=1) :: newline_char
+  !
+continue
+  !
+  ! Placeholder char in error_message to be converted to newline.
+  !
+  newline_char = "$"  ! default: $ becomes newline
+  if ( present(optional_newline_char) ) newline_char = optional_newline_char
+  !
+  if (scan(message,new_line('a')) > 0) then
+    !
+    ! message already contains new line characters so just copy
+    ! it straight into return_value.
+    !
+    return_value = trim(adjustl(message)) ! F2003 AUTO-REALLOC
+    !
+  elseif (scan(message,newline_char) > 0) then
+    !
+    ! Optional message contains a placeholder char for new_line.
+    ! Replace placeholder with new_line and copy to return_value.
+    !
+    ! F2003 AUTO-REALLOC
+    return_value = replace_char( message, newline_char, new_line('a') )
+    !
+    return_value = trim(adjustl(return_value)) ! F2003 AUTO-REALLOC
+    !
+  else
+    !
+    ! message does NOT contain any new line characters so reformat
+    ! the string so that it is multiple lines with a max of 50 characters
+    ! per line.
+    !
+    return_value = reformat_string( message ) ! F2003 AUTO-REALLOC
+    !
+  end if
+  !
+end function format_message
+!
+!###############################################################################
 !> Replace all instances of one character in a string with another character.
 function replace_char(string,old_char,new_char) result(new_string)
   character(len=*), intent(in) :: string
