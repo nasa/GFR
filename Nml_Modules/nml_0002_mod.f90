@@ -284,7 +284,7 @@ continue
   call set('Interpto_Plot3d_BCSfile', &
             interpto_plot3d_bcsfile , ''        , default_len )
   call set('Restart_File           ', &
-            restart_file            , 'out.rst' , default_len )
+            restart_file            , ''        , default_len )
   call set('Solution_File          ', &
             solution_file           , ''        , default_len )
   call set('Output_Dir             ', &
@@ -292,7 +292,7 @@ continue
   call set('Lustre_Stripe_Size     ', &
             lustre_stripe_size      , '4m'      , default_len )
   call set('Time_Ave_File          ', &
-            time_ave_file           , 'out.ave' , default_len )
+            time_ave_file           , ''        , default_len )
   call set('Restart_List_File      ', &
             restart_list_file       , ''        , default_len )
   !
@@ -1297,7 +1297,7 @@ continue
       call set('Load_Restart_File                ',                       &
                 load_restart_file                 , fals                  )
       call set('Restart_File                     ',                       &
-                restart_file                      , 'out.rst'             )
+                restart_file                      , ''                    )
       call set('Solution_File                    ',                       &
                 solution_file                     , ''                    )
       call set('Solution_Format                  ',                       &
@@ -2850,7 +2850,7 @@ continue
       call set('Num_Saved_Time_Ave_Restarts       ',                        &
                 num_saved_time_ave_restarts        , 2                      )
       call set('Time_Ave_File                     ',                        &
-                time_Ave_File                      , 'out.ave'              )
+                time_Ave_File                      , ''                     )
       call set('Time_Ave_Vel_Is_Axisymm           ',                        &
                 time_ave_vel_is_axisymm            , fals                   )
       call set('Start_Averaging_Timestep          ',                        &
@@ -2972,7 +2972,7 @@ continue
            NMLaction_WritePretty )
 !---  Init of restart_file is done in nml_initialzation.
 !     call iow_header('&nml_restart_interupt')
-!     call set('restart_file',restart_file, 'out.rst')
+!     call set('restart_file',restart_file, ''       )
 !     call iow_footer()
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_restart_interupt') ) then

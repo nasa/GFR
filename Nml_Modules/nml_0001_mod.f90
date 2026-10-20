@@ -505,7 +505,7 @@ continue
   call set('Interpto_Plot3d_BCSfile',                         &
             interpto_plot3d_bcsfile , ''        , default_len )
   call set('Restart_File           ',                         &
-            restart_file            , 'out.rst' , default_len )
+            restart_file            , ''        , default_len )
   call set('Solution_File          ',                         &
             solution_file           , ''        , default_len )
   call set('Output_Dir             ',                         &
@@ -513,7 +513,7 @@ continue
   call set('Lustre_Stripe_Size     ',                         &
             lustre_stripe_size      , '4m'      , default_len )
   call set('Time_Ave_File          ',                         &
-            time_ave_file           , 'out.ave' , default_len )
+            time_ave_file           , ''        , default_len )
   call set('Restart_List_File      ',                         &
             restart_list_file       , ''        , default_len )
   !
@@ -1500,7 +1500,7 @@ continue
       call set('Restart_Interval                 ',                         &
                 restart_interval                  , 0                       )
       call set('Restart_File                     ',                         &
-                restart_file                      , 'out.rst'               )
+                restart_file                      , ''                      )
       call set('Restart_Output_Uses_Host_Roots   ',                         &
                 restart_output_uses_host_roots    , true                    ) 
       call set('CFL_Reduction_For_NaN_Restart    ',                         &
@@ -2004,7 +2004,7 @@ continue
       call set('Output_Time_Averaging             ',                        &
                 output_time_averaging              , fals                   )
       call set('Time_Ave_File                     ',                        &
-                time_ave_file                      , 'out.ave'              )
+                time_ave_file                      , ''                     )
       call set('Time_Scaling_Factor               ',                        &
                 time_scaling_factor                , 1.0_wp                 )
       call set('Time_Ave_Vel_Is_Axisymm           ',                        &
