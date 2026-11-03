@@ -1303,6 +1303,8 @@ module module_kind_types
   integer, parameter :: reset_accumulated_time = 6
   integer, parameter :: report_accumulated_time = 7
   !
+  logical(lk), public, save :: debug_timer_disabled = fals
+  !
   ! ############################################################################
   ! ############################################################################
   ! ############################################################################
