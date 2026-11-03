@@ -762,7 +762,8 @@ subroutine calculate_entropy_bounds(is_first_iter)
   ! First try exp(Entropy) - stol    (good tolerancing for low entropy)
   entropy_minimum(:) = max(eps12,smin_tmp(:) - stol)   
   ! Then try exp(Entropy - stop)     (tolerancing for high entropy)
-  entropy_minimum(:) = min(entropy_minimum(:),(smin_tmp(:)*EXP(-one+stol)))
+  entropy_minimum(:) = min(entropy_minimum(:),(smin_tmp(:)*EXP(-stol)))
+ !entropy_minimum(:) = min(entropy_minimum(:),(smin_tmp(:)*EXP(-one+stol)))
   !
   call debug_timer(leaving_procedure,pname)
   !
