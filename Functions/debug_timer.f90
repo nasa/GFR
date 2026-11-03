@@ -45,6 +45,8 @@ subroutine debug_timer(time_flag,message,processor,part_num,acc,pid,return_time)
   !
 continue
   !
+  if (debug_timer_disabled) return
+  !
   write (leading_space,'(200(" "))')
   !
   report_time = zero
