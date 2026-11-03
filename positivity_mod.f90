@@ -127,6 +127,9 @@ subroutine positivity_preserving_limiter(nst)
   !
   !
   ! Pressure Limiter 
+  ! SETH: Add update for gpsp and facegpsp
+  ! SETH: Make optional, probably enabled by default, more useful for higher speed flows with
+  ! shocks.
   call limit_cv_by_pressure(usp,gpsp,cell_ave_sol,cell_ave_gp,&
     limpres,do_lim_flxpts,facegpsp,faceusp,positivity_limiter_theta(:,imarker))
   !
