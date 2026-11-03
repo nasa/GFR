@@ -474,6 +474,7 @@ module ovar
   logical(lk),      public, save :: completely_disable_restart_output = fals
   !
   ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
+  logical(lk),      public, save :: Reset_Time_And_Iter = fals
   integer,          public, save :: solution_format = Unknown_Format
   character(len=:), public, save, allocatable :: solution_file
   !
