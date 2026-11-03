@@ -100,10 +100,10 @@ continue
   !
   !#############################################################################
   !
-  ! Create the Spatial_Ave_Files directory if it that hasnt been done yet
+  ! Create the Spatial_Ave_files directory if it that hasnt been done yet
   !
   if (.not.allocated(spatial_ave_dir)) then
-    call create_results_dir("Spatial_Ave_Files",dir_result,skip_lustre=true)
+    call create_results_dir("Spatial_Ave_files",dir_result,skip_lustre=true)
     spatial_ave_dir = trim(adjustl(dir_result)) ! F2003 AUTO-REALLOC
   end if
   !
@@ -425,10 +425,10 @@ continue
   !
   !#############################################################################
   !
-  ! Create the Spatial_Ave_Files directory if it that hasnt been done yet
+  ! Create the Spatial_Ave_files directory if it that hasnt been done yet
   !
   if (.not.allocated(spatial_ave_dir)) then
-    call create_results_dir("Spatial_Ave_Files",dir_result,skip_lustre=true)
+    call create_results_dir("Spatial_Ave_files",dir_result,skip_lustre=true)
     spatial_ave_dir = trim(adjustl(dir_result)) ! F2003 AUTO-REALLOC
   end if
   !
@@ -1058,10 +1058,10 @@ continue
   !
   !#############################################################################
   !
-  ! Create the Spatial_Ave_Files directory if it that hasnt been done yet
+  ! Create the Spatial_Ave_files directory if it that hasnt been done yet
   !
   if (.not.allocated(spatial_ave_dir)) then
-    call create_results_dir("Spatial_Ave_Files",dir_result,skip_lustre=true)
+    call create_results_dir("Spatial_Ave_files",dir_result,skip_lustre=true)
     spatial_ave_dir = trim(adjustl(dir_result)) ! F2003 AUTO-REALLOC
   end if
   !
