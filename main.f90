@@ -2532,11 +2532,15 @@ subroutine find_bad_number(n_bad_pts)
   !
   character(len=15)  :: cxyz_out
   character(len=200) :: inv_fmt,neg_fmt
+  character(len=200) :: cpu_details
   !
   !.. Local Arrays ..
   real(wp) :: vars(1:3)
   real(wp) :: xyz_fp(1:nr)
   real(wp) :: xyz_out(1:nr)
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: cpu_info
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: xyz_of_bad_pts(:,:)
@@ -2549,6 +2553,9 @@ continue
   n_bad_pts = 0
  !xyz_of_bad_pts = init_array(5,1000,zero) ! F2003 AUTO-REALLOC
   !
+  write (cpu_details,9) trim(adjustl(my_host_name)),my_host_rank,mypnum
+  cpu_info = trim(adjustl(cpu_details)) ! F2003 AUTO-REALLOC
+  !
   one_pass_solpt_loop: &
   do one_pass = 1,1
     !
@@ -2560,8 +2567,8 @@ continue
     !
     ! Find a negative density, temperature, or pressure at a solution point
     !
-    write (inv_fmt,1) mypnum,"Invalid",nr
-    write (neg_fmt,1) mypnum,"Negative",nr
+    write (inv_fmt,1) cpu_info,"Invalid",nr
+    write (neg_fmt,1) cpu_info,"Negative",nr
     !
    !do n = 1,n_solpts
     do nc = 1,ncell
@@ -2623,8 +2630,8 @@ continue
       ! Find a negative density, temperature,
       ! or pressure at a boundary face point
       !
-      write (inv_fmt,2) mypnum,"Invalid boundary",nr
-      write (neg_fmt,2) mypnum,"Negative boundary",nr
+      write (inv_fmt,2) cpu_info,"Invalid boundary",nr
+      write (neg_fmt,2) cpu_info,"Negative boundary",nr
       !
       bnd_nf_loop: &
       do nf = 1,nfbnd
@@ -2700,8 +2707,8 @@ continue
       ! Find a negative density, temperature,
       ! or pressure at an interior face point
       !
-      write (inv_fmt,2) mypnum,"Invalid interior",nr
-      write (neg_fmt,2) mypnum,"Negative interior",nr
+      write (inv_fmt,2) cpu_info,"Invalid interior",nr
+      write (neg_fmt,2) cpu_info,"Negative interior",nr
       !
       int_nf_loop: &
       do nf = nfbnd+1,nface
@@ -2792,8 +2799,8 @@ continue
       ! Find a negative density, temperature,
       ! or pressure at a boundary face point
       !
-      write (inv_fmt,2) mypnum,"Invalid boundary",nr
-      write (neg_fmt,2) mypnum,"Negative boundary",nr
+      write (inv_fmt,2) cpu_info,"Invalid boundary",nr
+      write (neg_fmt,2) cpu_info,"Negative boundary",nr
       !
      !do n = 1,n_bnd_flxpts
       do nf = 1,nfbnd
@@ -2837,8 +2844,8 @@ continue
       ! Find a negative density, temperature,
       ! or pressure at an interior face point
       !
-      write (inv_fmt,2) mypnum,"Invalid interior",nr
-      write (neg_fmt,2) mypnum,"Negative interior",nr
+      write (inv_fmt,2) cpu_info,"Invalid interior",nr
+      write (neg_fmt,2) cpu_info,"Negative interior",nr
       !
      !do n = n_bnd_flxpts+1,n_flxpts
       do nf = nfbnd+1,nface
@@ -2889,11 +2896,14 @@ continue
   ! Format Statements
   !
  !1 format ('(2x,"',a,' SP value found at [x,y,z] = ",', &
-  1 format ('(2x,"[',i6,']  ',a,' SP value found at [",a,"] = ",', &
+ !1 format ('(2x,"[',i6,']  ',a,' SP value found at [",a,"] = ",', &
+  1 format ('(2x,"',a,2x,a,' SP value found at [",a,"] = ",', &
             i0,'es14.6,4x,"r,p,t = ",3es14.6)')
  !2 format ('(2x,"',a,' FP value found at side ",i1," of [x,y,z] = ",', &
-  2 format ('(2x,"[',i6,']  'a,' FP value found at side ",i1," of [",a,"] = ",', &
+ !2 format ('(2x,"[',i6,']  'a,' FP value found at side ",i1," of [",a,"] = ",', &
+  2 format ('(2x,"',a,2x,a' FP value found at side ",i1," of [",a,"] = ",', &
             i0,'es14.6,4x,"r,p,t = ",3es14.6)')
+  9 format ("[",a,":",i0," (",i0,")]")
   !
 end subroutine find_bad_number
 !
