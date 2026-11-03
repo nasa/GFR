@@ -60,10 +60,10 @@ subroutine check_for_bad_number(line_num,file_name,ival)
 continue
 #ifndef DISABLE_CHECK_FOR_BAD_NUMBER
   !
-  overflow_error = repeat(" ",100000)       ! F2003 AUTO-REALLOC
-  divide_by_zero_error = repeat(" ",100000) ! F2003 AUTO-REALLOC
-  invalid_error = repeat(" ",100000)        ! F2003 AUTO-REALLOC
-  output_message = repeat(" ",400000)       ! F2003 AUTO-REALLOC
+  overflow_error = repeat(" ",1000000)       ! F2003 AUTO-REALLOC
+  divide_by_zero_error = repeat(" ",1000000) ! F2003 AUTO-REALLOC
+  invalid_error = repeat(" ",1000000)        ! F2003 AUTO-REALLOC
+  output_message = repeat(" ",4000000)       ! F2003 AUTO-REALLOC
   !
   ! First check to make sure that no floating-point exceptions are signaling
   !
