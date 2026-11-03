@@ -570,8 +570,10 @@ continue
   if (Sponge_Filter_Option == 1) then ! The sponge filter is active.
     if (Apply_Sponge) then  ! Apply sponge filter during this stage.
 #ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,1) nst
-      1 format (8x,"Applying Sponge Filter : RK Stage = ",i0)
+      if (.not. debug_timer_disabled) then
+        if (mypnum == glb_root) write (iout,1) nst
+        1 format (8x,"Applying Sponge Filter : RK Stage = ",i0)
+      end if
 #endif
       call apply_sponge_filter(usp)
       call check_for_bad_number(__LINE__,__FILE__)
@@ -590,7 +592,9 @@ continue
     ! A weak global filter is active
     if (Apply_Filter) then ! Apply the global filter during this stage
 #ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,1) nst
+      if (.not. debug_timer_disabled) then
+        if (mypnum == glb_root) write (iout,1) nst
+      end if
 #endif
       call filter_usp
       call check_for_bad_number(__LINE__,__FILE__)
@@ -626,8 +630,10 @@ continue
   if (Limiter_Option /= Limiter_Option__Off) then  ! The limiter is active.
     if (Apply_Limiter) then  ! Apply limiter during this stage.
 #ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,2) nst
-      2 format (8x,"Applying Limiter : RK Stage = ",i0)
+      if (.not. debug_timer_disabled) then
+        if (mypnum == glb_root) write (iout,2) nst
+        2 format (8x,"Applying Limiter : RK Stage = ",i0)
+      end if
 #endif
       select case (Limiter_Option)
         case (Limiter_Option__ProjectionScaled)
@@ -657,8 +663,10 @@ continue
     ! A strong global filter is active
     if (Apply_Filter) then ! Apply the global filter during this stage
 #ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,3) nst
-      3 format (8x,"Applying Standard Filter : RK Stage = ",i0)
+      if (.not. debug_timer_disabled) then
+        if (mypnum == glb_root) write (iout,3) nst
+        3 format (8x,"Applying Standard Filter : RK Stage = ",i0)
+      end if
 #endif
       call filter_usp
       call check_for_bad_number(__LINE__,__FILE__)

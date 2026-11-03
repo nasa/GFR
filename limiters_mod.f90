@@ -145,17 +145,19 @@ continue
     end if
     !
 #ifdef PROFILE_ON
-    ntc = count(troubled_cell)
-    if (ncpu > 1) then
-      call mpi_allreduce(MPI_IN_PLACE,ntc,1_int_mpi,mpi_inttyp, &
-                         MPI_SUM,MPI_COMM_WORLD,mpierr)
-    end if
-    if (mypnum == glb_root) then
-      if (first_output) then
-        write (iout,100) ntc,n_max_order-dropped_orders+1
-        first_output = fals
-      else
-        write (iout,101) ntc,n_max_order-dropped_orders+1
+    if (.not. debug_timer_disabled) then
+      ntc = count(troubled_cell)
+      if (ncpu > 1) then
+        call mpi_allreduce(MPI_IN_PLACE,ntc,1_int_mpi,mpi_inttyp, &
+                           MPI_SUM,MPI_COMM_WORLD,mpierr)
+      end if
+      if (mypnum == glb_root) then
+        if (first_output) then
+          write (iout,100) ntc,n_max_order-dropped_orders+1
+          first_output = fals
+        else
+          write (iout,101) ntc,n_max_order-dropped_orders+1
+        end if
       end if
     end if
     100 format (6x,"=> ",i8," troubled cells at P",i0)
@@ -179,9 +181,11 @@ continue
     !
     if (there_are_no_troubles) then
 #ifdef PROFILE_ON
-      if (Limiter_Filter_Option == 0) then
-        if (mypnum == glb_root) write (iout,200)
-        200 format (8x,"No more troubled cells!")
+      if (.not. debug_timer_disabled) then
+        if (Limiter_Filter_Option == 0) then
+          if (mypnum == glb_root) write (iout,200)
+          200 format (8x,"No more troubled cells!")
+        end if
       end if
 #endif
       exit order_loop
@@ -1967,10 +1971,12 @@ continue
   there_are_no_troubles = logical( .not. there_are_troubles , kind=lk )
   !
 #ifdef PROFILE_ON
-  nc = merge(1,0,there_are_no_troubles)
-  call mpi_allreduce(MPI_IN_PLACE,nc,1_int_mpi,mpi_inttyp, &
-                     MPI_MIN,MPI_COMM_WORLD,mpierr)
-  there_are_no_troubles = (nc == 1)
+  if (.not. debug_timer_disabled) then
+    nc = merge(1,0,there_are_no_troubles)
+    call mpi_allreduce(MPI_IN_PLACE,nc,1_int_mpi,mpi_inttyp, &
+                       MPI_MIN,MPI_COMM_WORLD,mpierr)
+    there_are_no_troubles = (nc == 1)
+  end if
 #endif
   !
 100 format( "Unexpected value, Marker_Option = ", i0 )
