@@ -205,6 +205,8 @@ program GFR_main
   !
   character(len=*), parameter :: pname = "GFR_main"
   !
+  logical(lk), parameter :: disable_debug_timer_after_preprocessor = true
+  !
   integer  :: iter,nst,i,ierr,k,npart
   integer  :: completed_timesteps
   integer  :: newton_failures
@@ -879,6 +881,10 @@ continue
   end if
   !
   call write_iter_header(output_header=true)
+  !
+#ifndef DEBUG_ON
+  debug_timer_disabled = disable_debug_timer_after_preprocessor
+#endif
   !
   ! Initialize the wall time
   !
