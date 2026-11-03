@@ -14,9 +14,8 @@ is used to specify solution initialization.
   Initialization                = 1
   Jet_Init_Func                 = 2
   Load_Restart_File             = F
-  Restart_File                  = "out.rst"
-  Initial_Solution_File         = ""
-  Initial_Solution_Format       = -99        ! -99 = Unknown
+  Restart_File                  = ""
+  Reset_Time_And_Iter           = F
 /
 \end{nmlblocklst}
 % CFL_Reduction_For_Nan_Restart = 2.0
@@ -25,16 +24,16 @@ The \key*[key:InitializationSequence]{initialization sequence}[Initialization Se
 is defined with the following precedence:
 \begin{itemize}
 %
-\item
-If the file specified by \inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File}
-exists and \inp[nmlInitialization::InitialSolutionFormat]{Initial\_Solution\_Format} is set to
-a valid value, then the solution data read from the specified file will be
-used as the initialization for a new simulation.
-%
-Note that \inptext{Initial\_Solution\_File} and \inptext{Initial\_Solution\_Format} can be
-set to read an externally generated solution or a GFR restart file.
-%
-The iteration and solution time will be set to zero.
+%\item
+%If the file specified by \inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File}
+%exists and \inp[nmlInitialization::InitialSolutionFormat]{Initial\_Solution\_Format} is set to
+%a valid value, then the solution data read from the specified file will be
+%used as the initialization for a new simulation.
+%%
+%Note that \inptext{Initial\_Solution\_File} and \inptext{Initial\_Solution\_Format} can be
+%set to read an externally generated solution or a GFR restart file.
+%%
+%The iteration and solution time will be set to zero.
 %
 \item
 If the file specified by \inp[nmlInitialization::RestartFile]{Restart\_File}
@@ -42,7 +41,11 @@ exists and
 \inp[nmlInitialization::LoadRestartFile]{Load\_Restart\_File}=\texttt{T},
 then the solution will be initialized using the data read from
 the specified restart file.
-The iteration and solution time will continue from that in the restart file.
+%
+If \inp[nmlInitialization::ResetTimeAndIter]{Reset\_Time\_And\_Iter} is left
+to its default value of false, the iteration number and solution time will
+continue from the values saved in the restart file; if otherwise set to true,
+both will be reset to zero.
 %
 \item
 Otherwise, the initial solution will be defined based on
@@ -53,40 +56,12 @@ The iteration and solution time will be set to zero.
 \noindent\NOTE
 To continue a simulation from a restart file while preserving the iteration
 and solution time, one should set
-  \inptext{Initial\_Solution\_File}=\texttt{""},
-  \inptext{Load\_Restart\_File}=\texttt{T}, and
+  \inptext{Load\_Restart\_File}=\texttt{T} and
   \inptext{Restart\_File} to the name of the input restart file.
 Many users forget to make these changes, and their simulations start over
 from the previously specified initialization rather than continuing the
 simulation.
 
-
-\devNotes{
-%
-The files specified by \inptext{Initial\_Solution\_File} and \inptext{Restart\_File}
-need to be checked for validity as part of the all the error checks after the
-namelist is read.
-%
-Currently, I think it goes all the way to trying to read the specified restart
-file before finding out if it does not exist, and at that stage it is not
-immediately clear if it is \inptext{Initial\_Solution\_File} or \inptext{Restart\_File}
-that is responsible.
-%
-Earlier error checking can allow for a more graceful abort with a clearer
-message like
-%
-\begin{InputExample}
-  \item[\quoterm{Tried to read \inptext{Initial\_Solution\_File}, but file does not
-  exist!}]
-\end{InputExample}
-%
-immediately after reading the namelist.
-%
-Probably need to also add error checking on if both methods are \quoterm{active}
-and whether that is intentional or not (or do we just use the above
-precedence?).
-%
-} % end devNotes
 %
 \vspace{1.0em} % Add vertical space before next item.
 
@@ -233,9 +208,8 @@ and the flow will be initialized the same as option 1 (generic flow).
 
 \NOTE
 This initialization is superseded when either loading a restart file by
-specifying \inp[nmlInitialization::LoadRestartFile]{Load\_Restart\_File}=\texttt{T}
-or using the input \inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File}
-to initializing a simulation from a valid solution file.
+specifying
+\inp[nmlInitialization::LoadRestartFile]{Load\_Restart\_File}=\texttt{T}.
 %
 Instead, the flowfield will be read from the corresponding file.
 %
@@ -295,16 +269,6 @@ Specifies whether or not to read a restart file.
 \end{tabular}
 
 \NOTE
-This will be superseded by
-\inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File} if the
-  specified value is an existing file and
-\inp[nmlInitialization::InitialSolutionFormat]{Initial\_Solution\_Format} is set to a valid
-value.
-%
-The only difference is that this option keeps the iteration number and
-simulation time from the restart file, whereas \inptext{Initial\_Solution\_File}
-resets both to 0.
-%
 See the description of the
 \key[key:InitializationSequence]{initialization sequence}
 on \pageref{key:InitializationSequence}.
@@ -313,7 +277,7 @@ on \pageref{key:InitializationSequence}.
 %==========================================================================
 
 \begin{nmldescitem}
-Restart_File = "out.rst"
+Restart_File = ""
 \end{nmldescitem}
 \inp*[nmlInitialization::RestartFile]{}[Restart\_File][]
 
@@ -324,16 +288,15 @@ is true.
 %
 %This takes precedence over
 This supersedes
-\inp[nmlInitialization::Initialization]{Initialization},
-but will be superseded by
-\inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File}.
+\inp[nmlInitialization::Initialization]{Initialization}.
 %
 See the description of the
 \key[key:InitializationSequence]{initialization sequence}
 on \pageref{key:InitializationSequence}.
 %
 The solution will continue from the iteration count and simulation time
-of the restart file.
+of the restart file unless
+\inp[nmlInitialization::ResetTimeAndIter]{Reset\_Time\_And\_Iter} is true.
 
 \NOTE
 This has no effect on the restart files that are \emph{written},
@@ -391,59 +354,94 @@ typically to:
 %==========================================================================
 
 \begin{nmldescitem}
-Initial_Solution_File = ""
+Reset_Time_And_Iter = F
 \end{nmldescitem}
-\inp*[nmlInitialization::InitialSolutionFile]{}[Initial\_Solution\_File][]
+\inp*[nmlInitialization::ResetTimeAndIter]{}[Reset\_Time\_And\_Iter][]
 
 \begin{nmldescbody}
-Path to a file that can be \emph{read} for initializing the solution.
+If set to true, this input can be used to reset the iteration number and
+solution time when loading a restart file.
 %
-This can be an externally generated solution or a GFR restart file.
+This can be utilized to essentially start a \quoterm{new} simulation that uses a
+restart file to initialize solution.
 %
-This is essentially the same as loading a restart file,
-except the \emph{\textbf{iteration count and simulation time are reset to 0}}.
+When left to the default value of false, the iteration number and solution time
+saved in the restart file is used to continue a previous simulation from the
+restart solution.
+ 
+\NOTE
+This cannot be used when continuing a time-averaging simulation using the input
+\inp[nmlTimeAve::TimeAveFile]{Time\_Ave\_File} to load a time-average restart
+file.
 %
-See \key[key:InitializationSequence]{initialization sequence}
-on \pref{\pageref{key:InitializationSequence}} for important details.
-%
-When specifying \inptext{Initial\_Solution\_File}, one must also specify a valid value
-for \inp[nmlInitialization::InitialSolutionFormat]{Initial\_Solution\_Format} as its default
-value will prevent this file from being read.
+The time-average is dependent on the solution time information in the restart
+files so resetting those values would invalidate the time-averaging history.
 
 \NOTE
-This has no effect on the solution files that are \emph{written}.
-
-\NOTE
-After initialization is complete, set \inptext{Initial\_Solution\_File}=\texttt{""}
+After using this to reset the iteration number and solution time, make sure to
+change it back to the default value
 so that subsequent simulations will continue from the previous restart file
 rather than starting over again.
 See \pref{\pageref{key:InitializationSequence}}.
-
 
 \end{nmldescbody}
 
 %==========================================================================
 
-\begin{nmldescitem}
-Initial_Solution_Format = -99  ! -99 = Unknown
-\end{nmldescitem}
-\inp*[nmlInitialization::InitialSolutionFormat]{}[Initial\_Solution\_Format][]
-
-\begin{nmldescbody}
-Format of the file specified by input
-\inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File}.
-
-\begin{tabular}{ @{} r @{ = } p{0.85\linewidth} @{} }
-  0 & Restart file format.\\
-  3 & Plot3D file format (experimental).
-\end{tabular}
-\\
-\NOTE
-Any other value will prevent the file specified by
-\inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File}
-from being read, and another means will be used to initialize the solution.
-
-\end{nmldescbody}
+%\begin{nmldescitem}
+%Initial_Solution_File = ""
+%\end{nmldescitem}
+%\inp*[nmlInitialization::InitialSolutionFile]{}[Initial\_Solution\_File][]
+%
+%\begin{nmldescbody}
+%Path to a file that can be \emph{read} for initializing the solution.
+%%
+%This can be an externally generated solution or a GFR restart file.
+%%
+%This is essentially the same as loading a restart file,
+%except the \emph{\textbf{iteration count and simulation time are reset to 0}}.
+%%
+%See \key[key:InitializationSequence]{initialization sequence}
+%on \pref{\pageref{key:InitializationSequence}} for important details.
+%%
+%When specifying \inptext{Initial\_Solution\_File}, one must also specify a valid value
+%for \inp[nmlInitialization::InitialSolutionFormat]{Initial\_Solution\_Format} as its default
+%value will prevent this file from being read.
+%
+%\NOTE
+%This has no effect on the solution files that are \emph{written}.
+%
+%\NOTE
+%After initialization is complete, set \inptext{Initial\_Solution\_File}=\texttt{""}
+%so that subsequent simulations will continue from the previous restart file
+%rather than starting over again.
+%See \pref{\pageref{key:InitializationSequence}}.
+%
+%
+%\end{nmldescbody}
+%
+%%==========================================================================
+%
+%\begin{nmldescitem}
+%Initial_Solution_Format = -99  ! -99 = Unknown
+%\end{nmldescitem}
+%\inp*[nmlInitialization::InitialSolutionFormat]{}[Initial\_Solution\_Format][]
+%
+%\begin{nmldescbody}
+%Format of the file specified by input
+%\inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File}.
+%
+%\begin{tabular}{ @{} r @{ = } p{0.85\linewidth} @{} }
+%  0 & Restart file format.\\
+%  3 & Plot3D file format (experimental).
+%\end{tabular}
+%\\
+%\NOTE
+%Any other value will prevent the file specified by
+%\inp[nmlInitialization::InitialSolutionFile]{Initial\_Solution\_File}
+%from being read, and another means will be used to initialize the solution.
+%
+%\end{nmldescbody}
 
 %==========================================================================
 

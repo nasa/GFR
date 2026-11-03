@@ -12,7 +12,7 @@ controls time averaging of solution variables.
 &nml_time_ave
   Compute_Time_Averaging      =  F
   Num_Saved_Time_Ave_Restarts =  2
-  Input_Time_Ave_File         = "out.ave"
+  Time_Ave_File               = ""
   Time_Ave_Vel_Is_Axisymm     =  F
   Start_Averaging_Timestep    = -1
   Start_Averaging_Tstar       = -1.0
@@ -105,12 +105,12 @@ restart from should an NaN occur.
 
 %##%\FINALFIX{\newpage}
 \begin{nmldescitem}
-Input_Time_Ave_File = "out.ave"
+Time_Ave_File = ""
 \end{nmldescitem}
-\inp*[nmlTimeAve::InputTimeAveFile]{}[Input\_Time\_Ave\_File][]
+\inp*[nmlTimeAve::TimeAveFile]{}[Time\_Ave\_File][]
 
 \begin{nmldescbody}
-\IDEA{Change this input to \inptext{Input\_Time\_Ave\_File}.}
+\IDEA{Change this input to \inptext{Time\_Ave\_File}.}
 
 File path to the time-averaged solution restart file that will be
 read during initialization if the following criteria are met:
@@ -142,7 +142,7 @@ and then add to those statistics during the current run job.
 
 \NOTE
 If the above criteria are met, but the file specified by
-\inptext{Input\_Time\_Ave\_File} does not exist, a completely new time averaging will
+\inptext{Time\_Ave\_File} does not exist, a completely new time averaging will
 be started.
 %
 This is the case even if you were intending to restart a previous time

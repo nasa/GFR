@@ -42,7 +42,7 @@ computes the requested output variables from
 and writes them to a CGNS solution file.
 %
 Next it reads the time-averaged restart file from
-\inp[nmlTimeAve::InputTimeAveFile]{Input\_Time\_Ave\_File}, 
+\inp[nmlTimeAve::TimeAveFile]{Time\_Ave\_File}, 
 and writes the accumulated data to \file{CGNS\_files/solution.\#.ta\_data.cgns}
 and the derived statistics to \file{CGNS\_files/solution.\#.time\_ave.cgns}.
 %
@@ -79,7 +79,7 @@ This can be used to minimized disk space usage.
 %
 The
 \inp[nmlInitialization::RestartFile]{Restart\_File} and
-\inp[nmlTimeAve::InputTimeAveFile]{Input\_Time\_Ave\_File}
+\inp[nmlTimeAve::TimeAveFile]{Time\_Ave\_File}
 will \emph{not} be deleted after conversion to CGNS.
 
 \noindent\myTextColor[red]{\textbf{WARNING:} } This will permanently delete
@@ -123,7 +123,7 @@ for the channel flow problem
 where the 1D $y$ profile is normalized by the channel half-height.
 %
 It is used to post-process the time-averaged restart file
-(\inp[nmlTimeAve::InputTimeAveFile]{Input\_Time\_Ave\_File}).
+(\inp[nmlTimeAve::TimeAveFile]{Time\_Ave\_File}).
 \end{nmldescbody}
 
 %==========================================================================
@@ -135,7 +135,7 @@ Spatial_Ave_Restart_X_And_Z_Planes = F
 
 \begin{nmldescbody}
 Utility to read the time-averaged restart file
-(\inp[nmlTimeAve::InputTimeAveFile]{Input\_Time\_Ave\_File})
+(\inp[nmlTimeAve::TimeAveFile]{Time\_Ave\_File})
 and spatially average in both the $x$ and $z$ coordinates.
 %
 This option first produces the $z$-averaged output from
@@ -163,7 +163,7 @@ Spatial_Ave_Restart_Z_Planes = F
 
 \begin{nmldescbody}
 Utility to read the time-averaged restart file
-(\inp[nmlTimeAve::InputTimeAveFile]{Input\_Time\_Ave\_File})
+(\inp[nmlTimeAve::TimeAveFile]{Time\_Ave\_File})
 and spatially average in the $z$ coordinates.
 %
 The output will be a Tecplot ASCII data file containing

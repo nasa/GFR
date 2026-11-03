@@ -275,12 +275,6 @@ the table below provides a mapping between the old and new inputs.
        &  \multicolumn{2}{l}{\inptext{Restart\_File}}
        && \multicolumn{2}{l}{\inp[nmlInitialization::RestartFile]{Same}[Restart\_File]}
        \\
-       &  \multicolumn{2}{l}{\inptext{Initial\_Solution\_File}}
-       && \multicolumn{2}{l}{\inp[nmlInitialization::InitialSolutionFile]{Solution\_File}}
-       \\
-       &  \multicolumn{2}{l}{\inptext{Initial\_Solution\_Format}}
-       && \multicolumn{2}{l}{\inp[nmlInitialization::InitialSolutionFormat]{Solution\_Format}}
-       \\
 %==========================================================================
        \multicolumn{3}{l}{\&input}
     &  \multicolumn{2}{l}{\&\texttt{nml\_timestep}}
@@ -768,7 +762,7 @@ the table below provides a mapping between the old and new inputs.
        && \multicolumn{2}{l}{\inp[nmlTimeAve::NumSavedTimeAveRestarts]{Same}[Num\_Saved\_Time\_Ave\_Restarts]}
        \\
        &  \multicolumn{2}{l}{\inptext{Time\_Ave\_File}}
-       && \multicolumn{2}{l}{\inp[nmlTimeAve::InputTimeAveFile]{Input\_Time\_Ave\_File}}
+       && \multicolumn{2}{l}{\inp[nmlTimeAve::TimeAveFile]{Same}[Time\_Ave\_File]}
        \\
        &  \multicolumn{2}{l}{\inptext{Time\_Ave\_Vel\_Is\_Axisymm}}
        && \multicolumn{2}{l}{\inp[nmlTimeAve::TimeAveVelIsAxisymm]{Same}[Time\_Ave\_Vel\_Is\_Axisymm]}
@@ -1317,6 +1311,12 @@ the table below provides a mapping between the old and new inputs.
        \\
        &  \multicolumn{2}{l}{\inptext{Channel\_Init\_File}}
        && \multicolumn{2}{l}{\texttt{Init\_File}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Solution\_File}}
+       && \multicolumn{2}{l}{Same}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Solution\_Format}}
+       && \multicolumn{2}{l}{Same}
        \\
        &  \multicolumn{2}{l}{\inptext{Time\_Average\_Restart\_Files}}
        && \multicolumn{2}{l}{Same}
