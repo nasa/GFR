@@ -2516,8 +2516,8 @@ continue
     !
     ! Find a negative density, temperature, or pressure at a solution point
     !
-    write (inv_fmt,1) "Invalid",nr
-    write (neg_fmt,1) "Negative",nr
+    write (inv_fmt,1) mypnum,"Invalid",nr
+    write (neg_fmt,1) mypnum,"Negative",nr
     !
    !do n = 1,n_solpts
     do nc = 1,ncell
@@ -2579,8 +2579,8 @@ continue
       ! Find a negative density, temperature,
       ! or pressure at a boundary face point
       !
-      write (inv_fmt,2) "Invalid boundary",nr
-      write (neg_fmt,2) "Negative boundary",nr
+      write (inv_fmt,2) mypnum,"Invalid boundary",nr
+      write (neg_fmt,2) mypnum,"Negative boundary",nr
       !
       bnd_nf_loop: &
       do nf = 1,nfbnd
@@ -2656,8 +2656,8 @@ continue
       ! Find a negative density, temperature,
       ! or pressure at an interior face point
       !
-      write (inv_fmt,2) "Invalid interior",nr
-      write (neg_fmt,2) "Negative interior",nr
+      write (inv_fmt,2) mypnum,"Invalid interior",nr
+      write (neg_fmt,2) mypnum,"Negative interior",nr
       !
       int_nf_loop: &
       do nf = nfbnd+1,nface
@@ -2748,8 +2748,8 @@ continue
       ! Find a negative density, temperature,
       ! or pressure at a boundary face point
       !
-      write (inv_fmt,2) "Invalid boundary",nr
-      write (neg_fmt,2) "Negative boundary",nr
+      write (inv_fmt,2) mypnum,"Invalid boundary",nr
+      write (neg_fmt,2) mypnum,"Negative boundary",nr
       !
      !do n = 1,n_bnd_flxpts
       do nf = 1,nfbnd
@@ -2793,8 +2793,8 @@ continue
       ! Find a negative density, temperature,
       ! or pressure at an interior face point
       !
-      write (inv_fmt,2) "Invalid interior",nr
-      write (neg_fmt,2) "Negative interior",nr
+      write (inv_fmt,2) mypnum,"Invalid interior",nr
+      write (neg_fmt,2) mypnum,"Negative interior",nr
       !
      !do n = n_bnd_flxpts+1,n_flxpts
       do nf = nfbnd+1,nface
@@ -2845,10 +2845,10 @@ continue
   ! Format Statements
   !
  !1 format ('(2x,"',a,' SP value found at [x,y,z] = ",', &
-  1 format ('(2x,"',a,' SP value found at [",a,"] = ",', &
+  1 format ('(2x,"[',i6,']  ',a,' SP value found at [",a,"] = ",', &
             i0,'es14.6,4x,"r,p,t = ",3es14.6)')
  !2 format ('(2x,"',a,' FP value found at side ",i1," of [x,y,z] = ",', &
-  2 format ('(2x,"',a,' FP value found at side ",i1," of [",a,"] = ",', &
+  2 format ('(2x,"[',i6,']  'a,' FP value found at side ",i1," of [",a,"] = ",', &
             i0,'es14.6,4x,"r,p,t = ",3es14.6)')
   !
 end subroutine find_bad_number
