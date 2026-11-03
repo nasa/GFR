@@ -3998,17 +3998,37 @@ continue
       !
     end do
     !
-    wall(n)%x = xyz_wall(1,j)
-    wall(n)%y = xyz_wall(2,j)
-    wall(n)%z = xyz_wall(3,j)
-    !
-    if (size(xyz_wall,dim=1) >= 6) then
-      wall(n)%xnrm = xyz_wall(4,j)
-      wall(n)%ynrm = xyz_wall(5,j)
-      wall(n)%znrm = xyz_wall(6,j)
+    if (nwp == 0) then
+      !
+      ! If nwp = 0, there are no wall boundary conditions, so assume the
+      ! SEM is being used for freestream turbulence and set all the wall
+      ! components to zero (except for ynrm set to 1).
+      !
+      wall(n)%x = zero
+      wall(n)%y = zero
+      wall(n)%z = zero
+      !
+      wall(n)%xnrm = zero
+      wall(n)%ynrm = one
+      wall(n)%znrm = zero
+      !
+      wall(n)%distance = zero
+      !
+    else
+      !
+      wall(n)%x = xyz_wall(1,j)
+      wall(n)%y = xyz_wall(2,j)
+      wall(n)%z = xyz_wall(3,j)
+      !
+      if (size(xyz_wall,dim=1) >= 6) then
+        wall(n)%xnrm = xyz_wall(4,j)
+        wall(n)%ynrm = xyz_wall(5,j)
+        wall(n)%znrm = xyz_wall(6,j)
+      end if
+      !
+      wall(n)%distance = sqrt( dw2_min )
+      !
     end if
-    !
-    wall(n)%distance = sqrt( dw2_min )
     !
 #ifdef DEBUG_WALL_NORMALS
     if (debug_output_active) then
@@ -6876,6 +6896,27 @@ continue
     !
     ! Get the minimum y location across all the SEM and wall boundary points
     wall_ymin = min(minval(xyz_sem(2,:)),minval(xyz_wall(2,:)))
+    !
+#ifdef DEBUG_ON
+    if (mypnum == glb_root) then
+      !
+      write (iout,183) "n_wall_pts = ",count( wall_msk(1:nnode) )
+      write (iout,184) "xyz_wall = xyz_wall", &
+                       lbound(xyz_wall,dim=1),ubound(xyz_wall,dim=1), &
+                       lbound(xyz_wall,dim=2),ubound(xyz_wall,dim=2)
+      write (iout,183) "n_sem_pts = ",n_sem_pts
+      write (iout,184) "xyz_sem = xyz_sem", &
+                       lbound(xyz_sem,dim=1),ubound(xyz_sem,dim=1), &
+                       lbound(xyz_sem,dim=2),ubound(xyz_sem,dim=2)
+      write (iout,185) "wall_ymin = ",wall_ymin
+      !
+      flush (iout)
+      !
+    end if
+  183 format (a,i0)
+  184 format (a,"(",i0,":",i0,",",i0,":",i0,")")
+  185 format (a,es23.15)
+#endif
     !
     ! Compute the minimum wall distance for all
     ! the boundary nodes on SEM boundaries
