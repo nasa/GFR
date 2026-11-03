@@ -92,6 +92,7 @@ module nml_0001_mod
   use ovar, only : ignition_source_radius
   use ovar, only : ignition_source_location
   use ovar, only : load_restart_file, restart_interval, restart_file
+  use ovar, only : reset_time_and_iter
   use ovar, only : restart_output_uses_host_roots
   use ovar, only : CFL_reduction_for_NaN_restart
   use ovar, only : num_saved_time_ave_restarts
@@ -1046,7 +1047,7 @@ subroutine ionml_input()
   namelist / input / itestcase, jet_init_func
   ! RESTART OPTIONS
   namelist / input / load_restart_file, restart_interval, &
-                     restart_file, &
+                     restart_file, reset_time_and_iter, &
                      restart_output_uses_host_roots, &
                      CFL_reduction_for_NaN_restart, &
                      num_saved_time_ave_restarts, &
@@ -1497,6 +1498,8 @@ continue
 !{{{  ! RESTART OPTIONS
       call set('Load_Restart_File                ',                         &
                 load_restart_file                 , fals                    )
+      call set('Reset_Time_And_Iter              ',                         &
+                Reset_Time_And_Iter               , fals                    )
       call set('Restart_Interval                 ',                         &
                 restart_interval                  , 0                       )
       call set('Restart_File                     ',                         &

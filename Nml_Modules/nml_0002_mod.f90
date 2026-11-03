@@ -1268,8 +1268,7 @@ subroutine ionml_initialization()
   use ovar, only : jet_init_func
   use ovar, only : load_restart_file
   use ovar, only : restart_file
-  use ovar, only : solution_format
-  use ovar, only : solution_file
+  use ovar, only : reset_time_and_iter
   !
   ! INITIALIZATION / TEST CASE
   namelist / nml_initialization / &
@@ -1279,10 +1278,9 @@ subroutine ionml_initialization()
   namelist / nml_initialization / &
              load_restart_file  , &
              restart_file
-  ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
+  ! OPTION TO RESET TIME AND ITERATION COUNTER FOR SIMULATION
   namelist / nml_initialization / &
-             solution_file      , &
-             solution_format
+             reset_time_and_iter
   !
 continue
   !
@@ -1298,10 +1296,6 @@ continue
                 load_restart_file                 , fals                  )
       call set('Restart_File                     ',                       &
                 restart_file                      , ''                    )
-      call set('Solution_File                    ',                       &
-                solution_file                     , ''                    )
-      call set('Solution_Format                  ',                       &
-                solution_format                   , Unknown_Format        )
       call iow_footer()
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_initialization') ) then
@@ -3017,6 +3011,8 @@ subroutine ionml_removed()
   use ovar, only : Marker_Coeff_Default
   use ovar, only : flux_divergence
   use ovar, only : restart_output_uses_host_roots
+  use ovar, only : solution_format
+  use ovar, only : solution_file
   use ovar, only : use_async_for_error
   use ovar, only : output_eperk_cfl
   use ovar, only : output_bnd_profiles
@@ -3088,6 +3084,8 @@ subroutine ionml_removed()
   namelist / nml_removed / CFL_reduction_for_NaN_restart
   ! RESTART OPTIONS
   namelist / nml_removed / restart_output_uses_host_roots
+  ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
+  namelist / nml_removed / solution_file, solution_format
   ! BASE FR OPTIONS
   namelist / nml_removed / flux_divergence
   ! REALIZABLE TOTAL TEMPERATURE LIMITER
@@ -3195,6 +3193,10 @@ continue
                 CFL_reduction_for_NaN_restart     , 2.0_wp                  ) 
       call set('Restart_Output_Uses_Host_Roots   ',                         &
                 restart_output_uses_host_roots    , true                    ) 
+      call set('Solution_File                    ',                       &
+                solution_file                     , ''                    )
+      call set('Solution_Format                  ',                       &
+                solution_format                   , Unknown_Format        )
       ! Numerics
       call set('Flux_Divergence                  ',                         &
                 flux_divergence                   , LagrangePolynomial      )
