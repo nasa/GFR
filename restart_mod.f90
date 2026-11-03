@@ -26,6 +26,7 @@ module restart_mod
   !###########################
   !
   public :: read_restart_file
+  public :: read_restart_header
   public :: write_restart_file
   public :: check_restart_inputs
   public :: create_restart_fname_formats
@@ -2259,6 +2260,185 @@ continue
   10 format ("sem_box(",i0,")%eddy")
   !
 end subroutine read_sem_restart_serial
+!
+!###############################################################################
+!
+subroutine read_restart_header(rstfile,int_header,real_header,rst_error)
+  !
+  !.. Formal Arguments ..
+  character(len=*),       intent(in) :: rstfile
+  integer,  allocatable, intent(out) :: int_header(:)
+  real(wp), allocatable, intent(out) :: real_header(:)
+  integer,               intent(out) :: rst_error
+  !
+  !.. Local Scalars ..
+  integer :: n_int,n_real
+  !
+  !.. Local Allocatable Arrays ..
+  integer :: int_data(1:3)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_restart_header"
+  !
+continue
+  !
+  if (mypnum == glb_root) then
+    call read_restart_header_serial(rstfile,int_header,real_header,rst_error)
+    int_data(1) = size(int_header)
+    int_data(2) = size(real_header)
+    int_data(3) = rst_error
+  end if
+  !
+  if (ncpu > 1) then
+    !
+    call mpi_bcast(int_data,size(int_data,kind=int_mpi),mpi_inttyp, &
+                   glb_root,MPI_COMM_WORLD,mpierr)
+    !
+    n_int = int_data(1)
+    n_real = int_data(2)
+    rst_error = int_data(3)
+    !
+    if (mypnum /= glb_root) then
+      int_header  = init_array(n_int,0)     ! F2003 AUTO-REALLOC
+      real_header = init_array(n_real,zero) ! F2003 AUTO-REALLOC
+    end if
+    !
+    call mpi_bcast( int_header,n_int ,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
+    call mpi_bcast(real_header,n_real,mpi_flttyp,glb_root,MPI_COMM_WORLD,mpierr)
+    !
+  end if
+  !
+end subroutine read_restart_header
+!
+!###############################################################################
+!
+subroutine read_restart_header_serial(rstfile,int_header,real_header,rst_error)
+  !
+  !.. Formal Arguments ..
+  character(len=*),       intent(in) :: rstfile
+  integer,  allocatable, intent(out) :: int_header(:)
+  real(wp), allocatable, intent(out) :: real_header(:)
+  integer,               intent(out) :: rst_error
+  !
+  !.. Local Scalars ..
+  integer :: n,io,ierr,one_pass
+  integer :: rst_ip,n_int
+  integer :: rst_rp,n_real
+  !
+  logical(lk) :: file_is_open
+  logical(lk) :: int_success
+  logical(lk) :: real_success
+  !
+  !.. Local Allocatable Arrays ..
+  integer(int8 ), allocatable :: i1_data(:)
+  integer(int16), allocatable :: i2_data(:)
+  integer(int32), allocatable :: i4_data(:)
+  integer(int64), allocatable :: i8_data(:)
+  !
+  real(real32 ), allocatable :: r4_data(:)
+  real(real64 ), allocatable :: r8_data(:)
+  real(real128), allocatable :: r16_data(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_restart_header_serial"
+  !
+continue
+  !
+  int_success = fals
+  real_success = fals
+  file_is_open = fals
+  rst_error = 1
+  !
+  one_pass_loop: &
+  do one_pass = 1,1
+    open (newunit=io,file=rstfile,status="old",action="read", &
+                     form="unformatted",access="stream",position="rewind", &
+                     iostat=ierr,iomsg=error_message)
+    if (ierr /= 0) exit one_pass_loop
+    !
+    file_is_open = true
+    !
+    ! Read integer type for the integer part of the header
+    read (io,iostat=ierr,end=999,err=999) rst_ip
+    ! Read the number of integer header items
+    read (io,iostat=ierr,end=999,err=999) n_int
+    ! Read the integer header
+    select case (rst_ip)
+      case (int8)
+        i1_data = init_array(n_int,0_int8) ! F2003 AUTO-REALLOC
+        read (io,iostat=ierr,end=999,err=999) (i1_data(n), n=1,n_int)
+        int_header = int(i1_data,kind=kind(int_header)) ! F2003 AUTO-REALLOC
+        deallocate ( i1_data , stat=ierr )
+      case (int16)
+        i2_data = init_array(n_int,0_int16) ! F2003 AUTO-REALLOC
+        read (io,iostat=ierr,end=999,err=999) (i2_data(n), n=1,n_int)
+        int_header = int(i2_data,kind=kind(int_header)) ! F2003 AUTO-REALLOC
+        deallocate ( i2_data , stat=ierr )
+      case (int32)
+        i4_data = init_array(n_int,0_int32) ! F2003 AUTO-REALLOC
+        read (io,iostat=ierr,end=999,err=999) (i4_data(n), n=1,n_int)
+        int_header = int(i4_data,kind=kind(int_header)) ! F2003 AUTO-REALLOC
+        deallocate ( i4_data , stat=ierr )
+      case (int64)
+        i8_data = init_array(n_int,0_int64) ! F2003 AUTO-REALLOC
+        read (io,iostat=ierr,end=999,err=999) (i8_data(n), n=1,n_int)
+        int_header = int(i8_data,kind=kind(int_header)) ! F2003 AUTO-REALLOC
+        deallocate ( i8_data , stat=ierr )
+    end select
+    !
+    int_success = true
+    !
+    ! Read real type for the real part of the header
+    read (io,iostat=ierr,end=999,err=999) rst_rp
+    ! Read the number of integer header items
+    read (io,iostat=ierr,end=999,err=999) n_real
+    ! Read the integer header
+    select case (rst_rp)
+      case (real32)
+        r4_data = init_array(n_real,0.0_real32) ! F2003 AUTO-REALLOC
+        read (io,iostat=ierr,end=999,err=999) (r4_data(n), n=1,n_real)
+        real_header = real(r4_data,kind=kind(real_header)) ! F2003 AUTO-REALLOC
+        deallocate ( r4_data , stat=ierr )
+      case (real64)
+        r8_data = init_array(n_real,0.0_real64) ! F2003 AUTO-REALLOC
+        read (io,iostat=ierr,end=999,err=999) (r8_data(n), n=1,n_real)
+        real_header = real(r8_data,kind=kind(real_header)) ! F2003 AUTO-REALLOC
+        deallocate ( r8_data , stat=ierr )
+      case (real128)
+        ! F2003 AUTO-REALLOC
+        r16_data = reshape([0.0_real128], shape=[n_real], pad=[0.0_real128])
+        read (io,iostat=ierr,end=999,err=999) (r16_data(n), n=1,n_real)
+        real_header = real(r16_data,kind=kind(real_header)) ! F2003 AUTO-REALLOC
+        deallocate ( r16_data , stat=ierr )
+    end select
+    !
+    real_success = true
+    rst_error = 0
+    !
+  end do one_pass_loop
+  !
+  999 continue ! jump to here with read error
+  !
+  if (file_is_open) then
+    close (io,iostat=ierr,iomsg=error_message)
+    call io_error(pname,rstfile,2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! If reading the header information was unsuccessful, deallocate the
+  ! two header arrays, then reallocate them to their typical sizes 
+  ! with all array elements set to zero.
+  !
+  if (.not. int_success) then
+    if (allocated(int_header )) deallocate ( int_header  , stat=ierr )
+    int_header  = init_array(5,0) ! F2003 AUTO-REALLOC
+  end if
+  !
+  if (.not. real_success) then
+    if (allocated(real_header)) deallocate ( real_header , stat=ierr )
+    real_header = init_array(3,zero) ! F2003 AUTO-REALLOC
+  end if
+  !
+end subroutine read_restart_header_serial
 !
 !###############################################################################
 !
