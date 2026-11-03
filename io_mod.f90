@@ -590,12 +590,27 @@ continue
   ! Post-input checks
   ! -----------------
   !
+  ! Before doing anything else, check all of the input variables that specify an
+  ! input file of some kind to make sure each file exists and any related inputs
+  ! are compatible and make sense.
+  !
+  call check_input_data_filenames
+  !
   ! For interpolation pass, shuffle some variables around to trick
   ! the lower level readers to read interpto_gridfile which will be
   ! interpolated onto.  If no name provided for interpto_gridfile
   ! then skip interpolation and treat as normal solver read.
   !
   if (input_mode == 1 .and. len_trim(adjustl(interpto_gridfile)) > 0) then
+    !
+    ! Move all the interpto_* variables into their regular equivalent variables.
+    ! We will continue on and run the preprocessor to create all the arrays and
+    ! data necessary for the grid being interpolated onto. Afterwards, the
+    ! results from the preprocessor will be saved into the equivalent g2_*
+    ! storage arrays, and then the namelist reader and preprocessor will be run
+    ! a second time to create all the arrays and data for the interpolation
+    ! source.
+    !
    !if (ncpu > 1) then
    !  write (error_message,107)
    !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
@@ -649,33 +664,6 @@ continue
   call check_for_bad_number(__LINE__,__FILE__)
   !
   call debug_timer(start_timer,"check_nml_input_data pre read_grid_file")
-  !
-  ! Adjust the name of the grid and solution files
-  !
-  gridfile = trim(adjustl(gridfile))
-  solution_file = trim(adjustl(solution_file))
-  !
-  ! Additional checks on solution file.
-  !
-  if (len_trim(adjustl(solution_file)) > 0) then
-    !
-    ! Make sure we have a reader for that solution format.
-    !
-    if (.not. any(solution_format == [Plot3D_Format,Restart_Format])) then
-      write (error_message,108)
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-    end if
-    !
-    ! Make sure the grid and solution file formats are compatible.
-    !
-    if ((solution_format == Plot3D_Format .and. &
-             grid_format /= Plot3D_Format) .or. &
-        (solution_format == CGNS_Format .and. &
-             grid_format /= CGNS_Format)) then
-      write (error_message,109)
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-    end if
-  end if
   !
   ! Make sure both profile_io_restart and profile_io_cgns
   ! are true if profile_io_all is true
@@ -1439,15 +1427,6 @@ continue
   106 format ("Lobatto solutions points are not yet compatible with the ", &
               "option to correct the output solution so that it is continuous!")
   107 format ("Interpolation cannot be done in parallel.")
-  108 format (/, &
-     "***************************** ERROR **********************",/, &
-     "   NO READER AVAILABLE FOR SPECIFIED SOLUTION FORMAT.",/, &
-     "***************************** ERROR **********************",/)
-  109 format (/, &
-     "***************************** ERROR **********************",/, &
-     "   THE SPECIFIED GRID AND SOLUTION FILE FORMATS ARE NOT",/, &
-     "   COMPATIBLE.",/, &
-     "***************************** ERROR **********************",/)
   110 format (/, &
       " ************************** WARNING!!!! **************************",//, &
       "  AN INVALID INVISCID FLUX SCHEME FOR A MOVING REFERENCE FRAME",/, &
@@ -1477,6 +1456,707 @@ continue
   71 format('ERROR: ',a,' is incompatible with ',a)
   !
 end subroutine check_nml_input_data
+!
+!###############################################################################
+!
+subroutine check_input_data_filenames()
+  !
+  ! Subroutine to check all the input variables that specify an input file
+  ! of some kind to make sure each file exists and any related inputs are
+  ! compatible and make sense.
+  !
+  use ovar, only : bc_input
+  use ovar, only : gridfile
+  use ovar, only : grid_format
+  use ovar, only : plot3d_cutfile
+  use ovar, only : plot3d_bcsfile
+  use ovar, only : restart_file
+  use ovar, only : time_ave_file
+  use ovar, only : solution_file
+  use ovar, only : solution_format
+  use ovar, only : interpto_gridfile
+  use ovar, only : interpto_grid_format
+  use ovar, only : interpto_plot3d_cutfile
+  use ovar, only : interpto_plot3d_bcsfile
+  use ovar, only : if_interpto_newgrid
+  !
+  !.. Local Scalars ..
+  integer :: n,ierr,file_status
+  integer :: fatal_errors_found
+  integer :: warnings_found
+  !
+  logical(ldk) :: file_exists
+  !
+  logical(lk) :: valid_solfile
+  logical(lk) :: valid_rstfile
+  logical(lk) :: valid_tavfile
+  !
+  !.. Local Arrays ..
+  integer :: file_errors(1:2)
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: fname
+  character(len=:), allocatable :: gprefix
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_input_data_filenames"
+  !
+continue
+  !
+  fatal_errors_found = 0
+  warnings_found = 0
+  !
+  valid_solfile = fals
+  valid_rstfile = fals
+  valid_tavfile = fals
+  !
+  gprefix = "" ! F2003 AUTO-REALLOC
+  call check_gridfile_inputs(gridfile,grid_format,plot3d_cutfile,plot3d_bcsfile)
+  !
+  ! Only check the interpto_* inputs if the if_interpto_newgrid function
+  ! indicates we are running the interpolation utility.
+  !
+  if ( if_interpto_newgrid() ) then
+    gprefix = "Interpto_" ! F2003 AUTO-REALLOC
+    call check_gridfile_inputs(interpto_gridfile,interpto_grid_format, &
+                               interpto_plot3d_cutfile,interpto_plot3d_bcsfile)
+  end if
+  !
+  ! Check the restart file inputs
+  !
+  call check_restartfile_inputs(valid_rstfile)
+  !
+  ! Check to see if solution_file exists if solution_format and grid_format
+  ! are both Plot3d_format.
+  !
+  if (len_trim(adjustl(solution_file)) > 0) then
+    if (all([solution_format,grid_format] == Plot3d_Format)) then
+      call check_if_file_exists(solution_file,file_status)
+      if (file_status == -1) then
+        write (error_message,11) solution_file
+        call write_error_or_warning(error_message,error=true)
+      else
+        valid_solfile = true
+      end if
+    else
+      write (error_message,12)
+      call write_error_or_warning(error_message)
+    end if
+  end if
+  !
+  if (valid_solfile .and. valid_rstfile) then
+    write (error_message,21) gridfile, grid_format, &
+                             solution_file, solution_format, &
+                             restart_file
+    call write_error_or_warning(error_message)
+    solution_format = Unknown_Format
+  end if
+  !
+  ! Check to make sure all of the profile files exist for any SEM BCs
+  !
+  do n = 1,size(bc_input)
+    if (bc_input(n)%set_bc_value == bc_sem) then
+      fname = trim(adjustl(bc_input(n)%sem%profile_file)) ! F03 AUTO-REALLOC
+      call check_if_file_exists(fname,file_status)
+      if (file_status == 0) then ! profile_file = ''
+        write (error_message,31) n
+        call write_error_or_warning(error_message,error=true)
+      else if (file_status == -1) then ! profile_file not found
+        write (error_message,32) n,n,fname
+        call write_error_or_warning(error_message,error=true)
+      end if
+    end if
+  end do
+  !
+  ! Print a warning banner if any warnings were found.
+  !
+  if (warnings_found > 0) then
+    if (mypnum == glb_root) then
+      write (error_message,998) warnings_found,"WARNING","WARNING"
+      write (iout,999) format_message(error_message)
+      flush (iout)
+    end if
+  end if
+  !
+  ! Stop execution if a fatal error was found.
+  !
+  if (fatal_errors_found > 0) then
+    write (error_message,998) fatal_errors_found,"ERROR","ERROR"
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Format Statements
+  !
+  11  format ("THE SPECIFIED PLOT3D SOLUTION FILE DOES NOT EXIST!$", &
+              6x,"Solution_File = '",a,"'")
+  12  format ("The Solution_File input is only valid for initializing the ", &
+              "solution for a Plot3d grid. This is being ignored because ", &
+              "one or both of the inputs Grid_Format and Solution_Format ", &
+              "are not set to Plot3d format.$$If using this to reset the ", &
+              "simulation time and iteration counter, load Solution_File ", &
+              "as a regular restart file and set the new input ", &
+              "Reset_Time_And_Iter=T.")
+  21  format ( 4x,"The inputs for loading a restart file and loading a ", &
+                  "solution file to$    initialize the solution are both ", &
+                  "valid. Loading the restart file takes$    precedence, so ", &
+                  "the input Solution_Format is being reset to its ", &
+                  "default$    value of -99 to prevent the solution file ", &
+                  "from being loaded.$$    If you are trying to use ", &
+                  "Solution_File to reset the simulation time$    and ", &
+                  "iteration counter, load Solution_File as a regular ", &
+                  "restart file$    and set the new input ", &
+                  "Reset_Time_And_Iter=T.$", &
+              14x,"Grid_File = '",a,"'$", &
+              12x,"Grid_Format = ",i0,"$", &
+              10x,"Solution_File = '",a,"'$", &
+               8x,"Solution_Format = ",i0,"$", &
+              10x,"Restart_File = '",a,"'")
+  !
+  31  format ("No SEM profile file was specified for BC_INPUT(",i0, &
+              ")%SEM%Profile_File")
+  32  format ("The SEM profile file for BC_INPUT(",i0,") could not be found.$",&
+              "BC_INPUT(",i0,")%SEM%Profile_File = '",a,"'")
+  !
+  998 format (i0," ",a,"S WERE DETECTED WITH INPUT VARIABLES ", &
+              "THAT PROVIDE PATHS TO AN INPUT FILE! SEE ",a," ", &
+              "MESSAGES ABOVE FOR MORE DETAILS!")
+  999 format (/,34("#"),"  WARNING!  ",34("#"),/, &
+                a,/, &
+                34("#"),"  WARNING!  ",34("#"),/)
+  !
+contains
+!===============================================================================
+subroutine check_gridfile_inputs(gfile,gformat,p3d_cutfile,p3d_bcsfile)
+  !
+  !.. Formal Arguments ..
+  character(len=:), allocatable, intent(inout) :: gfile
+  integer,                       intent(inout) :: gformat
+  character(len=:), allocatable, intent(inout) :: p3d_cutfile
+  character(len=:), allocatable, intent(inout) :: p3d_bcsfile
+  !
+  !.. Local Scalars ..
+  integer :: i,n1,n2,file_status
+  !
+  logical(ldk) :: file_exists
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: inp_gfile
+  character(len=:), allocatable :: inp_gfrmt
+  character(len=:), allocatable :: inp_p3cut
+  character(len=:), allocatable :: inp_p3bcs
+  character(len=:), allocatable :: file_extension
+  !
+  !.. Local Arrays ..
+  integer :: p3d_file_found(1:2)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_gridfile_inputs"
+  !
+continue
+  !
+  gfile       = trim(adjustl(gfile      )) ! F2003 AUTO-REALLOC
+  p3d_cutfile = trim(adjustl(p3d_cutfile)) ! F2003 AUTO-REALLOC
+  p3d_bcsfile = trim(adjustl(p3d_bcsfile)) ! F2003 AUTO-REALLOC
+  !
+  inp_gfile = gprefix // "Grid_File"       ! F2003 AUTO-REALLOC
+  inp_gfrmt = gprefix // "Grid_Format"     ! F2003 AUTO-REALLOC
+  inp_p3cut = gprefix // "Plot3D_CutFile"  ! F2003 AUTO-REALLOC
+  inp_p3bcs = gprefix // "Plot3D_BCSFile"  ! F2003 AUTO-REALLOC
+  !
+  n2 = len_trim(gfile)
+  !
+  ! If the grid file is an empty string, and the grid format is either
+  ! unknown or internally-generated-grid, explicitly set the grid format
+  ! to internally-generated-grid and return without doing anything else.
+  ! NOTE: The first conditional should never be true for interpto_gridfile
+  !       because this subroutine is only called for the interpto_*
+  !       variables if len_trim(interpto_gridfile) > 0.
+  !
+  if (n2 == 0) then
+    if (any(gformat == [Unknown_Format,Internally_Generated_Grid])) then
+      gformat = Internally_Generated_Grid
+      return
+    else
+      write (error_message,1) inp_gfile,gfile,inp_gfrmt,gformat
+      call write_error_or_warning(error_message,error=true)
+    end if
+  end if
+  !
+  ! Find the start of the actual filename for the grid file input variable
+  ! with all leading directories removed from the path.
+  !
+  n1 = scan(gfile,"/",back=.true.) + 1
+  !
+  ! Extract the actual filename for the grid file
+  !
+  fname = gfile(n1:n2) ! F2003 AUTO-REALLOC
+  !
+  ! If the grid format is unknown, try to detect the format
+  ! from the file extension of the grid filename
+  !
+  if (gformat == Unknown_Format) then
+    !
+    n2 = len_trim(fname)
+    n1 = scan(fname,".",back=.true.) + 1
+    !
+    file_extension = uppercase( fname(n1:n2) ) ! F2003 AUTO-REALLOC
+    !
+    select case ( file_extension )
+      case ("CGNS")
+        gformat = CGNS_Format
+      case ("P3D","XYZ","X")
+        gformat = Plot3D_Format
+      case ("MSH")
+        gformat = Gmsh_Format
+      case ("NEU")
+        gformat = Gambit_Neutral
+      case ("UGRID")
+        write (error_message,10) inp_gfile,gfile
+        call write_error_or_warning(error_message,error=true)
+      case default
+        write (error_message,2) inp_gfile,gfile
+        call write_error_or_warning(error_message,error=true)
+    end select
+    !
+  end if
+  !
+  ! If not using an internally generated grid,
+  ! check to make sure the grid file exists.
+  ! NOTE: We dont need to worry about it being a zero-length string since that
+  !       would have been caught by the first if-statement on (n2==0).
+  !
+  if (gformat /= Internally_Generated_Grid) then
+    call check_if_file_exists(gfile,file_status)
+    if (file_status == -1) then
+      write (error_message,3) inp_gfile,gfile,inp_gfrmt,gformat
+      call write_error_or_warning(error_message,error=true)
+    end if
+  end if
+  !
+  ! If the grid format is Plot3D, check if the cut or bcs files exist.
+  ! NOTE: Only warn if the cut file is a zero-length string since it is not
+  !       needed for a single block grid. The bcs file always needs to exist
+  !       to set the boundary conditions, so this requires and error if
+  !       it is a zero-length string. Assume a file was meant to exist if a
+  !       non-zero-length string was given and report an error if that file
+  !       doesnt exist.
+  !
+  if (gformat == Plot3D_Format) then
+    !
+    ! Check the status of the Plot3D cut file
+    !
+    call check_if_file_exists(p3d_cutfile,file_status)
+    if (file_status == 0) then
+      write (error_message,20) inp_p3cut,p3d_cutfile
+      call write_error_or_warning(error_message)
+    else if (file_status == -1) then
+      write (error_message,21) inp_p3cut,p3d_cutfile
+      call write_error_or_warning(error_message,error=true)
+    end if
+    !
+    ! Check the status of the Plot3D BCS file
+    !
+    call check_if_file_exists(p3d_bcsfile,file_status)
+    if (file_status == 0) then
+      write (error_message,22) inp_p3bcs,p3d_bcsfile
+      call write_error_or_warning(error_message,error=true)
+    else if (file_status == -1) then
+      write (error_message,23) inp_p3bcs,p3d_bcsfile
+      call write_error_or_warning(error_message,error=true)
+    end if
+    !
+  end if
+  !
+  ! Format Statements
+  ! NOTE: These will be written into error_message, which will eventually be
+  !       sent into the function format_message, where the character '$' will
+  !       be replaced with the newline character for output.
+  !
+  1  format ("Empty Grid_File with specified Grid_Format$", &
+             6x,a," = '",a,"'$", &
+             6x,a," = ",i0)
+  2  format ("Unable to determine Grid_Format from file extension$", &
+             6x,a," = '",a,"'")
+  3  format ("Grid_File could not be found with specified Grid_Format$", &
+             6x,a," = '",a,"'$", &
+             6x,a," = ",i0)
+  10 format ("Ugrid format detected from file extension$", &
+             6x,a," = '",a,"'")
+  20 format ("Plot3d grid format specified, but Cut file empty$", &
+             6x,a," = '",a,"'")
+  21 format ("Plot3d grid format specified, but Cut file not found$", &
+             6x,a," = '",a,"'")
+  22 format ("Plot3d grid format specified, but BCS file empty$", &
+             6x,a," = '",a,"'")
+  23 format ("Plot3d grid format specified, but BCS file not found$", &
+             6x,a," = '",a,"'")
+  !
+end subroutine check_gridfile_inputs
+!===============================================================================
+subroutine check_restartfile_inputs(valid_rstfile)
+  !
+  !.. Use Statements ..
+  use ovar, only : load_restart_file
+  use ovar, only : Restart_File
+  use ovar, only : Time_Ave_File
+  use ovar, only : output_time_averaging
+  use ovar, only : start_averaging_tstar
+  use ovar, only : start_averaging_timestep
+  use ovar, only : time_scaling_factor
+  use ovar, only : reset_time_and_iter
+  !
+  use restart_mod, only : read_restart_header
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(inout) :: valid_rstfile
+  !
+  !.. Local Scalars ..
+  integer  :: io,file_status
+  integer  :: rst_cells,rst_iter
+  integer  :: tav_cells,tav_iter
+  real(wp) :: rst_time,rst_tstar
+  real(wp) :: tav_time,ref_time
+  !
+  logical(lk) :: new_simulation
+  logical(lk) :: new_time_average
+  logical(lk) :: restart_is_good
+  logical(lk) :: timeave_is_good
+  logical(lk) :: time_ave_is_active
+  !
+  logical(ldk) :: file_exists
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: rst_iheader(:)
+  integer,  allocatable :: tav_iheader(:)
+  real(wp), allocatable :: rst_rheader(:)
+  real(wp), allocatable :: tav_rheader(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_restartfile_inputs"
+  !
+continue
+  !
+  new_simulation   = fals
+  new_time_average = fals
+  restart_is_good  = fals
+  timeave_is_good  = fals
+  time_ave_is_active = fals
+  !
+  rst_cells = 0
+  rst_iter = 0
+  rst_time = zero
+  rst_tstar = zero
+  !
+  tav_cells = -1
+  tav_iter = -1
+  tav_time = -one
+  !
+  ref_time = compute_approx_time_ref()
+  !
+  ! Determine if a restart file is being used
+  !
+  call check_if_file_exists(Restart_File,file_status)
+  if (load_restart_file) then
+    if (file_status == 0) then ! empty restart_file
+      write (error_message,11)
+      call write_error_or_warning(error_message,error=true)
+    else if (file_status == -1) then ! restart_file wasnt found
+      write (error_message,12) Restart_File
+      call write_error_or_warning(error_message,error=true)
+    else
+      call read_restart_header(Restart_File,rst_iheader,rst_rheader,ierr)
+      if (ierr == 0) then ! success reading restart header information
+        restart_is_good = true
+        valid_rstfile = true
+        if (.not. Reset_Time_And_Iter) then ! use the time in restart file
+          rst_cells = rst_iheader(2)
+          rst_iter = rst_iheader(4)
+          rst_time = rst_rheader(1)
+          rst_tstar = rst_time*time_scaling_factor*ref_time
+        end if
+      else ! error reading the restart file header
+        write (error_message,13) Restart_File
+        call write_error_or_warning(error_message,error=true)
+      end if
+    end if
+  else ! load_restart_file = F
+    new_simulation = true
+    if (file_status == 1) then ! restart_file exists, load_restart_file=F
+      write (error_message,21) Restart_File
+      call write_error_or_warning(error_message)
+    else ! restart_file not default but doesnt exist
+      write (error_message,22) Restart_File
+      call write_error_or_warning(error_message)
+    end if
+  end if
+  !
+  ! Determine if time averaging is active for this simulation
+  !
+  time_ave_is_active = output_time_averaging
+  if (start_averaging_tstar > zero) then
+    if (rst_tstar >= start_averaging_tstar) time_ave_is_active = true
+  end if
+  if (start_averaging_timestep > 0) then
+    if (rst_iter >= start_averaging_timestep) time_ave_is_active = true
+  end if
+  !
+  ! Check the status of the time-average restart file, and check for input
+  ! errors/warnings depending on the files status and whether or not time
+  ! averaging is active.
+  !
+  call check_if_file_exists(time_ave_file,file_status)
+  if (time_ave_is_active) then
+    if (file_status == 0) then ! empty time_ave_file
+      new_time_average = true
+      write (error_message,31)
+      call write_error_or_warning(error_message)
+    else if (file_status == -1) then ! time_ave_file wasnt found
+      new_time_average = true
+      write (error_message,32) Time_Ave_File
+      call write_error_or_warning(error_message)
+    else
+      call read_restart_header(time_ave_file,tav_iheader,tav_rheader,ierr)
+      if (ierr == 0) then ! success reading t-a restart header information
+        timeave_is_good = true
+        if (.not. Reset_Time_And_Iter) then
+          tav_cells = tav_iheader(2)
+          tav_iter = tav_iheader(4)
+          tav_time = tav_rheader(1)
+          ! Dont need tav_tstar value
+        end if
+      else ! error reading the t-a restart file header
+        write (error_message,33) Time_Ave_File
+        call write_error_or_warning(error_message,error=true)
+      end if
+    end if
+  else ! time averaging is not active
+    if (file_status == 0) then ! time_ave_file is default, no time averaging
+      ! do nothing
+    else if (file_status == 1) then ! time_ave_file exists, no time-averaging
+      write (error_message,41) Time_Ave_File
+      call write_error_or_warning(error_message)
+    else if (file_status == -1) then ! time_ave_file not found, not time-ave
+      write (error_message,42) Time_Ave_File
+      call write_error_or_warning(error_message)
+    end if
+  end if
+  !
+  ! Check for warning if time averaging a new simulation
+  !
+  if (time_ave_is_active .and. new_simulation) then
+    write (error_message,51)
+    call write_error_or_warning(error_message)
+  end if
+  !
+  ! Check to make sure the restart file and time average file are compatible
+  !
+  if (timeave_is_good) then ! loading time_ave_file
+    if (restart_is_good) then ! loading restart_file
+      if (Reset_Time_And_Iter) then ! resetting time and iter
+        timeave_is_good = fals
+        write (error_message,61)
+        call write_error_or_warning(error_message,error=true)
+      end if
+      if (rst_cells /= tav_cells) then
+        ! # of cells in t-a restart file and restart file do not match
+        timeave_is_good = fals
+        write (error_message,62) Restart_File, rst_cells, &
+                                Time_Ave_File, tav_cells
+        call write_error_or_warning(error_message,error=true)
+      end if
+      if (abs(rst_time - tav_time) > eps9 .or. rst_iter /= tav_iter) then
+        ! time/iter do not match between t-a restart file and restart file
+        timeave_is_good = fals
+        write (error_message,63) Restart_File, rst_iter, rst_time, &
+                                Time_Ave_File, tav_iter, tav_time
+        call write_error_or_warning(error_message,error=true)
+      end if
+    else ! not loading restart file
+      timeave_is_good = fals
+      write (error_message,64) Restart_File, Time_Ave_File
+      call write_error_or_warning(error_message,error=true)
+    end if
+  end if
+  !
+  ! Automatically set output_time_averaging to true if the time_ave_file
+  ! and restart_file are both good and any of the conditions to start
+  ! time-averaging have been tripped by the time-averaging inputs.
+  !
+  if (time_ave_is_active .and. timeave_is_good) then
+    if (.not. output_time_averaging) then
+      write (error_message,71) Restart_File, Time_Ave_File, &
+                               start_averaging_timestep, rst_iter, &
+                               start_averaging_tstar, rst_tstar
+      call write_error_or_warning(error_message)
+    end if
+    output_time_averaging = true
+  end if
+  !
+  ! Format Statements
+  !
+  11  format ("Load_Restart_File=T, but Restart_File is empty.")
+  12  format ("Load_Restart_File=T, but Restart_File does not exist$", &
+              "Restart_File = '",a,"'")
+  13  format ("Error reading header information from Restart_File$", &
+              "Restart_File = '",a,"'")
+  !
+  21  format ("Load_Restart_File=F, but Restart_file exists$", &
+              "Restart_File = '",a,"'$", &
+              "A warning is being issued in case Restart_File was meant$", &
+              "to be loaded, but a new simulation will be started assuming$", &
+              "these are the intended inputs.")
+  22  format ("Restart_File is not default value but does not exist.$", &
+              "Restart_File = '",a,"'$", &
+              "Ignoring this input since Load_Restart_File=F, but reporting$", &
+              "a small warning since it is not the default value.")
+  !
+  31  format ("Starting a new time average since time-averaging is active ", &
+              "and the input Time_Ave_File is still the default value of ", &
+              "an empty string.")
+  32  format ("Starting a new time average since time-averaging is active$", &
+              "and the time-average restart file specified by the input$", &
+              "Time_Ave_File = '",a,"'$", &
+              "could not be found. A warning is being issued in case an$", &
+              "error/typo was made in the input file.")
+  33  format ("Error reading header information from Time_Ave_File$", &
+              "Time_Ave_File = '",a,"'")
+  !
+  41  format ("Time-averaging is not enabled, but Time_Ave_file exists$", &
+              "Time_Ave_File = '",a,"'$", &
+              "A warning is being issued in case Time_Ave_File was meant$", &
+              "to be loaded with time-averaging enabled.")
+  42  format ("Time_Ave_File is not default value but does not exist.$", &
+              "Time_Ave_File = '",a,"'$", &
+              "Ignoring this input since time-averaging is not enabled, but$", &
+              "reporting a small warning since it is not the default value.")
+  !
+  51  format ("Time-averaging is active for a new simulation. This is not ", &
+              "recommended because transients from the initial conditions ", &
+              "will generally dominate the time-averaged flow field.")
+  !
+  61  format ("The simulation time and iteration counter cannot be reset ", &
+              "when loading a time-average restart file, because the time-", &
+              "average is dependent on the solution time.")
+  62  format ("The instantaneous restart file and the time-average restart$", &
+              "file are not compatitble because the number of grid cells$", &
+              "does not match between the two restart files.$", &
+              " Restart_File = '",a,"'$", &
+              "        cells = ",i0,"$", &
+              "Time_Ave_File = '",a,"'$", &
+              "        cells = ",i0)
+  63  format ("The instantaneous restart file and the time-average restart$", &
+              "file are not compatitble because the solution time and/or$", &
+              "iteration number does not match between the two restart ", &
+              "files.$", &
+              " Restart_File = '",a,"'$", &
+              "    iteration = ",i0,"$", &
+              "         time = ",es23.15,"$", &
+              "Time_Ave_File = '",a,"'$", &
+              "    iteration = ",i0,"$", &
+              "         time = ",es23.15)
+  64  format ("The inputs indicate a time-average restart file is being$", &
+              "loaded without an instantaneous restart file.$", &
+              " Restart_File = '",a,"'$", &
+              "Time_Ave_File = '",a,"'")
+  !
+  71  format ("The input Compute_Time_Averaging is being set to TRUE because$", &
+              "the iteration number or solution time in the restart file has$", &
+              "passed either of the respective inputs that trigger the start$", &
+              "of time-averaging and the time-average restart file specified$", &
+              "by Time_Ave_File is compatible with the instantaneous$", &
+              "Restart_File.$", &
+              "  Restart_File = '",a,"'$", &
+              " Time_Ave_File = '",a,"'$", &
+              "     Start_Averaging_Timestep = ",i0,"$", &
+              "          Restart iteration # = ",i0,"$", &
+              "        Start_Averaging_Tstar = ",es23.15,"$", &
+              "                Restart Tstar = ",es23.15,"$", &
+              "If a new time average is desired, remove the input$", &
+              "Time_Ave_File or set it to an empty string.")
+  !
+end subroutine check_restartfile_inputs
+!===============================================================================
+pure &
+function compute_approx_time_ref() result(return_value)
+  !.. Use Statements ..
+  use ovar,       only : rgasref,gam,rhoref,pref,tref,machref
+  use ovar,       only : itestcase
+  use thermo_mod, only : rgas_cpg
+  !.. Function Result ..
+  real(wp) :: return_value
+  !.. Local Scalars ..
+  real(wp) :: rgas,gamma,aspd
+continue
+  if (any(itestcase == [Taylor_Problems,Infinite_Cylinder])) then
+    return_value = machref
+  else
+    gamma = merge(1.4_wp,gam,gam<=zero)
+    rgas = merge(rgas_cpg,rgasref,rgasref<=zero)
+    if (tref > zero) then
+      aspd = sqrt( max( gamma*rgas*tref , rndoff ) )
+    else
+      aspd = sqrt( max( gamma*pref/rhoref , rndoff ) )
+    end if
+    return_value = one / aspd
+  end if
+end function compute_approx_time_ref
+!===============================================================================
+subroutine check_if_file_exists(filename,file_status)
+  !
+  ! This will return the following values for file_status:
+  !    -1 : filename does not exist
+  !     0 : filename is a zero-length string
+  !     1 : filename exists
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: filename
+  integer,         intent(out) :: file_status
+  !.. Local Scalars ..
+  logical(ldk) :: file_exists
+continue
+  if (len_trim(adjustl(filename)) == 0) then
+    file_status = 0
+  else
+    if (mypnum == glb_root) then
+      inquire (file=filename,exist=file_exists)
+      file_status = merge(1,-1,file_exists)
+    end if
+    if (ncpu > 1) then
+      call mpi_bcast(file_status,1_int_mpi,mpi_inttyp, &
+                     glb_root,MPI_COMM_WORLD,mpierr)
+    end if
+  end if
+end subroutine check_if_file_exists
+!===============================================================================
+subroutine write_error_or_warning(message,error)
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: message
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: error
+  !.. Local Scalars ..
+  character(len=7) :: header
+continue
+  header = "WARNING"
+  if (present(error)) then
+    if (error) then
+      header = " ERROR!"
+    end if
+  end if
+  if (header == " ERROR!") then
+    fatal_errors_found = fatal_errors_found + 1
+  else
+    warnings_found = warnings_found + 1
+  end if
+  if (mypnum == glb_root) then
+    write (iout,1) header, format_message(message), header
+    flush (iout)
+  end if
+  1 format (/,34("#"),2x,a,"!  ",34("#"),/, &
+              a,/, &
+              34("#"),2x,a,"!  ",34("#"))
+end subroutine write_error_or_warning
+!===============================================================================
+end subroutine check_input_data_filenames
 !
 !###############################################################################
 !
