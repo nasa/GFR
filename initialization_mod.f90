@@ -37,7 +37,7 @@ subroutine initialize_flow()
   use ovar, only : init_tstar,time_ref,time_scaling_factor
   use ovar, only : dtrst,itrst,tmrst
   use ovar, only : adjust_cfl_cycles
-  use ovar, only : solution_file, solution_format
+  use ovar, only : Reset_Time_And_Iter
   use ovar, only : use_SEM_profile_for_initialization
   !
   use flowvar_mod, only : usp,uoldsp,gpsp
@@ -111,44 +111,53 @@ continue
   !
   ! Check for using a restart file to initialize the solution
   !
-  if (len_trim(adjustl(solution_file)) > 0 .and. &
-      solution_format == Restart_Format) then
-    !
-    ! Read in usp from the restart file
-    !
-    call read_restart_file(solution_file)
-   !call read_restart_file(solution_file,force_serial_read=true)
-    !
-   !if (itestcase == UIUC_Scramjet) then
-   !  if (n_global_cell == 367344) then
-   !    call fix_upstream_air_mixture
-   !  end if
-   !else if (itestcase == -Subsonic_Jet) then
-   !  if (n_global_cell == 2162160) then
-   !    if (jet_init_func == -1*(Subsonic_Jet*100+1)) then
-   !      ! jet_init_func == -1001
-   !      call modify_arn2_farfield_mach
-   !    end if
-   !  end if
-   !end if
-    !
-    ! Do not initialize the iteration counter, time step,
-    ! and elapsed time to that in the restart file.
-    ! Use the default values from above.
-    !
-  else if (load_restart_file) then
+ !if (len_trim(adjustl(solution_file)) > 0 .and. &
+ !    solution_format == Restart_Format) then
+ !  !
+ !  ! Read in usp from the restart file
+ !  !
+ !  call read_restart_file(solution_file)
+ ! !call read_restart_file(solution_file,force_serial_read=true)
+ !  !
+ ! !if (itestcase == UIUC_Scramjet) then
+ ! !  if (n_global_cell == 367344) then
+ ! !    call fix_upstream_air_mixture
+ ! !  end if
+ ! !else if (itestcase == -Subsonic_Jet) then
+ ! !  if (n_global_cell == 2162160) then
+ ! !    if (jet_init_func == -1*(Subsonic_Jet*100+1)) then
+ ! !      ! jet_init_func == -1001
+ ! !      call modify_arn2_farfield_mach
+ ! !    end if
+ ! !  end if
+ ! !end if
+  if (load_restart_file) then
     !
     ! Read in usp and the current iteration, time step,
     ! and elapsed time from the restart file
     !
     call read_restart_file
     !
-    ! Initialize the iteration counter, time step,
-    ! and elapsed time to that in the restart file.
-    !
-    d_t   = dtrst
-    itcur = itrst
-    time  = tmrst
+    if (Reset_Time_And_Iter) then
+      !
+      ! Do not initialize the iteration counter, time step,
+      ! and elapsed time to that in the restart file.
+      ! Use the default values from above.
+      !
+      d_t = constant_dt
+      itcur = 0
+      time = zero
+      !
+    else
+      !
+      ! Initialize the iteration counter, time step,
+      ! and elapsed time to that in the restart file.
+      !
+      d_t   = dtrst
+      itcur = itrst
+      time  = tmrst
+      !
+    end if
     !
     if (abs(itestcase) == CH4_3D_Diffusion_Flame .and. &
         jet_init_func == -1*(CH4_3D_Diffusion_Flame*100+1)) then
