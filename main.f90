@@ -289,6 +289,7 @@ continue
   !
   call initialize_mpi_environment
   call timed_check_for_bad_number(__LINE__)
+  call print_start_time
   !
 #ifdef DEBUG_VERBOSE_MPI_CALLS
   write (text,'(i0)') ncpu
@@ -1758,6 +1759,49 @@ continue
   211 format ("STOPPING EXECUTION SO YOU MAY EXAMINE interpsol_debug.tec")
   !
 contains
+!
+!###############################################################################
+!
+subroutine print_start_time()
+  !
+  character(len=100)            :: sdate,stime,szone
+  character(len=:), allocatable :: cdate,ctime,czone
+  !
+  integer :: i,values(8)
+  !
+  integer :: exitstat,cmndstat
+  character(len=1000) :: cmndmsg
+  character(len=:), allocatable :: command
+  !
+continue
+  !
+  sdate = ""
+  stime = ""
+  szone = ""
+  values(:) = 0
+  !
+  if (mypnum == glb_root) then
+    !
+    command = 'echo "`date`  :  GFR has started running"' ! F2003 AUTO-REALLOC
+    call execute_command(command,.true.,exitstat, &
+                         cmndstat,cmndmsg,"print_start_time")
+    !
+    call date_and_time(date=sdate,time=stime,zone=szone,values=values)
+    !
+    cdate = trim(adjustl(sdate)) ! F2003 AUTO-REALLOC
+    ctime = trim(adjustl(stime)) ! F2003 AUTO-REALLOC
+    czone = trim(adjustl(szone)) ! F2003 AUTO-REALLOC
+    !
+    write (iout,1) cdate, ctime, czone,  &
+                   (values(i),i=1,size(values))
+    write (iout,*)
+    !
+  end if
+  !
+  1 format ("  GFR started at  :  ",a," ; ",a," ; ",a,/, &
+            "                     ",100(i0,:,","))
+  !
+end subroutine print_start_time
 !
 !###############################################################################
 !
