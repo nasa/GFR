@@ -1669,6 +1669,7 @@ subroutine sem(face_cv,face_gp)
   use ovar, only : use_improved_SEM_normalization
   use ovar, only : jet_init_func
   use ovar, only : SEM_include_thermo_fluctuations
+  use ovar, only : SEM_Tent_Func_Continuity
   !
   use thermo_mod,    only : update_thermo_properties
   use transport_mod, only : update_transport_properties
@@ -1682,9 +1683,9 @@ subroutine sem(face_cv,face_gp)
   real(wp) :: ave,running_ave,time_scale,dt
   real(wp) :: c0,c1,eddy_vol,boxvol,lturb,dx,fsig,one_over_gm1
   real(wp) :: a11,a21,a22,a31,a32,a33,rho,temp,pres,ravg,tavg,q2
-  real(wp) :: x,epx,elx,eix,tfx,ufluc,ufluc2,uavg,vx
-  real(wp) :: y,epy,ely,eiy,tfy,vfluc,vfluc2,vavg,vy
-  real(wp) :: z,epz,elz,eiz,tfz,wfluc,wfluc2,wavg,vz
+  real(wp) :: x,epx,elx,eix,tfx,ufluc,ufluc2,uavg,vx,rx
+  real(wp) :: y,epy,ely,eiy,tfy,vfluc,vfluc2,vavg,vy,ry
+  real(wp) :: z,epz,elz,eiz,tfz,wfluc,wfluc2,wavg,vz,rz
   real(wp) :: cp,tfluc,rfluc
   real(wp) :: st,ct,vr,vt,aoa,boa
   real(wp) :: boxmaxx,new_x
@@ -1697,6 +1698,17 @@ subroutine sem(face_cv,face_gp)
   !
   real(wp), parameter :: sqrt32 = sqrt(three*half)
   real(wp), parameter :: time_fraction = one5*one5
+  !
+  real(wp), parameter :: c0_coeff = sqrt(real(    15,kind=wp))/real(  4,kind=wp)
+  real(wp), parameter :: c1_coeff = sqrt(real(   315,kind=wp))/real( 16,kind=wp)
+  real(wp), parameter :: c2_coeff = sqrt(real(  6006,kind=wp))/real( 64,kind=wp)
+  real(wp), parameter :: c3_coeff = sqrt(real(109395,kind=wp))/real(256,kind=wp)
+
+  integer, parameter :: classic_tent  = -1 ! classic tent   with C0 continuity
+  integer, parameter :: c0_continuity =  0 ! poly tent func with C0 continuity
+  integer, parameter :: c1_continuity =  1 ! poly tent func with C1 continuity
+  integer, parameter :: c2_continuity =  2 ! poly tent func with C2 continuity
+  integer, parameter :: c3_continuity =  3 ! poly tent func with C3 continuity
   !
 continue
   !
@@ -1860,12 +1872,34 @@ continue
         !
         eddy_vol = sem_box(sem_idx)%eddy(eddy_idx)%volume
         !
+        rx = (x-epx)*elx ! x dist from fp to eddy
+        ry = (y-epy)*ely ! y dist from fp to eddy
+        rz = (z-epz)*elz ! z dist from fp to eddy
        !tfx = sqrt32 * tentfun( abs(x-epx) , one/elx )
        !tfy = sqrt32 * tentfun( abs(y-epy) , one/ely )
        !tfz = sqrt32 * tentfun( abs(z-epz) , one/elz )
-        tfx = sqrt32 * max( one - abs(x-epx)*elx , zero )
-        tfy = sqrt32 * max( one - abs(y-epy)*ely , zero )
-        tfz = sqrt32 * max( one - abs(z-epz)*elz , zero )
+        select case (SEM_Tent_Func_Continuity)
+          case (c0_continuity)
+            tfx = c0_coeff * ( max( one - rx*rx , zero ) )
+            tfy = c0_coeff * ( max( one - ry*ry , zero ) )
+            tfz = c0_coeff * ( max( one - rz*rz , zero ) )
+          case (c1_continuity)
+            tfx = c1_coeff * ( max( one - rx*rx , zero )**2 )
+            tfy = c1_coeff * ( max( one - ry*ry , zero )**2 )
+            tfz = c1_coeff * ( max( one - rz*rz , zero )**2 )
+          case (c2_continuity)
+            tfx = c2_coeff * ( max( one - rx*rx , zero )**3 )
+            tfy = c2_coeff * ( max( one - ry*ry , zero )**3 )
+            tfz = c2_coeff * ( max( one - rz*rz , zero )**3 )
+          case (c3_continuity)
+            tfx = c3_coeff * ( max( one - rx*rx , zero )**4 )
+            tfy = c3_coeff * ( max( one - ry*ry , zero )**4 )
+            tfz = c3_coeff * ( max( one - rz*rz , zero )**4 )
+          case default ! Classic tent function with C0 continuity
+            tfx = sqrt32 * max( one - abs(rx) , zero )
+            tfy = sqrt32 * max( one - abs(ry) , zero )
+            tfz = sqrt32 * max( one - abs(rz) , zero )
+        end select
         !
         fsig = tfx*tfy*tfz
         !
