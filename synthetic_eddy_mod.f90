@@ -4955,6 +4955,7 @@ subroutine get_size_of_sem_boxes()
   !.. Use Statements ..
   use ovar, only : SEM_eddy_volume_is_spherical
   use ovar, only : SEM_box_num_eddies_multiplier
+  use ovar, only : use_improved_SEM_normalization
   !
   !.. Local Scalars ..
   integer  :: ierr,n,num_eddies,sem_idx
@@ -5210,7 +5211,10 @@ continue
       !
       rnum_eddies = SEM_box_num_eddies_multiplier*box_volume / mean_eddy_volume
       !
-      num_eddies = min( max_eddies , max( min_eddies , int( rnum_eddies ) ) )
+      num_eddies = int( rnum_eddies )
+      if (use_improved_SEM_normalization) then
+        num_eddies = min( max_eddies , max( min_eddies , num_eddies ) )
+      end if
       !
       ! Save the number of eddies for this box into sem_box
       !
@@ -5260,6 +5264,7 @@ subroutine recompute_sem_box_volume()
   !.. Use Statements ..
   use ovar, only : SEM_eddy_volume_is_spherical
   use ovar, only : SEM_box_num_eddies_multiplier
+  use ovar, only : use_improved_SEM_normalization
   !
   !.. Local Scalars ..
   integer  :: sem_idx,num_eddies
@@ -5318,7 +5323,10 @@ subroutine recompute_sem_box_volume()
       !
       rnum_eddies = SEM_box_num_eddies_multiplier*box_volume / mean_eddy_volume
       !
-      num_eddies = min( max_eddies , max( min_eddies , int( rnum_eddies ) ) )
+      num_eddies = int( rnum_eddies )
+      if (use_improved_SEM_normalization) then
+        num_eddies = min( max_eddies , max( min_eddies , num_eddies ) )
+      end if
       !
       ! Save the number of eddies for this box into sem_box
       !
