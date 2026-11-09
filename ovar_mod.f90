@@ -486,6 +486,7 @@ module ovar
   logical(lk), public, save :: SEM_use_random_seed_from_restart   = fals
   logical(lk), public, save :: SEM_include_thermo_fluctuations    = fals
   logical(lk), public, save :: SEM_use_restart_eddies             = true
+  integer,     public, save :: SEM_Tent_Func_Continuity           = -1
   !
   ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
   logical(lk), public, save :: average_sem_inflow_plane = fals
