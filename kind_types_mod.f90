@@ -2387,7 +2387,8 @@ end subroutine io_error
 !###############################################################################
 !
 subroutine execute_command(command,wait_for_completion,exit_status, &
-                           command_status,command_message,procedure_name)
+                           command_status,command_message,procedure_name, &
+                           output_command_results)
   !
 #define USE_EXECUTE_COMMAND_LINE
 #ifdef USE_EXECUTE_COMMAND_LINE
@@ -2414,8 +2415,13 @@ subroutine execute_command(command,wait_for_completion,exit_status, &
   character(len=*), intent(out) :: command_message
   character(len=*),  intent(in) :: procedure_name
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: output_command_results
+  !
   !.. Local Scalars ..
   integer :: n
+  !
+  logical(lk) :: output_results_of_command
   !
   !.. Allocatable Scalars ..
   character(len=:), allocatable :: command_string
@@ -2429,6 +2435,11 @@ subroutine execute_command(command,wait_for_completion,exit_status, &
 #endif
   !
 continue
+  !
+  output_results_of_command = true
+  if (present(output_command_results)) then
+    output_results_of_command = output_command_results
+  end if
   !
   command_string = trim(adjustl(command))
   !
@@ -2451,9 +2462,13 @@ continue
       end if
 #endif
       !
-      call write_command_results(procedure_name,command,exit_status, &
-                                 command_status,command_message, &
-                                 command_line_procedure)
+      if (exit_status /= 0 .or. output_results_of_command) then
+        call write_command_results(procedure_name,command,exit_status, &
+                                   command_status,command_message, &
+                                   command_line_procedure)
+      end if
+      !
+      flush (iout)
       !
       if (exit_status == 0) exit
       !
