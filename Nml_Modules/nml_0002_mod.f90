@@ -1320,7 +1320,9 @@ subroutine ionml_sem()
     use_spherical_eddy_volume      => SEM_eddy_volume_is_spherical       , &
     include_thermo_fluctuations    => SEM_include_thermo_fluctuations    , &
     box_num_eddies_multiplier      => SEM_box_num_eddies_multiplier      , &
-    use_restart_eddies             => SEM_use_restart_eddies
+    use_restart_eddies             => SEM_use_restart_eddies             , &
+    tent_function_continuity       => SEM_Tent_Func_Continuity           , &
+    use_improved_SEM_normalization
   !
   ! OPTIONS FOR SEM
   namelist / nml_sem / use_profile_for_initialization , &
@@ -1336,6 +1338,8 @@ continue
     case ( NMLaction_SetDummy0, NMLaction_SetDummy1, NMLaction_SetValue, &
            NMLaction_WritePretty )
       call iow_header('&nml_sem')
+      call set('Use_Improved_SEM_Normalization',                            &
+                use_improved_sem_normalization , true                       )
       call set('Use_Profile_For_Initialization',                            &
                 use_profile_for_initialization , fals                       )
       call set('Use_Random_Seed_From_Restart  ',                            &
@@ -1348,6 +1352,8 @@ continue
                 box_num_eddies_multiplier      , one                        )
       call set('Use_Restart_Eddies            ',                            &
                 use_restart_eddies             , true                       )
+      call set('Tent_Function_Continuity      ',                            &
+                tent_function_continuity       , -1                         )
       call iow_footer()
     case ( NMLaction_Read )
       if ( io_has_nml_block(ior,'&nml_sem') ) then
@@ -3029,7 +3035,6 @@ subroutine ionml_removed()
   use ovar, only : turbulence_model
   use ovar, only : traceback_unconverged_newton_temps
   use ovar, only : use_unrolled_dot_products
-  use ovar, only : use_improved_SEM_normalization
   use ovar, only : average_sem_inflow_plane
   use ovar, only : time_average_restart_files
   use ovar, only : postproc_debug_grid
@@ -3076,7 +3081,6 @@ subroutine ionml_removed()
   ! CONTROL DOT_PRODUCT PROCEDURES BOUND TO MATRIX DERIVED-TYPE
   namelist / nml_removed / use_unrolled_dot_products
   ! SEM OPTIONS
-  namelist / nml_removed / use_improved_SEM_normalization
   namelist / nml_removed / average_sem_inflow_plane
   ! 
   ! LOCATION OF INITIALIZATION POINTS
@@ -3182,8 +3186,6 @@ continue
       call set('Use_Unrolled_Dot_Products        ',                         &
                 use_unrolled_dot_products         , true                    )
       ! SEM
-      call set('Use_Improved_SEM_Normalization   ',                         &
-                use_improved_SEM_normalization    , true                    )
       call set('Average_SEM_Inflow_Plane         ',                         &
                 average_sem_inflow_plane          , fals                    )
       ! Initialization

@@ -247,6 +247,7 @@ module nml_0001_mod
   use ovar, only : SEM_use_random_seed_from_restart
   use ovar, only : SEM_include_thermo_fluctuations
   use ovar, only : SEM_use_restart_eddies
+  use ovar, only : tent_function_continuity => SEM_Tent_Func_Continuity
   use ovar, only : average_sem_inflow_plane
   use ovar, only : force_nd_subroutines
   use ovar, only : conv_temp
@@ -1062,7 +1063,8 @@ subroutine ionml_input()
                      SEM_box_num_eddies_multiplier, &
                      SEM_use_random_seed_from_restart, &
                      SEM_include_thermo_fluctuations, &
-                     SEM_use_restart_eddies
+                     SEM_use_restart_eddies, &
+                     tent_function_continuity
   ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
   namelist / input / average_sem_inflow_plane
   ! STATISTICAL OUTPUT OPTIONS
@@ -1537,6 +1539,8 @@ continue
                 sem_include_thermo_fluctuations    , fals                   )
       call set('SEM_Use_Restart_Eddies            ',                        &
                 sem_use_restart_eddies             , true                   )
+      call set('Tent_Function_Continuity          ',                        &
+                Tent_Function_Continuity           , -1                     )
       !}}}
 !{{{  ! FLAG TO ACTIVATE A TEST OF THE SEM CODE
       call set('Average_SEM_Inflow_Plane          ',                        &
