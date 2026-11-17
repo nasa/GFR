@@ -14,13 +14,32 @@ described in \sref{SEC:nml_bc}.
 ,caption={Namelist nml\_sem.}
 ]
 &nml_sem
+  Use_Improved_SEM_Normalization = T
   Use_Profile_For_Initialization = F
   Use_Random_Seed_From_Restart   = F
   Use_Spherical_Eddy_Volume      = F
   Include_Thermo_Fluctuations    = F
   Box_Num_Eddies_Multiplier      = 1.0
+  Use_Restart_Eddies             = T
+  Tent_Function_Continuity       = -1
 /
 \end{nmlblocklst}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Use_Improved_SEM_Normalization = T
+\end{nmldescitem}
+\inp*[nmlSEM::UseImprovedSEMNormalization]{}[Use\_Improved\_SEM\_Normalization][]
+
+\begin{nmldescbody}
+This uses an exponential weighted moving average of the eddy concentration as
+the normalization factor for the unscaled fluctuating velocity field instead of
+the value $\sqrt{\mathscr{V}_{\mathrm{box}} / \left(\mathscr{V}_{\mathrm{eddy}}
+N_{\mathrm{eddy}}\right)}$ used by the classic SEM formulation.
+%
+More details can be found in \linecite{Skillen_2016}.
+\end{nmldescbody}
 
 %==========================================================================
 
@@ -83,6 +102,7 @@ occasions without modifying the solution with limiting \andor filtering.
 
 %==========================================================================
 
+\FINALFIX{\newpage}
 \begin{nmldescitem}
 Use_Spherical_Eddy_Volume = F
 \end{nmldescitem}
@@ -113,7 +133,6 @@ where the volumes are described in \sref{SEC:SEM:theory:Nomenclature}.
 
 %==========================================================================
 
-\FINALFIX{\newpage}
 \begin{nmldescitem}
 Include_Thermo_Fluctuations = F
 \end{nmldescitem}
@@ -167,6 +186,73 @@ They were implemented to prevent
 (2) too many eddies that add little to the modeling, but increase
     computational cost.
 %
+\end{nmldescbody}
+
+%==========================================================================
+
+\begin{nmldescitem}
+Use_Restart_Eddies = T
+\end{nmldescitem}
+\inp*[nmlSEM::UseRestartEddies]{}[Use\_Restart\_Eddies][]
+
+\begin{nmldescbody}
+This input determines whether or not the SEM information contained in a restart
+file is used or discarded after reading in the restart file.
+%
+It is recommended to use the SEM information in the restart file.
+%
+However, there are certain situations where starting with a fresh SEM is needed
+or helpful which requires not using the SEM information in the restart file.
+%
+Probably the most common scenario is if the SEM convective velocity or length
+scale is changed between simulations.
+%
+A change in either of these two values will result in a change to the size
+of the SEM box, which will subsequently cause an abort error if any of the
+restart eddies are no longer contained by the new SEM box.
+
+\NOTE
+Not using the SEM information in the restart file will result in a transient
+pressure wave at the start of the restart simulation due to the discontinuity in
+the SEM boundary condition between simulations.
+\end{nmldescbody}
+
+%==========================================================================
+
+\FINALFIX{\newpage}
+\begin{nmldescitem}
+Tent_Function_Continuity = T
+\end{nmldescitem}
+\inp*[nmlSEM::TentFunctionContinuity]{}[Tent\_Function\_Continuity][]
+
+\begin{nmldescbody}
+This input specifies which tent function to use for the SEM.
+%
+Recall from \sref{SEC:SEM:theory:SumFluctuations} that the tent function
+used by GFR is defined as
+%
+\begin{equation*}
+  f_{\wedge}(a) = 
+  \begin{cases}
+    g(a) & \text{if } \abs{a} < 1 \\
+    0    & \text{otherwise}
+  \end{cases}
+\end{equation*}
+%
+This input specifies the function $g(a)$ to use with the tent function, and the
+input value generally corresponds to the continuity, $C^n$, of the overall tent
+function:\\[-5pt]
+
+\begin{tabular}{ @{} r @{ \qquad $g(a)=$} rl @{\quad : } l @{} }
+  -1 & $\sqrt{\tfrac{     3}{    2}}$ & $\mspace{-17mu}\left(1-\abs{a}\right)$ & $C^0$ continuous (default) \\[5pt]
+   0 & $\sqrt{\tfrac{    15}{   16}}$ & $\mspace{-17mu}\left(1-a^2\right)$     & $C^0$ continuous  \\[5pt]
+   1 & $\sqrt{\tfrac{   315}{  256}}$ & $\mspace{-17mu}\left(1-a^2\right)^2$   & $C^1$ continuous  \\[5pt]
+   2 & $\sqrt{\tfrac{  6006}{ 4096}}$ & $\mspace{-17mu}\left(1-a^2\right)^3$   & $C^2$ continuous  \\[5pt]
+   3 & $\sqrt{\tfrac{109395}{65536}}$ & $\mspace{-17mu}\left(1-a^2\right)^4$   & $C^3$ continuous
+\end{tabular}
+\\[5pt]
+\NOTE
+The non-default tent functions have yet to be thoroughly tested.
 \end{nmldescbody}
 
 %==========================================================================

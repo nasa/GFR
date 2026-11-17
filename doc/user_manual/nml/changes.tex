@@ -932,6 +932,9 @@ the table below provides a mapping between the old and new inputs.
        \multicolumn{3}{l}{\&input}
     &  \multicolumn{2}{l}{\&\texttt{nml\_sem}}
     \\* %%% Note: \\* prevents pagebreak.
+       &  \multicolumn{2}{l}{\inptext{Use\_Improved\_SEM\_Normalization}}
+       && \multicolumn{2}{l}{\inp[nmlSEM::UseImprovedSEMNormalization]{Same}[Use\_Improved\_SEM\_Normalization]}
+       \\
        &  \multicolumn{2}{l}{\inptext{Use\_SEM\_Profile\_For\_Initialization}}
        && \multicolumn{2}{l}{\inp[nmlSEM::UseProfileForInitialization]{Use\_Profile\_For\_Initialization}}
        \\
@@ -946,6 +949,12 @@ the table below provides a mapping between the old and new inputs.
        \\
        &  \multicolumn{2}{l}{\inptext{SEM\_Box\_Num\_Eddies\_Multiplier}}
        && \multicolumn{2}{l}{\inp[nmlSEM::BoxNumEddiesMultiplier]{Box\_Num\_Eddies\_Multiplier}}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Use\_Restart\_Eddies}}
+       && \multicolumn{2}{l}{\inp[nmlSEM::UseRestartEddies]{Same}[Use\_Restart\_Eddies]}
+       \\
+       &  \multicolumn{2}{l}{\inptext{Tent\_Function\_Continuity}}
+       && \multicolumn{2}{l}{\inp[nmlSEM::TentFunctionContinuity]{Same}[Tent\_Function\_Continuity]}
        \\
 %==========================================================================
        \multicolumn{3}{l}{\&input}
@@ -1242,9 +1251,6 @@ the table below provides a mapping between the old and new inputs.
        \\
        &  \multicolumn{2}{l}{\inptext{Newton\_Rlx}}
        && \multicolumn{2}{l}{\texttt{Newton\_Relax}}
-       \\
-       &  \multicolumn{2}{l}{\inptext{Use\_Improved\_SEM\_Normalization}}
-       && \multicolumn{2}{l}{\texttt{Use\_Improved\_Initialization}}
        \\
        &  \multicolumn{2}{l}{\inptext{Average\_SEM\_Inflow\_Plane}}
        && \multicolumn{2}{l}{\texttt{Average\_Inflow\_Plane}}
