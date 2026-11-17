@@ -282,7 +282,7 @@ ifeq "$(COMPFAMILY)" "intel"
   MODFLAG     := -module
   OMPFLAG     := -qopenmp
   REALLOCFLAG := -assume realloc_lhs -assume fpe_summary
-  TRACEFLAG   := -traceback -g
+  TRACEFLAG   := -traceback -g -assume nobuffered_stdout
   CMPFLAGS    := -DSPECIAL_FOR_INTEL
   #------------------------------------------------------------
   DBGFLAG := -check all -debug all -ftrapuv \
@@ -302,7 +302,7 @@ else ifeq "$(COMPFAMILY)" "oneapi"
   MODFLAG     := -module
   OMPFLAG     := -qopenmp
   REALLOCFLAG := -assume realloc_lhs -assume fpe_summary
-  TRACEFLAG   := -traceback -g
+  TRACEFLAG   := -traceback -g -assume nobuffered_stdout
   CMPFLAGS    := -DSPECIAL_FOR_INTEL
   #------------------------------------------------------------
   DBGFLAG := -check all,nouninit -debug all -ftrapuv \
