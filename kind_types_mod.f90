@@ -2810,6 +2810,115 @@ end subroutine gfr_timer
 !
 !###############################################################################
 !
+subroutine time_stamp(input_message)
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: input_message
+  !
+  !.. Local Scalars ..
+  integer :: year,month,day,tz,hour,minute,second,milsec
+  logical :: initialized
+  !
+  character(len=100) :: sdate,szone
+  !
+  !.. Local Automatic Arrays ..
+  integer :: values(1:8)
+  !
+  !.. Local Allocatable Scalars ..
+  character(len=:), allocatable :: message
+  character(len=:), allocatable :: cday,cdate,czone,campm,csep
+  !
+continue
+  !
+  call mpi_initialized(initialized,mpierr)
+  !
+  ! Immediately return without doing anything if MPI has yet to be initialized
+  !
+  if (.not. initialized) return
+  !
+  sdate = ""
+  szone = ""
+  values(:) = 0
+  !
+  if (mypnum == glb_root) then
+    !
+    call date_and_time(values=values,zone=szone)
+    !
+    year   = values(1)
+    month  = values(2)
+    day    = values(3)
+    tz     = values(4)
+    hour   = values(5)
+    minute = values(6)
+    second = values(7)
+    milsec = values(8)
+    !
+    cday = day_of_week(year,month,day) ! F2003 AUTO-REALLOC
+    !
+    campm = merge("AM","PM",hour<12) ! F2003 AUTO-REALLOC
+    czone = trim(adjustl(szone)) ! F2003 AUTO-REALLOC
+    !
+    if (hour == 0) then
+      hour = 12
+    else if (hour > 12) then
+      hour = hour - 12
+    end if
+    !
+    write (sdate,1) month,day,year,cday,hour,minute,second,milsec,campm,czone
+    !
+    cdate = trim(adjustl(sdate)) ! F2003 AUTO-REALLOC
+    !
+    message = trim(adjustl(input_message)) ! F2003 AUTO-REALLOC
+    !
+    csep = repeat("=",len(cdate)+len(message)+9) ! F2003 AUTO-REALLOC
+    !
+    write (iout,2) csep,cdate,message,csep
+    flush (iout)
+    !
+  end if
+  !
+  1 format (i2,"/",i2.2,"/",i4," (",a,") at ", &
+            i2.2,":",i2.2,":",i2.2,".",i0," ",a," TZ=",a)
+  2 format (/,a,/,2x,a,"  :  ",a,/,a,/)
+  !
+contains
+!-------------------------------------------------------------------------------
+pure &
+function day_of_week(y,m,d) result(return_value)
+  ! Computes the day of the week using Sakamoto's Algorithm.
+  ! Inputs:
+  !   y - Year  (e.g., 2026)
+  !   m - Month (1-12)
+  !   d - Day   (1-31)
+  ! Returns:
+  !   Character string for the day of the week
+  !.. Formal Arguments ..
+  integer, intent(in) :: y, m, d
+  !.. Return Value ..
+  character(len=3) :: return_value
+  !.. Local Scalars ..
+  integer :: yr,iday
+  !.. Local Parameter ..
+  integer, parameter :: t(1:12) = [0,3,2,5,0,3,5,1,4,6,2,4]
+  character(len=3), parameter :: cday(1:7) = ["Sun","Mon","Tue","Wed", &
+                                              "Thu","Fri","Sat"]
+continue
+  yr = y
+  if (m < 3) then
+    yr = yr - 1
+  end if
+  ! Sakamoto's algorithm returning integer day of the week on the interval
+  ! [0,6] representing [Sun,Sat].
+  iday = mod(yr + yr/4 - yr/100 + yr/400 + t(m) + d, 7)
+  ! Use the integer day of the week (+1 for array offset) to get the
+  ! day of the week as a character string.
+  return_value = cday(iday+1)
+end function day_of_week
+!-------------------------------------------------------------------------------
+end subroutine time_stamp
+!
+!###############################################################################
+!
 #include "Functions/debug_timer.f90"
 !
 !##############################################################################
