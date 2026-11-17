@@ -1680,15 +1680,17 @@ subroutine sem(face_cv,face_gp)
   !
   !.. Local Scalars ..
   integer  :: i,k,n,ierr,sem_idx,eddy_idx,num_eddies
-  real(wp) :: ave,running_ave,time_scale,dt
+  real(wp) :: ave,running_ave,prev_running_ave,time_scale,dt
   real(wp) :: c0,c1,eddy_vol,boxvol,lturb,dx,fsig,one_over_gm1
   real(wp) :: a11,a21,a22,a31,a32,a33,rho,temp,pres,ravg,tavg,q2
-  real(wp) :: x,epx,elx,eix,tfx,ufluc,ufluc2,uavg,vx,rx
-  real(wp) :: y,epy,ely,eiy,tfy,vfluc,vfluc2,vavg,vy,ry
-  real(wp) :: z,epz,elz,eiz,tfz,wfluc,wfluc2,wavg,vz,rz
+  real(wp) :: x,epx,elx,eix,tfx,ufluc,ufluc2,ufluc1,uavg,vx,rx
+  real(wp) :: y,epy,ely,eiy,tfy,vfluc,vfluc2,vfluc1,vavg,vy,ry
+  real(wp) :: z,epz,elz,eiz,tfz,wfluc,wfluc2,wfluc1,wavg,vz,rz
   real(wp) :: cp,tfluc,rfluc
   real(wp) :: st,ct,vr,vt,aoa,boa
   real(wp) :: boxmaxx,new_x
+  !
+  logical(lk) :: improved_SEM_normalization_is_active
   !
   !.. Local Allocatable Arrays ..
   type(eddy_list_t), allocatable :: new_eddies(:)
@@ -1726,6 +1728,11 @@ continue
   !
   tfluc = zero
   rfluc = zero
+  !
+  improved_SEM_normalization_is_active = fals
+  if (use_improved_SEM_normalization) then
+    improved_SEM_normalization_is_active = (itcur >= 10)
+  end if
   !
   ! Get the time step size for the synthetic eddies
   !
@@ -1841,11 +1848,11 @@ continue
       y = my_sem_pts(sem_idx)%sem_fp(n)%y
       z = my_sem_pts(sem_idx)%sem_fp(n)%z
       !
-      running_ave = my_sem_pts(sem_idx)%sem_fp(n)%running_ave
+      prev_running_ave = my_sem_pts(sem_idx)%sem_fp(n)%running_ave
       !
-      ufluc = zero
-      vfluc = zero
-      wfluc = zero
+      ufluc1 = zero
+      vfluc1 = zero
+      wfluc1 = zero
       !
       ave = zero
       !
@@ -1870,6 +1877,7 @@ continue
         ely = sem_box(sem_idx)%eddy(eddy_idx)%y_frequency
         elz = sem_box(sem_idx)%eddy(eddy_idx)%z_frequency
         !
+        ! eddy_vol is actually 1/eddy_volume
         eddy_vol = sem_box(sem_idx)%eddy(eddy_idx)%volume
         !
         rx = (x-epx)*elx ! x dist from fp to eddy
@@ -1903,37 +1911,43 @@ continue
         !
         fsig = tfx*tfy*tfz
         !
-        if (use_improved_SEM_normalization) then
-          ! From the 2016 paper
-          !   "Accuracy and efficiency improvements in synthetic eddy methods"
-          !   by Skillen et al., Int Journal of Head and Fluid Flow, pp 386-394.
-          ! This computes the term [phi(t+delta_t)] in equation 12 that is
-          ! multiplied by alpha (which will be done after completing this loop).
-          ave = ave + fsig*fsig
-        else
+        ! From the 2016 paper
+        !   "Accuracy and efficiency improvements in synthetic eddy methods"
+        !   by Skillen et al., Int Journal of Head and Fluid Flow, pp 386-394.
+        ! This computes the term [phi(t+delta_t)] in equation 12 that is
+        ! multiplied by alpha (which will be done after completing this loop).
+        ave = ave + fsig*fsig
+        !
+        if (.not. improved_SEM_normalization_is_active) then
+          ! Weight the summation term by the current eddy volume.
+          ! This is needed here in case the eddy volumes are not all the same.
+          ! If all eddies have the same volume, this can be factored out and
+          ! included in the c0 normalization term instead, as it is done in
+          ! the original Jarrin paper.
+          ! NOTE: Remember, eddy_vol is actually 1/eddy_volume
           fsig = fsig * eddy_vol
         end if
         !
-        ufluc = ufluc + fsig*eix
-        vfluc = vfluc + fsig*eiy
-        wfluc = wfluc + fsig*eiz
+        ufluc1 = ufluc1 + fsig*eix
+        vfluc1 = vfluc1 + fsig*eiy
+        wfluc1 = wfluc1 + fsig*eiz
         !
       end do loop_over_eddy_list
       !
       ! Normalize the velocity fluctuations from the synthetic eddies
       !
-      if (use_improved_SEM_normalization) then
-        !
-        ! From the 2016 paper
-        !   "Accuracy and efficiency improvements in synthetic eddy methods"
-        !   by Skillen et al., Int Journal of Head and Fluid Flow, pp 386-394.
-        !
-        ! This computes equation 12 with running_ave representing
-        ! the left-hand-side and c1 representing alpha.
-        !
-        c1 = dt/time_scale
-        !
-        running_ave = c1*ave + (one-c1)*running_ave
+      ! From the 2016 paper
+      !   "Accuracy and efficiency improvements in synthetic eddy methods"
+      !   by Skillen et al., Int Journal of Head and Fluid Flow, pp 386-394.
+      !
+      ! This computes equation 12 with running_ave representing
+      ! the left-hand-side and c1 representing alpha.
+      !
+      c1 = dt/time_scale
+      !
+      running_ave = c1*ave + (one-c1)*prev_running_ave
+      !
+      if (improved_SEM_normalization_is_active) then
         !
         ! This computes equation 6 with [uvw]fluc2 representing the
         ! left-hand-side of the equation for each coordinate direction
@@ -1943,22 +1957,22 @@ continue
         vfluc2 = zero
         wfluc2 = zero
         !
-        if (ufluc /= zero) ufluc2 = ufluc / sqrt(running_ave)
-        if (vfluc /= zero) vfluc2 = vfluc / sqrt(running_ave)
-        if (wfluc /= zero) wfluc2 = wfluc / sqrt(running_ave)
-        !
-        ! Save the update of the running average (equation 12)
-        ! to use for the next time step.
-        !
-        my_sem_pts(sem_idx)%sem_fp(n)%running_ave = running_ave
+        if (ufluc1 /= zero) ufluc2 = ufluc1 / sqrt(running_ave)
+        if (vfluc1 /= zero) vfluc2 = vfluc1 / sqrt(running_ave)
+        if (wfluc1 /= zero) wfluc2 = wfluc1 / sqrt(running_ave)
         !
       else
         !
-        ufluc2 = c0*ufluc
-        vfluc2 = c0*vfluc
-        wfluc2 = c0*wfluc
+        ufluc2 = c0*ufluc1
+        vfluc2 = c0*vfluc1
+        wfluc2 = c0*wfluc1
         !
       end if
+      !
+      ! Save the update of the running average for the improved normalization
+      ! to use for the next time step. (equation 12 of Skillen paper)
+      !
+      my_sem_pts(sem_idx)%sem_fp(n)%running_ave = running_ave
       !
       ! Compute the final velocity fluctuations for this face point
       !
