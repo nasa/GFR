@@ -604,11 +604,13 @@ continue
   ! Ensures the positivity of density and pressure
   if (Positivity%Option /= POSLIM_OPT__OFF) then
     call positivity_preserving_limiter(nst)
+    call check_for_bad_number(__LINE__,__FILE__)
   end if
   !
   if (entropy_limiter%Option /= ENTLIM_OPT__OFF) then
     call update_parallel_entropy_bounds()
     call perform_entropy_limiting(nst)
+    call check_for_bad_number(__LINE__,__FILE__)
   end if
   !
   ! Apply realizable total temperature limiter
@@ -619,6 +621,7 @@ continue
     call check_total_temperature(n_solpts,usp,gpsp,nst)
     !
     call update_thermo_properties(1,n_flxpts,faceusp,facegpsp,"stabilize_usp")
+    call check_for_bad_number(__LINE__,__FILE__)
   end if
   !
   ! Apply the shock/troubled-cell limiter. The cells will first be checked
