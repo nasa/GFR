@@ -1690,6 +1690,18 @@ subroutine sem(face_cv,face_gp)
   real(wp) :: st,ct,vr,vt,aoa,boa
   real(wp) :: boxmaxx,new_x
   !
+!#define WRITE_FP1_FLUCTUATION_HISTORY
+#ifdef WRITE_FP1_FLUCTUATION_HISTORY
+  real(wp) :: ufluc1_in,ufluc2_in,ufluc_in
+  real(wp) :: vfluc1_in,vfluc2_in,vfluc_in
+  real(wp) :: wfluc1_in,wfluc2_in,wfluc_in
+  !
+  real(wp) :: ufluc1_cn,ufluc2_cn,ufluc_cn
+  real(wp) :: vfluc1_cn,vfluc2_cn,vfluc_cn
+  real(wp) :: wfluc1_cn,wfluc2_cn,wfluc_cn
+#endif
+  !
+  integer     :: save_interval
   logical(lk) :: improved_SEM_normalization_is_active
   !
   !.. Local Allocatable Arrays ..
@@ -1854,6 +1866,16 @@ continue
       vfluc1 = zero
       wfluc1 = zero
       !
+#ifdef WRITE_FP1_FLUCTUATION_HISTORY
+      ufluc1_in = zero
+      vfluc1_in = zero
+      wfluc1_in = zero
+      !
+      ufluc1_cn = zero
+      vfluc1_cn = zero
+      wfluc1_cn = zero
+#endif
+      !
       ave = zero
       !
       ! Loop over the eddies that contribute to the fluctuation at the
@@ -1918,6 +1940,16 @@ continue
         ! multiplied by alpha (which will be done after completing this loop).
         ave = ave + fsig*fsig
         !
+#ifdef WRITE_FP1_FLUCTUATION_HISTORY
+        ufluc1_in = ufluc1_in + fsig*eix
+        vfluc1_in = vfluc1_in + fsig*eiy
+        wfluc1_in = wfluc1_in + fsig*eiz
+        !
+        ufluc1_cn = ufluc1_cn + fsig*eix*eddy_vol
+        vfluc1_cn = vfluc1_cn + fsig*eiy*eddy_vol
+        wfluc1_cn = wfluc1_cn + fsig*eiz*eddy_vol
+#endif
+        !
         if (.not. improved_SEM_normalization_is_active) then
           ! Weight the summation term by the current eddy volume.
           ! This is needed here in case the eddy volumes are not all the same.
@@ -1969,6 +2001,20 @@ continue
         !
       end if
       !
+#ifdef WRITE_FP1_FLUCTUATION_HISTORY
+      ufluc2_in = zero
+      vfluc2_in = zero
+      wfluc2_in = zero
+      !
+      if (ufluc1_in /= zero) ufluc2_in = ufluc1_in / sqrt(running_ave)
+      if (vfluc1_in /= zero) vfluc2_in = vfluc1_in / sqrt(running_ave)
+      if (wfluc1_in /= zero) wfluc2_in = wfluc1_in / sqrt(running_ave)
+      !
+      ufluc2_cn = c0*ufluc1_cn
+      vfluc2_cn = c0*vfluc1_cn
+      wfluc2_cn = c0*wfluc1_cn
+#endif
+      !
       ! Save the update of the running average for the improved normalization
       ! to use for the next time step. (equation 12 of Skillen paper)
       !
@@ -1987,11 +2033,37 @@ continue
       vfluc = ufluc2*a21 + vfluc2*a22
       wfluc = ufluc2*a31 + vfluc2*a32 + wfluc2*a33
       !
+#ifdef WRITE_FP1_FLUCTUATION_HISTORY
+      ufluc_in = ufluc2_in*a11
+      vfluc_in = ufluc2_in*a21 + vfluc2_in*a22
+      wfluc_in = ufluc2_in*a31 + vfluc2_in*a32 + wfluc2_in*a33
+      !
+      ufluc_cn = ufluc2_cn*a11
+      vfluc_cn = ufluc2_cn*a21 + vfluc2_cn*a22
+      wfluc_cn = ufluc2_cn*a31 + vfluc2_cn*a32 + wfluc2_cn*a33
+#endif
+      !
       ravg = my_sem_pts(sem_idx)%sem_fp(n)%ravg
       uavg = my_sem_pts(sem_idx)%sem_fp(n)%uavg
       vavg = my_sem_pts(sem_idx)%sem_fp(n)%vavg
       wavg = my_sem_pts(sem_idx)%sem_fp(n)%wavg
       tavg = my_sem_pts(sem_idx)%sem_fp(n)%tavg
+      !
+!#define DEBUG_WRITE_INITIAL_FLUCTUATIONS
+#ifdef DEBUG_WRITE_INITIAL_FLUCTUATIONS
+      if (itcur <= 110 .or. mod(itcur,10) == 0) then
+        write (10000+mypnum,283) itcur,n,dt,prev_running_ave,running_ave, &
+                                 uavg,ufluc1,ufluc2,ufluc, &
+                                      vfluc1,vfluc2,vfluc, &
+                                      wfluc1,wfluc2,wfluc
+        283 format (i4,i7, &
+                    "  dt=",es12.5, &
+                    "  ave=(",es13.6,",",es13.6,")", &
+                    "  u=(",f9.6,3(",",es14.6),")", &
+                    "  v=( 0.0",3(",",es14.6),")", &
+                    "  w=( 0.0",3(",",es14.6),")")
+      end if
+#endif
       !
       vx = ufluc + uavg
       vy = vfluc + vavg
@@ -2065,6 +2137,27 @@ continue
         !
       end if
       !
+#ifdef WRITE_FP1_FLUCTUATION_HISTORY
+      if (itcur <= 1000) then
+        save_interval = 1
+      else
+        save_interval = 10
+      end if
+      !
+      if (n == 1) then
+        if (mod(itcur,save_interval) == 0) then
+          write (80000+mypnum,284) itcur,running_ave, &
+                                  ufluc1_cn,ufluc2_cn,ufluc_cn, &
+                                  vfluc1_cn,vfluc2_cn,vfluc_cn, &
+                                  wfluc1_cn,wfluc2_cn,wfluc_cn
+          write (90000+mypnum,284) itcur,running_ave, &
+                                  ufluc1_in,ufluc2_in,ufluc_in, &
+                                  vfluc1_in,vfluc2_in,vfluc_in, &
+                                  wfluc1_in,wfluc2_in,wfluc_in
+        end if
+      end if
+      284 format (i8,10es15.7)
+#endif
 #ifdef ENABLE_OUTPUT_TIME_HISTORY
       my_sem_pts(sem_idx)%sem_fp(n)%time_history(nec ,itcur) = rho
       my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmx ,itcur) = vx
