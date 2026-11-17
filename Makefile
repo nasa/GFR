@@ -14,6 +14,9 @@
 #FCADD += -DPROFILE_ON
 #FCADD += -DIGNORE_MPI_INFO
 
+#OPT_DEBUG_MODE := ON
+#OPT_PROFILE_MODE := ON
+
 .PHONY: all
 all: debug opt
 
@@ -56,6 +59,13 @@ test-debug:
 opt clean-opt rebuild-opt test-opt: BDIR := optimize
 opt clean-opt rebuild-opt test-opt: EXEF := gfr
 opt clean-opt rebuild-opt test-opt: TRGT := opt
+ifeq "$(OPT_DEBUG_MODE)" "ON"
+opt clean-opt rebuild-opt test-opt: FCADD += -DDISABLE_PURE
+opt clean-opt rebuild-opt test-opt: FCADD += -fpe0 -fpe-all=0 -fp-stack-check
+endif
+ifeq "$(OPT_PROFILE_MODE)" "ON"
+opt clean-opt rebuild-opt test-opt: FCADD += -DPROFILE_ON
+endif
 
 .PHONY: opt
 opt:
@@ -82,6 +92,13 @@ test-opt:
 aitken clean-aitken rebuild-aitken test-aitken: BDIR := optimize_aitken
 aitken clean-aitken rebuild-aitken test-aitken: EXEF := gfr_aitken
 aitken clean-aitken rebuild-aitken test-aitken: TRGT := aitken
+ifeq "$(OPT_DEBUG_MODE)" "ON"
+aitken clean-aitken rebuild-aitken test-aitken: FCADD += -DDISABLE_PURE
+aitken clean-aitken rebuild-aitken test-aitken: FCADD += -fpe0 -fpe-all=0 -fp-stack-check
+endif
+ifeq "$(OPT_PROFILE_MODE)" "ON"
+aitken clean-aitken rebuild-aitken test-aitken: FCADD += -DPROFILE_ON
+endif
 
 .PHONY: aitken
 aitken:
@@ -108,6 +125,13 @@ test-aitken:
 athena clean-athena rebuild-athena test-athena: BDIR := optimize_athena
 athena clean-athena rebuild-athena test-athena: EXEF := gfr_athena
 athena clean-athena rebuild-athena test-athena: TRGT := athena
+ifeq "$(OPT_DEBUG_MODE)" "ON"
+athena clean-athena rebuild-athena test-athena: FCADD += -DDISABLE_PURE
+athena clean-athena rebuild-athena test-athena: FCADD += -fpe0 -fpe-all=0 -fp-stack-check
+endif
+ifeq "$(OPT_PROFILE_MODE)" "ON"
+athena clean-athena rebuild-athena test-athena: FCADD += -DPROFILE_ON
+endif
 
 .PHONY: athena
 athena:
@@ -155,6 +179,13 @@ gpu clean-gpu rebuild-gpu test-gpu: GPUADD += -Minfo=ccff,ftn -g -ta=tesla:linei
 #gpu clean-gpu rebuild-gpu test-gpu: GPUADD += -Minstrument=functions
 #gpu clean-gpu rebuild-gpu test-gpu: GPUADD += -Kieee
 gpu clean-gpu rebuild-gpu test-gpu: FCADD += $(GPUFLAG) $(GPUADD) -DDISABLE_FOR_GPU
+ifeq "$(OPT_DEBUG_MODE)" "ON"
+gpu clean-gpu rebuild-gpu test-gpu: FCADD += -DDISABLE_PURE
+gpu clean-gpu rebuild-gpu test-gpu: FCADD += -fpe0 -fpe-all=0 -fp-stack-check
+endif
+ifeq "$(OPT_PROFILE_MODE)" "ON"
+gpu clean-gpu rebuild-gpu test-gpu: FCADD += -DPROFILE_ON
+endif
 
 .PHONY: gpu
 gpu:
