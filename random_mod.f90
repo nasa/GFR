@@ -66,7 +66,11 @@ continue
     if (present(seed)) then
       !
       do i = 1,isize
-        iseed(i) = seed + i - 1
+        if (any(seed == [0,1])) then
+          iseed(i) = seed + i - 1
+        else
+          iseed(i) = seed**i
+        end if
       end do
       !
     else
