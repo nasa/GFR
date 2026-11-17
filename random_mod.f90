@@ -94,7 +94,21 @@ continue
     !
   end if
   !
+  if (mypnum == glb_root) then
+    write (iout,1) size(iseed), (iseed(i), i=1,size(iseed))
+    write (iout,2)
+    flush (iout)
+  end if
+  !
   call random_seed( put=iseed )
+  !
+  ! Format Statements ..
+  !
+  1 format (/,84("-"), &
+            /,2x,"Setting the seed for the random number generator using ", &
+                 "the following seed array:", &
+            /,6x,"seed(1:",i0,") = [",10(i0,"]",:,tl1,","))
+  2 format (84("-"),/)
   !
 end subroutine set_random_seed
 !
