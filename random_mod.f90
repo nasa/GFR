@@ -59,6 +59,7 @@ continue
   if (.not. allocated(iseed)) then
     !
     call random_seed( size=isize )
+    ! isize = 2 (ifort, Athena, 11/2026)
    !if (mypnum == glb_root) write (iout,*) 'isize = ',isize
     iseed = init_array(isize,0) ! F2003 AUTO-REALLOC
     !
