@@ -894,6 +894,8 @@ continue
   restart_loop: &
   do
     !
+    call reset_ieee_status
+    !
     main_loop: &
     do iter = 1, num_timesteps
       !
