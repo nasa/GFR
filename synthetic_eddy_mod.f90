@@ -1665,7 +1665,8 @@ subroutine sem(face_cv,face_gp)
   !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
   !
   !.. Use Statements ..
-  use ovar, only : d_t,gam,rgasref_nd,cpref_nd,time_ref,itcur
+  use ovar, only : d_t,gam,rgasref_nd,cpref_nd,time_ref
+  use ovar, only : iter => current_iter
   use ovar, only : use_improved_SEM_normalization
   use ovar, only : jet_init_func
   use ovar, only : SEM_include_thermo_fluctuations
@@ -1743,7 +1744,7 @@ continue
   !
   improved_SEM_normalization_is_active = fals
   if (use_improved_SEM_normalization) then
-    improved_SEM_normalization_is_active = (itcur >= 10)
+    improved_SEM_normalization_is_active = (iter >= 20)
   end if
   !
   ! Get the time step size for the synthetic eddies
@@ -2051,8 +2052,8 @@ continue
       !
 !#define DEBUG_WRITE_INITIAL_FLUCTUATIONS
 #ifdef DEBUG_WRITE_INITIAL_FLUCTUATIONS
-      if (itcur <= 110 .or. mod(itcur,10) == 0) then
-        write (10000+mypnum,283) itcur,n,dt,prev_running_ave,running_ave, &
+      if (iter <= 110 .or. mod(iter,10) == 0) then
+        write (10000+mypnum,283) iter,n,dt,prev_running_ave,running_ave, &
                                  uavg,ufluc1,ufluc2,ufluc, &
                                       vfluc1,vfluc2,vfluc, &
                                       wfluc1,wfluc2,wfluc
@@ -2138,19 +2139,19 @@ continue
       end if
       !
 #ifdef WRITE_FP1_FLUCTUATION_HISTORY
-      if (itcur <= 1000) then
+      if (iter <= 1000) then
         save_interval = 1
       else
         save_interval = 10
       end if
       !
       if (n == 1) then
-        if (mod(itcur,save_interval) == 0) then
-          write (80000+mypnum,284) itcur,running_ave, &
+        if (mod(iter,save_interval) == 0) then
+          write (80000+mypnum,284) iter,running_ave, &
                                   ufluc1_cn,ufluc2_cn,ufluc_cn, &
                                   vfluc1_cn,vfluc2_cn,vfluc_cn, &
                                   wfluc1_cn,wfluc2_cn,wfluc_cn
-          write (90000+mypnum,284) itcur,running_ave, &
+          write (90000+mypnum,284) iter,running_ave, &
                                   ufluc1_in,ufluc2_in,ufluc_in, &
                                   vfluc1_in,vfluc2_in,vfluc_in, &
                                   wfluc1_in,wfluc2_in,wfluc_in
@@ -2159,12 +2160,12 @@ continue
       284 format (i8,10es15.7)
 #endif
 #ifdef ENABLE_OUTPUT_TIME_HISTORY
-      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nec ,itcur) = rho
-      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmx ,itcur) = vx
-      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmy ,itcur) = vy
-      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmz ,itcur) = vz
-      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nee ,itcur) = face_cv(k,nee,2)
-      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nq+1,itcur) = temp
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nec ,iter) = rho
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmx ,iter) = vx
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmy ,iter) = vy
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nmz ,iter) = vz
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nee ,iter) = face_cv(k,nee,2)
+      my_sem_pts(sem_idx)%sem_fp(n)%time_history(nq+1,iter) = temp
 #endif
       !
     end do loop_over_sem_pts
@@ -2335,7 +2336,7 @@ end subroutine sem
 subroutine update_sem_ave(dt,cv,alpha,beta)
   !
   !.. Use Statements ..
-  use ovar, only : gam,rgasref_nd,itcur
+  use ovar, only : gam,rgasref_nd
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: dt
