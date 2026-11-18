@@ -927,6 +927,7 @@ module ovar
   real(wp), public, save :: time
   real(wp), public, save :: time_ref = 1.0_wp
   integer,  public, save :: current_rk_stage = 1
+  integer,  public, save :: current_iter = 0
   !
   real(wp),     public, save :: saved_ave_time = 0.0_wp
   real(wp),     public, save :: prev_ave_time = 0.0_wp
@@ -1043,7 +1044,7 @@ module ovar
   !$ACC DECLARE CREATE(walls_are_exact,sub_inflow_method, &
   !$ACC&               turb_is_on,include_tke_in_energy, &
   !$ACC&               time,itcur,gam,pr,aref,rhoref,tref,tmin,tmax, &
-  !$ACC&               cpref_nd,rgasref_nd, &
+  !$ACC&               cpref_nd,rgasref_nd,current_iter, &
   !$ACC&               suth_Tref,suth_Sref,suth_muref,suth_c1, &
   !$ACC&               LDG_beta,LDG_tau,visc_variables_to_ave, &
   !$ACC&               ideal_total_temperature,limit_total_temperature, &
