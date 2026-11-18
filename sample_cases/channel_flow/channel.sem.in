@@ -1,0 +1,104 @@
+&INPUT
+  
+ OUTPUT_SUMMARY_FILE = T
+
+ COMPLETELY_DISABLE_CGNS = T
+
+PROFILE_IO_ALL = T
+PROFILE_IO_CGNS_SUBS = T
+
+!CHANNEL_SPATIAL_AVE_RESTART = T
+
+GRID_FORMAT = -1 ! Internally generated grid
+
+CHANNEL_GRID_AVE_XPLUS = -40.0
+CHANNEL_GRID_AVE_YPLUS = -20.0
+CHANNEL_GRID_AVE_ZPLUS = -20.0
+CHANNEL_GRID_YPLUS_WALL = 2.0  ! first cell is at y+=2
+
+!CHANNEL_BODY_FORCE = 1166.854024412684
+
+GRID_SCALING_FACTOR = 1.0
+TIME_SCALING_FACTOR = 908.500109 ! 1/flow-through-time = vx-mid-channel/channel-length (33.2293 m/s)/(0.036576 m)
+
+ALL_ORDERS = 3
+ALL_POINTS = 1 ! 1-Gauss, 2-Lobatto
+
+ LIMITER_OPTION = 0
+!LIMITER_OPTION = 1
+LIMITER_FILTER_OPTION = 1 ! Filter based on tensor product of 1D filter
+LIMITER_FILTER_ORDER = 16
+LIMITER_FILTER_ALPHA = 18.0
+LIMITER_FILTER_ETAC = 0.8
+
+LIMITER_MARKER_MIN = -2.5
+LIMITER_MARKER_MAX = -0.5
+
+GOVERNING_EQUATIONS = 2
+!NUM_TIMESTEPS = 10000000
+NUM_TIMESTEPS = 1
+TIMESTEP_TYPE = 1 !CFL condition
+FINAL_TIME = 1.5
+
+! RK methods with CFL based time stepping
+!CFL_BEG = 0.1
+!CFL_END = 5.25
+!CFL_CYCLES = 5000
+!CFL = 5.25
+!RUNGE_KUTTA_SCHEME = 3
+!RUNGE_KUTTA_SCHEME = 113  ! 1.33x vs SSP3, CFL 4.4x SSP3 CFL
+!RUNGE_KUTTA_SCHEME = 154  ! 1.33x vs SSP3, CFL 6.0x SSP3 CFL
+
+! RK methods with adaptive time stepping
+!RUNGE_KUTTA_SCHEME = 532  ! 1.13x vs SSP3, Aprx CFL 1.8x SSP3 CFL
+ RUNGE_KUTTA_SCHEME = 943  ! 1.23x vs SSP3, Aprx CFL 3.3x SSP3 CFL
+ CFL = 0.1
+
+!Flow reference conditions:
+MACHREF = 0.1
+GAM = 1.4
+TREF = 288.333333333
+PREF = 101352.9
+
+!Timing information:
+RESTART_INTERVAL = 10000
+OUTPUT_INTERVAL = 100
+RESULTS_INTERVAL = 1
+ITER_OUT_INTERVAL = 1
+
+! Restart information:
+LOAD_RESTART_FILE = F
+RESTART_FILE = '../../Restart_files/out.current.rst'
+
+! Time-averaging information:
+OUTPUT_TIME_AVERAGING = F
+TIME_AVE_FILE = '../../Restart_files/out.current.ave'
+TIME_AVE_VEL_IS_AXISYMM = F
+!START_AVERAGING_TSTAR = 5.0
+
+ ITESTCASE =  2 ! Initialize to freestream for channel flow case
+
+USE_IMPROVED_SEM_NORMALIZATION = T
+USE_SEM_PROFILE_FOR_INITIALIZATION = T
+
+ OUTPUT_VORTICITY            = T
+!OUTPUT_TEMPERATURE          = T
+!OUTPUT_STAGNATION_VARIABLES = T
+
+BC_INPUT(1)%NAME                    = "INFLOW"
+BC_INPUT(1)%SET_BC_VALUE            = 5             ! SEM inflow
+BC_INPUT(1)%P_STATIC                = 101352.9      ! Pa
+BC_INPUT(1)%T_STATIC                = 288.333333333 ! K
+BC_INPUT(1)%VX                      = 33.2293       ! m/s ; probe of Vx at half channel height
+BC_INPUT(1)%SEM%CONVECTIVE_VELOCITY = 16.61465      ! m/s ; 1/2  of Vx at half channel height
+BC_INPUT(1)%SEM%LENGTH_SCALE        = 0.000762      ! m   ; 1/10 of half channel height
+BC_INPUT(1)%SEM%PROFILE_FILE        = "../grid_files/SEM_channel_profile.dat"
+
+BC_INPUT(2)%NAME                    = "Outflow"
+ BC_INPUT(2)%SET_BC_VALUE           = 12            ! Subsonic outflow
+!BC_INPUT(2)%SET_BC_VALUE           = 21            ! Characteristic inflow/outflow
+BC_INPUT(2)%P_STATIC                = 101352.9      ! Pa
+BC_INPUT(2)%T_STATIC                = 288.333333333 ! K
+BC_INPUT(2)%VX                      = 33.2293       ! m/s ; probe of Vx at half channel height
+
+/
