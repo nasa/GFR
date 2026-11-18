@@ -1,0 +1,76 @@
+&INPUT
+
+GRID_SCALING_FACTOR = 0.0254
+
+!Flow reference conditions:
+MACHREF = 0.05
+GAM = 1.4
+RGASREF = 286.959 ! m*m/(K*s*s) (1716 ft*ft/(R*s*s))
+TREF = 294.444    ! K  (530.0 R)
+PREF = 98595.03   ! Pa (14.3 psi)
+
+USE_SEM_PROFILE_FOR_INITIALIZATION = T
+!SEM_USE_RANDOM_SEED_FROM_RESTART = T
+
+USE_IMPROVED_SEM_NORMALIZATION = T
+
+BC_INPUT(1)%NAME                    = "InflowNozzle"
+BC_INPUT(1)%SET_BC_VALUE            = 5             ! SEM inflow
+BC_INPUT(1)%P_TOTAL                 = 108869.053    ! Pa (15.79 psi)
+BC_INPUT(1)%T_TOTAL                 = 538.97        ! K  (970.146 R)
+BC_INPUT(1)%MACH                    = 0.3732        ! Inflow Mach number
+BC_INPUT(1)%SEM%CONVECTIVE_VELOCITY = 84.723        ! m/s ; 1/2 of Vx at edge of boundary layer
+BC_INPUT(1)%SEM%LENGTH_SCALE        = 0.00030038    ! m   ; 1/5 of boundary layer thickness (0.0015019)
+BC_INPUT(1)%SEM%PROFILE_FILE        = "nozzle_exit.m-kg-s.match_P0-T0.dat"
+
+BC_INPUT(2)%NAME                    = "InflowPlenum"
+BC_INPUT(2)%SET_BC_VALUE            = 2             ! Subsonic inflow
+BC_INPUT(2)%P_TOTAL                 = 110500.0      ! Pa (16.03  psi)
+BC_INPUT(2)%P_STATIC                = 98595.03      ! Pa (14.3   psi)
+BC_INPUT(2)%T_TOTAL                 = 294.293       ! K  (529.7274 R)
+BC_INPUT(2)%ALPHA_AOA               = 30.0          ! Inflow angle of attack
+
+BC_INPUT(3)%NAME                    = "InflowExterior"
+BC_INPUT(3)%SET_BC_VALUE            = 2             ! Subsonic Inflow
+BC_INPUT(3)%P_TOTAL                 = 98767.68      ! Pa (14.325 psi)
+BC_INPUT(3)%T_TOTAL                 = 294.591222    ! K  (530.2642 R)
+BC_INPUT(3)%MACH                    = 0.05          ! Inflow Mach number
+
+BC_INPUT(4)%NAME                    = "Farfield"
+BC_INPUT(4)%SET_BC_VALUE            = 21            ! Characteristic inflow/outflow
+BC_INPUT(4)%P_TOTAL                 = 98767.68      ! Pa (14.325 psi)
+BC_INPUT(4)%T_TOTAL                 = 294.591222    ! K  (530.2642 R)
+BC_INPUT(4)%MACH                    = 0.05          ! Inflow Mach number
+
+BC_INPUT(5)%NAME                    = "Outflow"
+BC_INPUT(5)%SET_BC_VALUE            = 12            ! Subsonic outflow
+BC_INPUT(5)%P_STATIC                = 98595.03      ! Pa (14.3 psi)
+BC_INPUT(5)%T_STATIC                = 294.444       ! K  (530.0 R)
+BC_INPUT(5)%VX                      = 169.4460      ! m/s ; Vx at edge of boundary layer
+
+BC_INPUT(6)%NAME                    = "WallPlate"
+BC_INPUT(6)%SET_BC_VALUE            = 53            ! Isothermal wall boundary condition
+BC_INPUT(6)%WALL_TEMP               = 427.888889    ! K (770.2 R) Isothermal wall temperature 
+
+BC_INPUT(7)%NAME                    = "WallNozzleInterior"
+BC_INPUT(7)%SET_BC_VALUE            = 52            ! Adiabatic wall boundary condition
+
+BC_INPUT(8)%NAME                    = "WallNozzleLip"
+BC_INPUT(8)%SET_BC_VALUE            = 52            ! Adiabatic wall boundary condition
+
+BC_INPUT(9)%NAME                    = "WallNozzleExterior"
+BC_INPUT(9)%SET_BC_VALUE            = 52            ! Adiabatic wall boundary condition
+
+BC_INPUT(10)%NAME                   = "WallPipe"
+BC_INPUT(10)%SET_BC_VALUE           = 52            ! Adiabatic wall boundary condition
+
+BC_INPUT(11)%NAME                   = "WallPlenumSide"
+BC_INPUT(11)%SET_BC_VALUE           = 52            ! Adiabatic wall boundary condition
+
+BC_INPUT(12)%NAME                   = "WallPlenumEnd"
+BC_INPUT(12)%SET_BC_VALUE           = 52            ! Adiabatic wall boundary condition
+
+BC_INPUT(13)%NAME                   = "Bottom"
+BC_INPUT(13)%SET_BC_VALUE           = 50            ! Slip wall
+
+/
