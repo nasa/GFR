@@ -26,7 +26,7 @@ program GFR_main
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
   use ovar, only : num_rk_stages,Runge_Kutta_Scheme
-  use ovar, only : time,time_ref,itcur,num_timesteps,rl2mx
+  use ovar, only : time,time_ref,itcur,num_timesteps,rl2mx,current_iter
   use ovar, only : results_interval,iter_out_interval,output_eperk_cfl
   use ovar, only : restart_interval,output_interval
   use ovar, only : is_at_output_frequency
@@ -904,7 +904,8 @@ continue
       ! Current iteration count including restart iterations
       !
       itcur = itcur + 1
-      !$ACC UPDATE DEVICE(itcur)
+      current_iter = iter
+      !$ACC UPDATE DEVICE(itcur,current_iter)
       !
       ! Store a copy of the solution from the previous time step
       !
