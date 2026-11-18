@@ -1,0 +1,85 @@
+&nml_version
+  Namelist_Version          =  2
+/
+&nml_grid
+  Grid_Scaling_Factor       =  1.0
+  Grid_Format               = -1    ! -1=Internal grid
+  Grid_File                 =  ''
+/
+&nml_reference
+  Mach                      =  0.0
+  Gamma                     =  1.4
+! Gas_Constant              = -1.   ! m2/(s2*K), Default=287.05
+  Density                   =  1.0  ! kg/m3
+  Pressure                  =  1.0  ! Pa
+  Temperature               = -1.0  ! K
+/
+! Computed values:
+! Lref     =  1.0             ! m   : from grid
+! Tref     =  3.48371364E-03  ! K   : T = P/(R*rho)     = 1/(R*1)
+! aref     =  1.18322         ! m/s : a = sqrt(gam*R*T) = sqrt(gam*R/R)
+! time_ref =  0.845154        ! s   : time = L[m] / a[m/s]
+!
+&nml_physics
+  Governing_Equations       =  1    ! 1=Euler Equations
+/
+&nml_initialization
+  Initialization            =  26   ! Shu-Osher
+/
+&nml_timestep
+  Runge_Kutta_Scheme        =  113
+! Num_Timesteps             =  10000000
+! Num_Timesteps             =  500
+  Num_Timesteps             =  10 
+  Final_Time                =  1.80  ! sec
+  Timestep_Type             =  1     ! 1=Constant CFL
+  CFL                       =  0.10  ! Fail NaN, no cells marked
+  Convergence_Order_Abs_Res = -10.0
+  Convergence_Order_Max_Res = -15.0
+/
+&nml_numerics
+  All_Orders                =  3     ! 3=P3 solution, 4th order accuracy (P+1)
+  Error_Order               =  6
+  All_Points                =  1     ! 1=Legendre-Gauss points
+/
+&nml_limiter
+  Global_Filter_Interval    =  0     ! 0=Each Runge-Kutta stage
+  Global_Filter_Option      =  0     ! 0=Off
+  Global_Filter_Order       =  32
+  Global_Filter_Alpha       =  9.0
+  Global_Filter_Etac        =  0.0
+  Local_Limiter_Interval    =  0     ! 0=Each Runge-Kutta stage
+  Local_Limiter_Option      =  3     ! 3=MLP
+  Local_Filter_Option       =  1     ! 1=Exponential filter
+  Local_Filter_Order        =  32
+  Local_Filter_Alpha        =  9.0
+  Local_Filter_Etac         =  0.0
+  Marker_Stored_Interval    =  0     ! 0=Each Runge-Kutta stage
+  Marker_Option             =  3     ! 3=MLP marker
+  Marker_Variable           =  0     ! 0=Default=Density
+  Marker_Min                = -6.5
+  Marker_Max                = -5.5
+  Marker_Dpsi               =  0.5
+  Thermofix%Method          =  2     ! 2=Scale modes
+  Thermofix%Scale_Factor    =  0.5
+  Thermofix%Min_Pressure    =  0.750 ! Pa
+  Thermofix%Min_Temperature =  0.002 ! K
+  Thermofix%Min_Density     =  0.500 ! kg/m3
+/
+&nml_output
+  Time_Scaling_Factor       =  1.0   ! [1/s]
+  Restart_Interval          =  10000000
+  Display_Interval          =  10
+  Residual_Interval         =  10
+  Output_Frequency          =  0.10  ! tstar
+! Output_Interval           =  10
+/
+&nml_output_variables
+  Conserved_Variables       =  T
+  Temperature               =  T
+  Marker_Variables          =  T
+/
+&nml_testcase_shuosher
+  DoF                       = -200   ! <0 = number of cells
+                                     ! >0 = degrees of freedom
+/

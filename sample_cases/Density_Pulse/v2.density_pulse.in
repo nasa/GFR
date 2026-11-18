@@ -1,0 +1,84 @@
+&nml_version
+  Namelist_Version          =            2
+/
+&nml_grid
+  Grid_Scaling_Factor       =  1.0
+  Grid_Format               = -1    ! Internally generated grid
+  Grid_File                 =  ''
+/
+&nml_reference
+  Mach                      =  0.2
+  Density                   =  1.0  ! kg/m3
+  Temperature               = -1.0  ! K
+  Pressure                  =  1.0  ! Pa
+/
+! Computed from reference values:
+! Lref     =  1.0             ! m   : from grid
+! Tref     =  3.48371364E-03  ! K   : T = P/(R*rho)     = 1/(R*1)
+! aref     =  1.18322         ! m/s : a = sqrt(gam*R*T) = sqrt(gam*R/R)
+! uref     =  0.236644        ! m/s : u = M * a
+! time_ref =  0.8451514       ! s   : t = Lref[m] / aref[m/s]
+!
+&nml_physics
+  Governing_Equations       =  1  ! Euler
+/
+&nml_initialization
+  Initialization            =  24  ! Density pulse advection
+/
+! Convective time for one pulse width and one domain period:
+!   time_width  = 0.8451514   ! s   : t = Width[m]  / uref[m/s]
+!   time_period = 8.451514    ! s   : t = Length[m] / uref[m/s]
+&nml_timestep
+  Runge_Kutta_Scheme        =   113
+  Num_Timesteps             =  1000000    ! Max timesteps, or
+  Final_Time                =   0.8451514 ! Max final time [s], 1 pulse width
+! Final_Time                =   8.451514  ! Max final time [s], 1 domain width
+  Timestep_Type             =   1  ! Constant global CFL
+  Timestep                  =   1.0E-03
+  CFL                       =   1.0
+  Convergence_Order_Abs_Res = -10.0
+  Convergence_Order_Max_Res = -15.0
+/
+&nml_numerics
+  All_Orders                =   3  ! 3=P3 solution, 4th order accuracy (P+1)
+  All_Points                =   1  ! 1=Legendre-Gauss points
+/
+&nml_limiter
+  Local_Limiter_Interval    =   0
+  Local_Limiter_Option      =   3  ! MLP
+  Local_Filter_Option       =   1
+  Local_Filter_Order        =   4
+  Local_Filter_Alpha        =   9.0
+  Local_Filter_Etac         =   0.15
+  Marker_Stored_Interval    =   0
+  Marker_Option             =   3  ! MLP Marker
+  Marker_Variable           =   1  ! Density
+  Marker_Min                =  -6.5
+  Marker_Max                =  -5.5
+  Marker_Dpsi               =   0.5
+/
+! Output frequency = ( time_period[s] / 20 snapshots ) * Time_Scaling_Factor
+!                  = ( 8.451514 [s]   / 20           ) * 1.0 [1/s]
+!                  =   0.4225757
+&nml_output
+  Time_Scaling_Factor       =   1.0      ! 1/s
+  Restart_Interval          =  10000000
+  Display_Interval          =        10
+  Residual_Interval         =        10
+! Output_Interval           =        10
+  Output_Frequency          =  0.4225757
+/
+&nml_output_variables
+  Marker_Variables          =  T
+  Temperature               =  T
+/
+&nml_testcase_pulse
+  Form                      =  0              ! Combo Pulse
+  Form_Dim                  =  1              ! 1D
+  DoF                       = -200            ! 200 cells
+  Length                    =  2.0            ! Domain length [m]
+  Center                    =  0.2,0.0,0.0    ! Center (x,y,z) of pulse [m]
+  Width                     =  0.2            ! Width of pulse  [m]
+  Gap                       =  0.2            ! Gap between pulses [m]
+  Repeat                    =  0              ! Number of repeat pulses
+/

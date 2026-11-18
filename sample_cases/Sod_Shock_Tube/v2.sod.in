@@ -1,0 +1,75 @@
+&nml_version
+  Namelist_Version          =  2
+/
+&nml_grid
+  Grid_Scaling_Factor       =  1.0
+  Grid_Format               = -1
+  Grid_File                 =  ''
+/
+&nml_reference
+  Mach                      =  0.0
+  Gamma                     =  1.4
+! Gas_Constant              = -1.   ! m2/(s2*K), Default=287.05
+  Density                   =  1.0  ! kg/m3
+  Pressure                  =  1.0  ! Pa
+  Temperature               = -1.0  ! K
+/
+! Computed values:
+! Lref     =  1.0             ! m   : from grid
+! Tref     =  3.48371364E-03  ! K   : T = P/(R*rho)     = 1/(R*1)
+! aref     =  1.18322         ! m/s : a = sqrt(gam*R*T) = sqrt(gam*R/R)
+! time_ref =  0.845154        ! s   : time = L[m] / a[m/s]
+!
+&nml_physics
+  Governing_Equations       =  1    ! Euler
+/
+&nml_initialization
+  Initialization            =  23   ! Sod shock tube
+/
+&nml_timestep
+  Runge_Kutta_Scheme        =  113
+  Num_Timesteps             =  20000   ! Max timesteps, or
+  Final_Time                =  0.1712  ! Max final time [s]
+  Timestep_Type             =  1       ! Constant global CFL
+  CFL                       =  0.2
+  Convergence_Order_Abs_Res = -10.0
+  Convergence_Order_Max_Res = -15.0
+/
+&nml_numerics
+  All_Orders                =  3     ! P3 solution, 4th order accuracy (P+1)
+  Error_Order               =  6
+  All_Points                =  1     ! Legendre-Gauss points
+/
+&nml_limiter
+  Global_Filter_Interval    =  0     ! Each Runge-Kutta stage
+  Global_Filter_Option      =  0     ! Off
+  Global_Filter_Order       =  32
+  Global_Filter_Alpha       =  9.0
+  Global_Filter_Etac        =  0.0
+  Local_Limiter_Interval    =  0     ! Each Runge-Kutta stage
+  Local_Limiter_Option      =  3     ! MLP
+  Local_Filter_Option       =  1
+  Local_Filter_Order        =  4
+  Local_Filter_Alpha        =  9.0
+  Local_Filter_Etac         =  0.1
+  Marker_Stored_Interval    =  0     ! Each Runge-Kutta stage
+  Marker_Option             =  3     ! MLP marker
+  Marker_Variable           =  1     ! Density
+  Marker_Min                = -5.00
+  Marker_Max                = -4.50
+  Marker_Dpsi               =  0.25
+/
+&nml_output
+  Restart_Interval          =  10000000
+  Display_Interval          =        10
+  Residual_Interval         =        10
+  Output_Interval           =      1000
+  Output_Frequency          =  1.712E-002
+/
+&nml_output_variables
+  Marker_Variables          =  T
+/
+&nml_testcase_sod
+  DoF                       = -100          ! <0 is number of cells, >0 is DoF
+  Right_Vector              =  1.0,0.0,0.0  ! Diaphram points in +x
+/

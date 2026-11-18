@@ -1,0 +1,142 @@
+&input
+
+! =========
+! Grid info
+! =========
+  GRIDFILE    = ""
+  GRID_FORMAT = -1          ! -1=Internal,1=Gambit,2=Gmsh,3=Plot3d,4=CGNS
+  GRID_SCALING_FACTOR = 1.0 ! Multiplication factor. Default=1.0
+
+! =============
+! Solution info
+! =============
+  GOVERNING_EQUATIONS = 1   ! 1=Euler equations
+  ALL_ORDERS  = 3           ! 3=P3 solution, 4th order accuracy (P+1)
+  ALL_POINTS  = 1           ! 1=Legendre-Gauss points
+  ERROR_ORDER = 6
+
+! =============
+! Time stepping
+! =============
+! Constant CFL
+! ------------
+    TIMESTEP_TYPE = 1              ! 1=Constant CFL
+    CFL           = 0.1            ! CFL. Default=0.1
+! Constant dt
+! -------------
+!   TIMESTEP_TYPE = 0              ! 0=Constant dt
+!   CFL           = 1.0            ! CFL scales dt. Use 1.0. Default=0.1.
+!   CFL_BEG       = 1.0
+!   CFL_END       = 1.0
+!   CFL_CYCLES    = 1              ! 1=fixed, >2=ramped. Default=1.
+!   time_ref based on freestream:    time_ref[s] = Lref[m] / aref[m/s]
+!                                                = 0.845154
+!   CONSTANT_DT   = 2.02567E-05    ! 1.712E-05 [s] / time_ref[s] = [ND]
+! Termination
+! -----------
+  ! FINAL_TIME    = 1.80000E+00    ! 2.000E+00 [s]
+    FINAL_TIME    = 2.50000E+00    ! 2.000E+00 [s]
+  ! NUM_TIMESTEPS = 2
+  ! NUM_TIMESTEPS = 10000
+    NUM_TIMESTEPS = 10000000
+    RUNGE_KUTTA_SCHEME = 113
+
+  CONVERGENCE_ORDER_MAX_RES = -15.0  ! Default = -16.0
+  CONVERGENCE_ORDER_ABS_RES = -10.0  ! Default = -16.0
+
+! =========
+! Filtering
+! =========
+! Global filtering options.          ! Description             : Default
+! ================================== ! ======================= : =======
+          FILTER_OPTION      = 0     ! (0,1)=(Off,Tensor)      : 0
+          FILTER_ORDER       = 32    ! poly order              : 16
+          FILTER_ALPHA       =  9.   ! strength                : 36.
+          FILTER_ETAC        = 0.00  ! cut-off fraction        : 0.00
+          FILTERING_INTERVAL = 0     ! freq >0=last RK-stage   : 0=each stage
+                                     !      <0=never
+!
+! Shock filtering options.           ! Description             : Default
+! ================================== ! ======================= : =======
+  LIMITER_OPTION             = 3     ! (0,1,2)=(Off,Res,Jump)  : 0
+  LIMITER_FILTER_OPTION      = 1     ! (0,1)=(None,Tensor)     : 0
+  LIMITER_FILTER_ORDER       = 4     ! order                   : 16
+  LIMITER_FILTER_ALPHA       = 5.00  ! strength                : 36.
+  LIMITER_FILTER_ETAC        = 0.00  ! cut-off fraction        : 0.00
+  LIMITING_INTERVAL          = 0     ! freq >0=last RK-stage   : 0=each stage
+  LIMITING_INTERVAL_OUTPUT   = 0     ! freq  0=each RK-stage   : 1=last stage
+ !LIMITER_USE_DYNAMIC_FILTER = T
+
+  SPONGE_FILTER_ORDER = 2
+  SPONGE_FILTER_ALPHA = 36.0
+  SPONGE_FILTER_ETAC  = 0.0
+
+! Shock marker overrides.            ! Description     : Default
+! ================================== ! =============== : =======
+! ! GFR internal variables:
+! !   Default_Marker_C1      = 4.0   ! hard parameter
+! !   Default_Marker_C2      = 4.25  ! hard parameter
+! !   Default_Marker_DPSI    = 0.5   ! hard parameter
+  RESOLUTION_MARKER_VARIABLE = 1     ! marker flow var : (0:5)=(all,
+                                     !                          r,ru,rv,rw,E)
+        JUMP_MARKER_VARIABLE = 0     ! marker flow var : (0:5)=(p,
+                                     !                          r,ru,rv,rw,E)
+  LIMITER_MARKER_C1          = -1.   ! Psi0 coef1      : -1.
+  LIMITER_MARKER_C2          = -1.   ! Psi0 coef2      : -1.
+  LIMITER_MARKER_DPSI        = -1.   ! Delta Psi       : -1.
+  LIMITER_MARKER_MIN         = -0.0  ! <0 activates    :  1.
+  LIMITER_MARKER_MAX         = -0.0  ! <0 activates    :  1.
+
+! Prevent underflow of thermo variables.
+  Thermofix%Method          =   2    ! -1=Dynamic Sponge Filter; 1=Sponge Filter; 2=Scale modes
+  Thermofix%Scale_Factor    =  0.5
+  Thermofix%Min_Pressure    =  0.750 ! Pa
+  Thermofix%Min_Temperature =  0.002 ! K
+  Thermofix%Min_Density     =  0.500 ! kg/m3
+
+! ===============
+! Flow Conditions
+! ===============
+! Flow reference conditions:
+! RGASREF  = -1.              ! m2/(s2*K), Default=287.05
+  GAM      =  1.4
+  MACHREF  =  0.0
+  RHOREF   =  1.0             ! kg/m3
+  PREF     =  1.0             ! Pa
+  TREF     = -1.              ! K
+! Computed values:
+! Lref     =  1.0             ! m   : from grid
+! Tref     =  3.48371364E-03  ! K   : T = P/(R*rho)     = 1/(R*1)
+! aref     =  1.18322         ! m/s : a = sqrt(gam*R*T) = sqrt(gam*R/R)
+! time_ref =  0.845154        ! s   : time = L[m] / a[m/s]
+
+! ==============
+! Initialization
+! ==============
+! ITESTCASE = 1                            !  1 = General Flow
+  ITESTCASE = 26                           ! 26 = Shu-Osher
+  SHU_OSHER_TEST_DOF = -800                ! >0 = degrees of freedom
+                                           ! <0 = number of cells
+
+! ======
+! Output
+! ======
+! Output frequency:
+     RESTART_INTERVAL = 10000000           ! restart  output
+!     OUTPUT_INTERVAL = 10                 ! CGNS     output
+     OUTPUT_FREQUENCY = 0.10000E+00        ! CGNS     output (sec)
+     RESULTS_INTERVAL = 10                 ! residual output
+    ITER_OUT_INTERVAL = 10                 ! screen   output
+! Output variables:
+    OUTPUT_CONSERVED_VARIABLES = .true.
+    OUTPUT_TEMPERATURE         = .true.
+    OUTPUT_MARKER_VARIABLES = .true.
+
+!bc_input(1)%name = "INFLOW"
+!bc_input(1)%set_bc_value = 3  ! supersonic inflow
+!bc_input(1)%set_bc_value = 13 ! supersonic outflow
+!
+!bc_input(2)%name = "OUTFLOW"
+!bc_input(2)%set_bc_value = 13 ! supersonic outflow
+
+/
