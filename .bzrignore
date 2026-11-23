@@ -41,4 +41,6 @@ doc/user_manual/*.rubbercache
 doc/user_manual/.latexmkrc
 doc/user_manual/tikz/*.pdf
 doc/user_manual/tikz/*.aux
+unversioned
+notes
 TRASH
