@@ -20,6 +20,12 @@
 \newif\if@gfr@draft
 \@gfr@draftfalse
 \DeclareOption{draft}{\@gfr@drafttrue}
+% Provides the option 'rfg' which creates a title page separate from
+% the table of contents that includes an image of RFG.
+\newif\if@gfr@rfg
+\@gfr@rfgtrue
+\DeclareOption{norfg}{\@gfr@rfgfalse}
+\DeclareOption{rfg}{\@gfr@rfgtrue}
 % Provides options
 %     'allowcolor' which enables non-hyperref color in the document
 %        'nocolor' which disables non-hyperref color in the document (default)
@@ -60,6 +66,21 @@
 
  \NewDocumentCommand{\scinum}{mmO{}}{\ensuremath{#1#3\times#3 10^{#2}}}
 %\NewDocumentCommand{\scinum}{mmO{}}{\num[exponent-product = #3\times#3]{#1e#2}}
+
+\if@gfr@rfg
+  \NewDocumentCommand{\RFGTitleHeader}{}{%
+    \begin{figure}[h]
+      \begin{center}
+        {\hphantom{$x$}}\\[8em]
+        \includegraphics[width=0.9\textwidth]{RFG-nice}\\[3em]
+      \end{center}
+    \end{figure}
+    }
+  \NewDocumentCommand{\RFGTitleFooter}{}{\newpage}
+\else
+  \NewDocumentCommand{\RFGTitleHeader}{}{}
+  \NewDocumentCommand{\RFGTitleFooter}{}{}
+\fi
 
 % Set up commands based on if 'allowcolor' option was given
 % NOTE: For now, it just creates the \myColorBox and \myTextColor commands.
